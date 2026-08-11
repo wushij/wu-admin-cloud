@@ -1,0 +1,57 @@
+package ${packageName}.controller;
+
+import com.wu.cloud.api.${moduleName}.dto.${className}DTO;
+import com.wu.cloud.common.core.domain.R;
+import ${packageName}.entity.${className}DO;
+import ${packageName}.service.${className}Service;
+import jakarta.annotation.Resource;
+import org.springframework.beans.BeanUtils;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+
+/**
+ * 内部 RPC 端点：${functionName}（仅供微服务内部 OpenFeign 调用，由网关拦截外部访问）
+ *
+ * @author ${author}
+ * @since ${date}
+ */
+@RestController
+@RequestMapping("/inner/${moduleName}/${businessName}")
+public class Inner${className}Controller {
+
+    @Resource
+    private ${className}Service ${classNameLower}Service;
+
+    @GetMapping("/get")
+    public R<${className}DTO> get${className}(@RequestParam("id") Long id) {
+        ${className}DO entity = ${classNameLower}Service.get${className}(id);
+        return R.ok(convert(entity));
+    }
+
+    @PostMapping("/list-by-ids")
+    public R<List<${className}DTO>> listByIds(@RequestBody List<Long> ids) {
+        if (ids == null || ids.isEmpty()) {
+            return R.ok(Collections.emptyList());
+        }
+        List<${className}DTO> result = new ArrayList<>(ids.size());
+        for (Long id : ids) {
+            ${className}DTO dto = convert(${classNameLower}Service.get${className}(id));
+            if (dto != null) {
+                result.add(dto);
+            }
+        }
+        return R.ok(result);
+    }
+
+    private ${className}DTO convert(${className}DO entity) {
+        if (entity == null) {
+            return null;
+        }
+        ${className}DTO dto = new ${className}DTO();
+        BeanUtils.copyProperties(entity, dto);
+        return dto;
+    }
+}

@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>com.wu.cloud</groupId>
+        <artifactId>wu-admin-cloud</artifactId>
+        <version>1.0.0</version>
+    </parent>
+
+    <artifactId>wu-cloud-service</artifactId>
+    <packaging>pom</packaging>
+    <name>wu-cloud-service</name>
+    <description>业务微服务集合目录</description>
+
+    <modules>
+        <module>wu-service-system</module>
+        <module>wu-service-file</module>
+        <module>wu-service-ticket</module>
+        <module>wu-service-ai</module>
+        <module>wu-service-message</module>
+        <module>wu-service-pay</module>
+        <module>wu-service-order</module>
+        <module>wu-service-infra</module>
+    </modules>
+</project>

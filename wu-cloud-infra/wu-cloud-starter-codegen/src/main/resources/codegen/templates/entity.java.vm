@@ -1,0 +1,32 @@
+package ${packageName}.entity;
+
+import com.baomidou.mybatisplus.annotation.TableField;
+import com.baomidou.mybatisplus.annotation.TableName;
+import com.wu.cloud.common.core.domain.BaseEntity;
+import lombok.Data;
+import lombok.EqualsAndHashCode;
+#foreach($import in $importList)
+import ${import};
+#end
+
+/**
+ * ${functionName} 数据对象
+ *
+ * @author ${author}
+ * @since ${date}
+ */
+@Data
+@EqualsAndHashCode(callSuper = true)
+@TableName("${tableName}")
+public class ${className}DO extends BaseEntity {
+
+    private static final long serialVersionUID = 1L;
+#foreach($column in $columns)
+#if(!$column.baseField)
+
+    /** $!{column.columnComment} */
+    @TableField("${column.columnName}")
+    private ${column.simpleJavaType} ${column.javaField};
+#end
+#end
+}

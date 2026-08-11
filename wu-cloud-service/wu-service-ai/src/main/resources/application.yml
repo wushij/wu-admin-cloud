@@ -1,0 +1,65 @@
+﻿server:
+  port: 9204
+
+spring:
+  application:
+    name: wu-service-ai
+  datasource:
+    url: jdbc:mysql://127.0.0.1:3306/wu-admin?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true&nullCatalogMeansCurrent=true
+    username: root
+    password: root
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  cloud:
+    nacos:
+      discovery:
+        server-addr: 127.0.0.1:8848
+        namespace: dev
+        group: WU_CLOUD
+        register-enabled: true
+        ip: 127.0.0.1
+  # P0-1: 业务服务需 Redis（wu-cloud-starter-redis 的 RedisService 依赖 StringRedisTemplate/RedissonClient）
+  data:
+    redis:
+      host: 127.0.0.1
+      port: 6379
+      database: 0
+      lettuce:
+        pool:
+          max-active: 16
+          max-idle: 8
+          min-idle: 2
+          max-wait: 3000ms
+
+mybatis-plus:
+  mapper-locations: classpath*:mapper/*.xml
+
+# ===== P0-1 修复：Sa-Token 配置（所有服务必须一致，否则 token 无法互认）=====
+sa-token:
+  token-name: Authorization
+  timeout: 2592000
+  active-timeout: -1
+  is-concurrent: true
+  is-share: true
+  token-style: uuid
+  is-log: false
+
+# P0-3 修复：Feign 降级与熔断（Sentinel 接管 OpenFeign，fallbackFactory 才能生效）
+feign:
+  sentinel:
+    enabled: true
+  client:
+    config:
+      default:
+        connect-timeout: 5000
+        read-timeout: 10000
+
+# ===== AI 助手配置 =====
+ai:
+  # API Key SM4 加密密钥（与 wu-cloud-common SmCryptoUtils 体系一致；建议 16/24/32 字节或 32 位 Hex，留空则 API Key 明文存储）
+  sm4-secret-key: ${AI_SM4_SECRET_KEY:WuAdmin16ByteKey}
+  # 每用户每分钟最大提问次数，<=0 不限制
+  quota:
+    per-user-minute: 20
+    tokens-per-user-daily: 0
+  # 工具执行硬超时（毫秒）
+  tool-timeout-ms: 3000

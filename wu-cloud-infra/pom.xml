@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>com.wu.cloud</groupId>
+        <artifactId>wu-admin-cloud</artifactId>
+        <version>1.0.0</version>
+        <relativePath>../pom.xml</relativePath>
+    </parent>
+
+    <artifactId>wu-cloud-infra</artifactId>
+    <packaging>pom</packaging>
+    <name>wu-cloud-infra</name>
+    <description>公共基础设施模块 (Redisson、MinIO/OSS、RocketMQ、短信 SDK 封装)</description>
+
+    <modules>
+        <module>wu-cloud-starter-redis</module>
+        <module>wu-cloud-starter-monitor</module>
+        <module>wu-cloud-starter-codegen</module>
+    </modules>
+</project>

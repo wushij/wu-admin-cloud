@@ -1,0 +1,2 @@
+com.wu.cloud.common.CommonAutoConfiguration
+com.wu.cloud.common.config.DynamicConfigAutoConfiguration

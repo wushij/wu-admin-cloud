@@ -1,0 +1,16 @@
+-- ${functionName} 菜单与按钮权限
+-- 生成时间：${date}
+-- 使用说明：先执行父菜单插入，再执行按钮权限插入（依赖 @parentId）
+
+INSERT INTO sys_menu (parent_id, menu_name, menu_type, path, component, perms, icon, sort, visible, status, create_time, update_time, deleted)
+VALUES (0, '${functionName}', 2, '${businessName}', '${moduleName}/${businessName}/index', '', 'Document', 0, 1, 1, NOW(), NOW(), 0);
+
+SET @parentId = LAST_INSERT_ID();
+
+INSERT INTO sys_menu (parent_id, menu_name, menu_type, path, component, perms, icon, sort, visible, status, create_time, update_time, deleted)
+VALUES
+  (@parentId, '${functionName}查询', 3, '', '', '${permissionPrefix}:list',   '#', 1, 1, 1, NOW(), NOW(), 0),
+  (@parentId, '${functionName}详情', 3, '', '', '${permissionPrefix}:query',  '#', 2, 1, 1, NOW(), NOW(), 0),
+  (@parentId, '${functionName}新增', 3, '', '', '${permissionPrefix}:add',    '#', 3, 1, 1, NOW(), NOW(), 0),
+  (@parentId, '${functionName}修改', 3, '', '', '${permissionPrefix}:edit',   '#', 4, 1, 1, NOW(), NOW(), 0),
+  (@parentId, '${functionName}删除', 3, '', '', '${permissionPrefix}:remove', '#', 5, 1, 1, NOW(), NOW(), 0);

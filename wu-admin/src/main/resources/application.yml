@@ -1,0 +1,45 @@
+server:
+  port: 9100
+
+spring:
+  application:
+    name: wu-admin
+  cloud:
+    nacos:
+      discovery:
+        server-addr: 127.0.0.1:8848
+        namespace: dev
+        group: WU_CLOUD
+  # P0-1: BFF 需 Redis（Sa-Token 共享 token 存储 + RedisService）
+  data:
+    redis:
+      host: 127.0.0.1
+      port: 6379
+      database: 0
+      timeout: 5000ms
+      lettuce:
+        pool:
+          max-active: 16
+          max-idle: 8
+          min-idle: 2
+          max-wait: 3000ms
+
+# ===== P0-1 修复：Sa-Token 配置（所有服务必须一致，否则 token 无法互认）=====
+sa-token:
+  token-name: Authorization
+  timeout: 2592000
+  active-timeout: -1
+  is-concurrent: true
+  is-share: true
+  token-style: uuid
+  is-log: false
+
+# P0-3 修复：Feign 降级与熔断
+feign:
+  sentinel:
+    enabled: true
+  client:
+    config:
+      default:
+        connect-timeout: 2000
+        read-timeout: 3000

@@ -1,0 +1,39 @@
+package ${packageName}.vo.${businessName};
+
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import lombok.Data;
+#foreach($import in $importList)
+import ${import};
+#end
+
+import java.io.Serializable;
+
+/**
+ * ${functionName} 新增/修改请求
+ *
+ * @author ${author}
+ * @since ${date}
+ */
+@Data
+public class ${className}SaveReqVO implements Serializable {
+
+    private static final long serialVersionUID = 1L;
+
+    /** 主键，新增时为空 */
+    private Long id;
+#foreach($column in $columns)
+#if($column.form && !$column.baseField && !$column.pk)
+
+    /** $!{column.columnComment} */
+#if($column.required)
+#if($column.simpleJavaType == "String")
+    @NotBlank(message = "$!{column.columnComment}不能为空")
+#else
+    @NotNull(message = "$!{column.columnComment}不能为空")
+#end
+#end
+    private ${column.simpleJavaType} ${column.javaField};
+#end
+#end
+}

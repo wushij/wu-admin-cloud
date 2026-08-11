@@ -1,0 +1,118 @@
+package ${packageName}.service.impl;
+
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.wu.cloud.common.core.domain.PageResult;
+import com.wu.cloud.common.exception.BusinessException;
+import ${packageName}.entity.${className}DO;
+import ${packageName}.mapper.${className}Mapper;
+import ${packageName}.service.${className}Service;
+import ${packageName}.vo.${businessName}.${className}PageReqVO;
+import ${packageName}.vo.${businessName}.${className}SaveReqVO;
+import jakarta.annotation.Resource;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.BeanUtils;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
+
+import java.util.List;
+
+/**
+ * ${functionName} 服务实现
+ *
+ * @author ${author}
+ * @since ${date}
+ */
+@Slf4j
+@Service
+public class ${className}ServiceImpl implements ${className}Service {
+
+    @Resource
+    private ${className}Mapper ${classNameLower}Mapper;
+
+    @Override
+    public PageResult<${className}DO> get${className}Page(${className}PageReqVO reqVO) {
+        LambdaQueryWrapper<${className}DO> wrapper = buildQueryWrapper(reqVO);
+        wrapper.orderByDesc(${className}DO::getId);
+
+        Page<${className}DO> page = ${classNameLower}Mapper.selectPage(
+                new Page<>(reqVO.getPageNo(), reqVO.getPageSize()), wrapper);
+        return PageResult.of(page.getRecords(), page.getTotal());
+    }
+
+    @Override
+    public ${className}DO get${className}(Long id) {
+        if (id == null) {
+            return null;
+        }
+        return ${classNameLower}Mapper.selectById(id);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public Long create${className}(${className}SaveReqVO reqVO) {
+        ${className}DO entity = new ${className}DO();
+        BeanUtils.copyProperties(reqVO, entity);
+        // 新增时忽略前端传入的主键，避免主键冲突
+        entity.setId(null);
+        ${classNameLower}Mapper.insert(entity);
+        return entity.getId();
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void update${className}(${className}SaveReqVO reqVO) {
+        if (reqVO.getId() == null) {
+            throw new BusinessException("主键不能为空");
+        }
+        validateExists(reqVO.getId());
+
+        ${className}DO entity = new ${className}DO();
+        BeanUtils.copyProperties(reqVO, entity);
+        ${classNameLower}Mapper.updateById(entity);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void delete${className}(List<Long> ids) {
+        if (ids == null || ids.isEmpty()) {
+            throw new BusinessException("请选择要删除的数据");
+        }
+        ${classNameLower}Mapper.deleteByIds(ids);
+    }
+
+    /**
+     * 构建列表查询条件
+     */
+    private LambdaQueryWrapper<${className}DO> buildQueryWrapper(${className}PageReqVO reqVO) {
+        LambdaQueryWrapper<${className}DO> wrapper = new LambdaQueryWrapper<>();
+#foreach($column in $columns)
+#if($column.query && !$column.baseField && !$column.pk)
+#if($column.simpleJavaType == "String")
+        if (StringUtils.hasText(reqVO.get${column.capJavaField}())) {
+#if($column.queryType == "LIKE")
+            wrapper.like(${className}DO::get${column.capJavaField}, reqVO.get${column.capJavaField}());
+#else
+            wrapper.eq(${className}DO::get${column.capJavaField}, reqVO.get${column.capJavaField}());
+#end
+        }
+#else
+        if (reqVO.get${column.capJavaField}() != null) {
+            wrapper.eq(${className}DO::get${column.capJavaField}, reqVO.get${column.capJavaField}());
+        }
+#end
+#end
+#end
+        return wrapper;
+    }
+
+    /**
+     * 校验记录存在
+     */
+    private void validateExists(Long id) {
+        if (${classNameLower}Mapper.selectById(id) == null) {
+            throw new BusinessException("${functionName}不存在");
+        }
+    }
+}

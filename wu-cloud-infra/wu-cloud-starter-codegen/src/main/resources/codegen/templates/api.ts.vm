@@ -1,0 +1,69 @@
+import { get, post, put, del } from '@/utils/request'
+
+/**
+ * ${functionName} 数据模型
+ */
+export interface ${className} {
+  id?: number
+#foreach($column in $columns)
+#if(!$column.baseField && !$column.pk)
+  /** $!{column.columnComment} */
+#if($column.simpleJavaType == "Long" || $column.simpleJavaType == "Integer" || $column.simpleJavaType == "Double" || $column.simpleJavaType == "Float" || $column.simpleJavaType == "BigDecimal")
+  ${column.javaField}?: number
+#elseif($column.simpleJavaType == "Boolean")
+  ${column.javaField}?: boolean
+#else
+  ${column.javaField}?: string
+#end
+#end
+#end
+  createTime?: string
+  updateTime?: string
+}
+
+/**
+ * ${functionName} 分页查询参数
+ */
+export interface ${className}PageQuery {
+  pageNo?: number
+  pageSize?: number
+#foreach($column in $columns)
+#if($column.query && !$column.baseField && !$column.pk)
+#if($column.simpleJavaType == "Long" || $column.simpleJavaType == "Integer")
+  ${column.javaField}?: number
+#else
+  ${column.javaField}?: string
+#end
+#end
+#end
+}
+
+export interface PageResult<T> {
+  list: T[]
+  total: number
+}
+
+/** 分页查询${functionName} */
+export function get${className}Page(params: ${className}PageQuery) {
+  return get<PageResult<${className}>>('/${moduleName}/${businessName}/page', params)
+}
+
+/** 查询${functionName}详情 */
+export function get${className}(id: number) {
+  return get<${className}>('/${moduleName}/${businessName}/get', { id })
+}
+
+/** 新增${functionName} */
+export function create${className}(data: ${className}) {
+  return post<number>('/${moduleName}/${businessName}/create', data)
+}
+
+/** 修改${functionName} */
+export function update${className}(data: ${className}) {
+  return put<boolean>('/${moduleName}/${businessName}/update', data)
+}
+
+/** 批量删除${functionName} */
+export function delete${className}(ids: number[]) {
+  return del<boolean>('/${moduleName}/${businessName}/delete', { data: ids })
+}

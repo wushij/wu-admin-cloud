@@ -1,0 +1,64 @@
+package ${packageName}.controller;
+
+import com.wu.cloud.api.log.Log;
+import com.wu.cloud.common.core.domain.PageResult;
+import com.wu.cloud.common.core.domain.R;
+import com.wu.cloud.common.security.annotation.RequiresPermissions;
+import ${packageName}.entity.${className}DO;
+import ${packageName}.service.${className}Service;
+import ${packageName}.vo.${businessName}.${className}PageReqVO;
+import ${packageName}.vo.${businessName}.${className}SaveReqVO;
+import jakarta.annotation.Resource;
+import jakarta.validation.Valid;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
+
+/**
+ * ${functionName} 管理
+ *
+ * @author ${author}
+ * @since ${date}
+ */
+@RestController
+@RequestMapping("/api/${moduleName}/${businessName}")
+public class ${className}Controller {
+
+    @Resource
+    private ${className}Service ${classNameLower}Service;
+
+    @RequiresPermissions("${permissionPrefix}:list")
+    @GetMapping("/page")
+    public R<PageResult<${className}DO>> get${className}Page(${className}PageReqVO reqVO) {
+        return R.ok(${classNameLower}Service.get${className}Page(reqVO));
+    }
+
+    @RequiresPermissions("${permissionPrefix}:query")
+    @GetMapping("/get")
+    public R<${className}DO> get${className}(@RequestParam("id") Long id) {
+        return R.ok(${classNameLower}Service.get${className}(id));
+    }
+
+    @RequiresPermissions("${permissionPrefix}:add")
+    @Log(title = "${functionName}", businessType = Log.BusinessType.INSERT)
+    @PostMapping("/create")
+    public R<Long> create${className}(@Valid @RequestBody ${className}SaveReqVO reqVO) {
+        return R.ok(${classNameLower}Service.create${className}(reqVO));
+    }
+
+    @RequiresPermissions("${permissionPrefix}:edit")
+    @Log(title = "${functionName}", businessType = Log.BusinessType.UPDATE)
+    @PutMapping("/update")
+    public R<Boolean> update${className}(@Valid @RequestBody ${className}SaveReqVO reqVO) {
+        ${classNameLower}Service.update${className}(reqVO);
+        return R.ok(true);
+    }
+
+    @RequiresPermissions("${permissionPrefix}:remove")
+    @Log(title = "${functionName}", businessType = Log.BusinessType.DELETE)
+    @DeleteMapping("/delete")
+    public R<Boolean> delete${className}(@RequestBody List<Long> ids) {
+        ${classNameLower}Service.delete${className}(ids);
+        return R.ok(true);
+    }
+}

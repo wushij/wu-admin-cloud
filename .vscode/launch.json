@@ -1,0 +1,143 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "00-安装公共模块 (改common/api后必须先跑)",
+      "type": "node-terminal",
+      "request": "launch",
+      "command": "mvn install -pl wu-cloud-common,wu-cloud-api -DskipTests -q"
+    },
+    {
+      "name": "01-网关 gateway (:8080)",
+      "type": "node-terminal",
+      "request": "launch",
+      "command": "mvn spring-boot:run -DskipTests",
+      "cwd": "${workspaceFolder}/wu-cloud-gateway"
+    },
+    {
+      "name": "02-认证中心 auth (:9200)",
+      "type": "node-terminal",
+      "request": "launch",
+      "command": "mvn spring-boot:run -DskipTests",
+      "cwd": "${workspaceFolder}/wu-cloud-auth"
+    },
+    {
+      "name": "02B-聚合BFF wu-admin (:9100)",
+      "type": "node-terminal",
+      "request": "launch",
+      "command": "mvn spring-boot:run -DskipTests",
+      "cwd": "${workspaceFolder}/wu-admin"
+    },
+    {
+      "name": "03-系统服务 system (:9201)",
+      "type": "node-terminal",
+      "request": "launch",
+      "command": "mvn spring-boot:run -DskipTests",
+      "cwd": "${workspaceFolder}/wu-cloud-service/wu-service-system"
+    },
+    {
+      "name": "04-工单服务 ticket (:9202)",
+      "type": "node-terminal",
+      "request": "launch",
+      "command": "mvn spring-boot:run -DskipTests",
+      "cwd": "${workspaceFolder}/wu-cloud-service/wu-service-ticket"
+    },
+    {
+      "name": "05-消息服务 message (:9203)",
+      "type": "node-terminal",
+      "request": "launch",
+      "command": "mvn spring-boot:run -DskipTests",
+      "cwd": "${workspaceFolder}/wu-cloud-service/wu-service-message"
+    },
+    {
+      "name": "06-AI 服务 ai (:9204)",
+      "type": "node-terminal",
+      "request": "launch",
+      "command": "mvn spring-boot:run -DskipTests",
+      "cwd": "${workspaceFolder}/wu-cloud-service/wu-service-ai"
+    },
+    {
+      "name": "07-支付服务 pay (:9205)",
+      "type": "node-terminal",
+      "request": "launch",
+      "command": "mvn spring-boot:run -DskipTests",
+      "cwd": "${workspaceFolder}/wu-cloud-service/wu-service-pay"
+    },
+    {
+      "name": "08-订单服务 order (:9206)",
+      "type": "node-terminal",
+      "request": "launch",
+      "command": "mvn spring-boot:run -DskipTests",
+      "cwd": "${workspaceFolder}/wu-cloud-service/wu-service-order"
+    },
+    {
+      "name": "09-文件存储服务 file (:9207)",
+      "type": "node-terminal",
+      "request": "launch",
+      "command": "mvn spring-boot:run -DskipTests",
+      "cwd": "${workspaceFolder}/wu-cloud-service/wu-service-file",
+      "env": {
+        "FILE_LOCAL_BASE_DIR": "${workspaceFolder}/wu-admin-copy/backend/data/uploads"
+      }
+    },
+    {
+      "name": "10-基础设施 infra (:9300)",
+      "type": "node-terminal",
+      "request": "launch",
+      "command": "mvn spring-boot:run -DskipTests",
+      "cwd": "${workspaceFolder}/wu-cloud-service/wu-service-infra"
+    },
+    {
+      "name": "11-PC前端 wu-admin-web",
+      "type": "node-terminal",
+      "request": "launch",
+      "command": "npm run dev",
+      "cwd": "${workspaceFolder}/wu-admin-web"
+    },
+    {
+      "name": "12-移动端 wu-admin-uniapp",
+      "type": "node-terminal",
+      "request": "launch",
+      "command": "npm run dev:h5",
+      "cwd": "${workspaceFolder}/wu-admin-uniapp"
+    }
+  ],
+  "compounds": [
+    {
+      "name": "一键启动后端全量微服务 (10大服务)",
+      "configurations": [
+        "01-网关 gateway (:8080)",
+        "02-认证中心 auth (:9200)",
+        "02B-聚合BFF wu-admin (:9100)",
+        "03-系统服务 system (:9201)",
+        "04-工单服务 ticket (:9202)",
+        "05-消息服务 message (:9203)",
+        "06-AI 服务 ai (:9204)",
+        "07-支付服务 pay (:9205)",
+        "08-订单服务 order (:9206)",
+        "09-文件存储服务 file (:9207)",
+        "10-基础设施 infra (:9300)"
+      ],
+      "stopAll": true
+    },
+    {
+      "name": "一键全栈启动 (10大微服务 + PC前端 + 移动端H5)",
+      "configurations": [
+        "01-网关 gateway (:8080)",
+        "02-认证中心 auth (:9200)",
+        "02B-聚合BFF wu-admin (:9100)",
+        "03-系统服务 system (:9201)",
+        "04-工单服务 ticket (:9202)",
+        "05-消息服务 message (:9203)",
+        "06-AI 服务 ai (:9204)",
+        "07-支付服务 pay (:9205)",
+        "08-订单服务 order (:9206)",
+        "09-文件存储服务 file (:9207)",
+        "10-基础设施 infra (:9300)",
+        "11-PC前端 wu-admin-web",
+        "12-移动端 wu-admin-uniapp"
+      ],
+      "stopAll": true
+    }
+  ]
+}

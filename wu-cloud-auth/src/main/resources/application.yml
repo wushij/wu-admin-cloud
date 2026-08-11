@@ -1,0 +1,84 @@
+server:
+  port: 9200
+
+spring:
+  application:
+    name: wu-cloud-auth
+  # 认证中心不直连业务库，用户数据统一通过 OpenFeign 调用 wu-service-system
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration
+  cloud:
+    nacos:
+      discovery:
+        server-addr: 127.0.0.1:8848
+        namespace: dev
+        group: WU_CLOUD
+        register-enabled: true
+        ip: 127.0.0.1
+  data:
+    redis:
+      host: 127.0.0.1
+      port: 6379
+      database: 0
+      timeout: 5000ms
+      lettuce:
+        pool:
+          max-active: 16
+          max-idle: 8
+          min-idle: 2
+  servlet:
+    multipart:
+      max-file-size: 5MB
+      max-request-size: 10MB
+
+sa-token:
+  token-name: Authorization
+  timeout: 2592000
+  active-timeout: -1
+  is-concurrent: true
+  is-share: true
+  token-style: uuid
+  is-log: false
+
+feign:
+  sentinel:
+    enabled: true
+  client:
+    config:
+      default:
+        connect-timeout: 5000
+        read-timeout: 10000
+
+# 认证中心业务参数
+wu:
+  auth:
+    captcha-enabled: true
+    # image 图形验证码 / slider 滑块验证码
+    captcha-type: image
+    captcha-expire-seconds: 300
+    register-enabled: true
+    sms-login-enabled: true
+    code-expire-seconds: 300
+    code-send-interval-seconds: 60
+    login-fail-max-count: 5
+    login-lock-seconds: 600
+    slider-tolerance: 5
+    password-min-length: 6
+  # 短信渠道，enabled=false 时仅打印日志不真实发送
+  sms:
+    enabled: false
+    channel: mock
+  # 邮件渠道，enabled=false 时仅打印日志不真实发送
+  mail:
+    enabled: false
+    host: smtp.qq.com
+    port: 465
+    username: ''
+    password: ''
+    from-name: 系统通知
+    ssl-enable: true
+
+logging:
+  level:
+    '[com.wu.cloud]': info

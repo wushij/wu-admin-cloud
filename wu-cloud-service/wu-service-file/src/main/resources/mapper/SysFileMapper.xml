@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.wu.cloud.file.mapper.SysFileMapper">
+
+    <sql id="Base_Column_List">
+        id, original_name, file_name, file_path, url, file_size, file_type,
+        file_suffix, storage_type, group_id, creator_user_id,
+        create_time, update_time, creator, updater, deleted
+    </sql>
+
+    <select id="selectDeletedPage" resultType="com.wu.cloud.file.entity.SysFileDO">
+        SELECT <include refid="Base_Column_List"/>
+        FROM sys_file
+        WHERE deleted = 1
+        <if test="originalName != null and originalName != ''">
+            AND original_name LIKE CONCAT('%', #{originalName}, '%')
+        </if>
+        ORDER BY id DESC
+    </select>
+
+    <select id="selectDeletedById" resultType="com.wu.cloud.file.entity.SysFileDO">
+        SELECT <include refid="Base_Column_List"/>
+        FROM sys_file
+        WHERE id = #{id} AND deleted = 1
+    </select>
+
+    <update id="restoreById">
+        UPDATE sys_file
+        SET deleted = 0, update_time = NOW()
+        WHERE id = #{id} AND deleted = 1
+    </update>
+
+    <delete id="deletePhysicalById">
+        DELETE FROM sys_file WHERE id = #{id} AND deleted = 1
+    </delete>
+
+    <select id="selectExpiredRecycleIds" resultType="java.lang.Long">
+        SELECT id FROM sys_file
+        WHERE deleted = 1 AND update_time &lt; #{cutoff}
+    </select>
+
+</mapper>

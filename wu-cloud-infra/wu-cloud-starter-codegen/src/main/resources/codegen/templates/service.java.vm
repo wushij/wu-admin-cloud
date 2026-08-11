@@ -1,0 +1,55 @@
+package ${packageName}.service;
+
+import com.wu.cloud.common.core.domain.PageResult;
+import ${packageName}.entity.${className}DO;
+import ${packageName}.vo.${businessName}.${className}PageReqVO;
+import ${packageName}.vo.${businessName}.${className}SaveReqVO;
+
+import java.util.List;
+
+/**
+ * ${functionName} 服务
+ *
+ * @author ${author}
+ * @since ${date}
+ */
+public interface ${className}Service {
+
+    /**
+     * 分页查询${functionName}
+     *
+     * @param reqVO 查询条件
+     * @return 分页结果
+     */
+    PageResult<${className}DO> get${className}Page(${className}PageReqVO reqVO);
+
+    /**
+     * 查询${functionName}详情
+     *
+     * @param id 主键
+     * @return 详情，不存在时返回 null
+     */
+    ${className}DO get${className}(Long id);
+
+    /**
+     * 新增${functionName}
+     *
+     * @param reqVO 表单数据
+     * @return 新增记录主键
+     */
+    Long create${className}(${className}SaveReqVO reqVO);
+
+    /**
+     * 修改${functionName}
+     *
+     * @param reqVO 表单数据，需携带主键
+     */
+    void update${className}(${className}SaveReqVO reqVO);
+
+    /**
+     * 批量删除${functionName}
+     *
+     * @param ids 主键集合
+     */
+    void delete${className}(List<Long> ids);
+}
