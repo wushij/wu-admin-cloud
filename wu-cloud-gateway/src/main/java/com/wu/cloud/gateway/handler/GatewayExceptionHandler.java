@@ -1,6 +1,8 @@
 package com.wu.cloud.gateway.handler;
 
 import com.wu.cloud.common.core.constant.HeaderConstants;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.boot.web.reactive.error.ErrorWebExceptionHandler;
 import org.springframework.cloud.gateway.support.NotFoundException;
 import org.springframework.context.annotation.Configuration;
@@ -25,6 +27,8 @@ import java.nio.charset.StandardCharsets;
 @Configuration
 public class GatewayExceptionHandler implements ErrorWebExceptionHandler {
 
+    private static final Logger log = LoggerFactory.getLogger(GatewayExceptionHandler.class);
+
     @Override
     public Mono<Void> handle(ServerWebExchange exchange, Throwable ex) {
         ServerHttpResponse response = exchange.getResponse();
@@ -40,6 +44,11 @@ public class GatewayExceptionHandler implements ErrorWebExceptionHandler {
             code = 503;
             msg = "服务暂时不可用，请稍后重试";
             response.setStatusCode(HttpStatus.SERVICE_UNAVAILABLE);
+            log.warn("[Gateway] {} {} -> {}",
+                    exchange.getRequest().getMethod(),
+                    exchange.getRequest().getURI().getPath(),
+                    ex.toString(),
+                    ex);
         }
 
         String body = "{\"code\":" + code + ",\"msg\":\"" + msg + "\",\"data\":null}";

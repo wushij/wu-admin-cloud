@@ -241,6 +241,7 @@ router.beforeEach(async (to, _from, next) => {
     return
   }
 
+  // 与单体一致：以会话是否有效（/auth/info）为准；Token 可走 Header 或 Cookie
   if (!userStore.isLoggedIn || !userStore.menus?.length) {
     try {
       await userStore.refreshUserStore()

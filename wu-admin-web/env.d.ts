@@ -19,6 +19,10 @@ import 'axios'
 declare module 'axios' {
   export interface AxiosRequestConfig {
     silent403?: boolean
+    silent401?: boolean
+    silent503?: boolean
+    silent?: boolean
+    retry503?: number
   }
 }
 

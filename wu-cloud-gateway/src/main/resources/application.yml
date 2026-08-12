@@ -45,7 +45,9 @@ spring:
             retries: 2
             methods: GET
             series: SERVER_ERROR
-            exceptions: java.io.IOException,java.util.concurrent.TimeoutException
+            exceptions:
+              - java.io.IOException
+              - java.util.concurrent.TimeoutException
             backoff:
               firstBackoff: 80ms
               maxBackoff: 400ms
@@ -252,8 +254,8 @@ sa-token:
   is-share: true
   token-style: uuid
   is-log: false
-  # 网关为 WebFlux 无 Cookie 场景，关闭 Cookie 读取，仅从 Header 取 Token
-  is-read-cookie: false
+  # 与 auth 及单体一致：Header + Cookie 双通道读 Token（登录后浏览器会写入 Authorization Cookie）
+  is-read-cookie: true
   is-read-header: true
   is-write-header: false
 
@@ -264,7 +266,7 @@ sa-token:
 # 二者保留其一即可（默认保持 anti-replay 关闭，由 api-security 统一处理）。
 gateway:
   # 通过 LoadBalancer 访问 system 拉动态配置（勿写死 :9201 主机名，易被代理解析错）
-  config-source-url: http://wu-service-system/inner/system/config/get-group
+  config-source-url: lb://wu-service-system/inner/system/config/get-group
   anti-replay:
     enabled: false
     timestamp-window-seconds: 300

@@ -6,6 +6,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
 import cn.dev33.satoken.exception.NotLoginException;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
@@ -34,10 +35,15 @@ public class GlobalExceptionHandler {
     }
 
     @ExceptionHandler(BusinessException.class)
-    @ResponseStatus(HttpStatus.BAD_REQUEST)
-    public R<Void> handleBusinessException(BusinessException e, HttpServletRequest request) {
+    public ResponseEntity<R<Void>> handleBusinessException(BusinessException e, HttpServletRequest request) {
         log.warn("业务异常 uri={} code={} msg={}", request.getRequestURI(), e.getCode(), e.getMessage());
-        return R.fail(e.getCode(), e.getMessage());
+        HttpStatus httpStatus = switch (e.getCode()) {
+            case 401 -> HttpStatus.UNAUTHORIZED;
+            case 403 -> HttpStatus.FORBIDDEN;
+            case 404 -> HttpStatus.NOT_FOUND;
+            default -> HttpStatus.BAD_REQUEST;
+        };
+        return ResponseEntity.status(httpStatus).body(R.fail(e.getCode(), e.getMessage()));
     }
 
     @ExceptionHandler(IllegalArgumentException.class)

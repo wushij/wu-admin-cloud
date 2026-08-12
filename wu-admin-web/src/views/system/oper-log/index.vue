@@ -187,8 +187,8 @@ const businessTypeMap: Record<number, string> = {
   2: '修改',
   3: '删除',
   4: '查询',
-  5: '导出',
-  6: '导入',
+  5: '登录',
+  6: '登出',
 }
 
 function businessTypeLabel(type: number | undefined) {

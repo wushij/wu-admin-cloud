@@ -86,15 +86,24 @@ public class SysJobServiceImpl implements SysJobService {
         list.add(template("purge_logs", "过期日志归档", "SYSTEM",
                 "清理超保留期的操作/登录/API 访问日志", "systemJobTask.purgeExpiredLogs",
                 "0 30 2 * * ?", "系统日志", "Document"));
+        list.add(template("purge_oper_logs", "操作日志清理", "SYSTEM",
+                "清理 180 天前的系统操作日志", "systemJobTask.purgeExpiredOperLogs",
+                "0 0 2 * * ?", "操作日志", "Files"));
         list.add(template("purge_job_log", "调度日志清理", "SYSTEM",
                 "清理 30 天前的 Quartz 调度执行日志", "systemJobTask.purgeExpiredJobLogs",
                 "0 0 4 ? * SUN", "定时任务", "Timer"));
         list.add(template("purge_chat", "私聊消息清理", "SYSTEM",
                 "清理超过 180 天的私聊记录", "systemJobTask.purgeOldChatMessages",
                 "0 0 3 * * ?", "消息聊天", "ChatDotRound"));
+        list.add(template("purge_group_chat", "群聊消息清理", "SYSTEM",
+                "清理超过 180 天的群聊记录", "systemJobTask.purgeOldGroupChatMessages",
+                "0 10 3 * * ?", "群聊消息", "ChatLineRound"));
         list.add(template("purge_notices", "已读通知清理", "SYSTEM",
                 "清理已读且超过 90 天的站内通知", "systemJobTask.purgeReadNotices",
                 "0 15 3 * * ?", "消息中心", "Bell"));
+        list.add(template("purge_ticket_recycle", "工单回收站清理", "SYSTEM",
+                "彻底删除回收站中超过 30 天的工单", "systemJobTask.purgeTicketRecycleBin",
+                "0 30 3 * * ?", "工单管理", "Delete"));
         return list;
     }
 

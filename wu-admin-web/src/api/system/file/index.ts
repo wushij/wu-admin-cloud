@@ -1,6 +1,5 @@
 import axios from 'axios'
 import { get, post, put, del } from '@/utils/request'
-import { getAccessToken } from '@/utils/auth-token'
 import type { PageQuery, PageResult } from '@/types/api'
 
 const BLOCKED_EXTENSIONS = ['exe', 'bat', 'cmd', 'sh', 'ps1', 'msi', 'dll', 'com', 'scr']
@@ -230,11 +229,9 @@ export function getDownloadApiUrl(id: number) {
 /** 带鉴权下载/预览（blob，不走 JSON 拦截器） */
 export async function fetchFileBlob(path: string): Promise<Blob> {
   const url = path.startsWith('/api/') ? path : `/api${path.startsWith('/') ? path : `/${path}`}`
-  const token = getAccessToken()
   const res = await axios.get(url, {
     responseType: 'blob',
     withCredentials: true,
-    headers: token ? { Authorization: token } : undefined,
   })
   return res.data
 }

@@ -31,6 +31,7 @@ import com.wu.cloud.auth.vo.UserInfoVO;
 import com.wu.cloud.common.core.domain.R;
 import com.wu.cloud.common.exception.BusinessException;
 import com.wu.cloud.common.utils.web.ClientIpUtils;
+import com.wu.cloud.common.utils.web.IpLocationUtils;
 import cn.hutool.core.util.RandomUtil;
 import jakarta.annotation.Resource;
 import jakarta.servlet.http.HttpServletRequest;
@@ -522,7 +523,9 @@ public class AuthServiceImpl implements AuthService {
             LoginLogDTO logDTO = new LoginLogDTO();
             logDTO.setUserId(userId);
             logDTO.setUsername(username);
-            logDTO.setIp(ClientIpUtils.resolve(request));
+            String clientIp = ClientIpUtils.resolve(request);
+            logDTO.setIp(clientIp);
+            logDTO.setAddress(IpLocationUtils.resolve(clientIp));
             logDTO.setBrowser(UserAgentUtils.parseBrowser(userAgent));
             logDTO.setOs(UserAgentUtils.parseOs(userAgent));
             logDTO.setStatus(status);

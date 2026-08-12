@@ -12,8 +12,12 @@ import org.springframework.data.redis.core.RedisCallback;
 import org.springframework.data.redis.core.ScanOptions;
 import org.springframework.data.redis.core.StringRedisTemplate;
 
+import org.springframework.data.redis.connection.DataType;
+
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
+import java.util.Objects;
 import java.util.Properties;
 
 /**
@@ -97,40 +101,100 @@ public class CacheMonitorServiceImpl implements CacheMonitorService {
     @Override
     public CacheKeysVO scanKeys(String pattern, long limit) {
         CacheKeysVO vo = new CacheKeysVO();
-        List<CacheKeyItemVO> items = new ArrayList<>();
         long effectiveLimit = Math.max(1, Math.min(limit, 5000));
+        String match = (pattern == null || pattern.isBlank()) ? "*" : pattern.trim();
+
+        // 1) SCAN 收集 key 名
+        List<String> keys = new ArrayList<>();
+        boolean truncated = false;
         try {
+            ScanOptions options = ScanOptions.scanOptions().match(match).count(200).build();
             stringRedisTemplate.execute((RedisCallback<Object>) connection -> {
-                ScanOptions options = ScanOptions.scanOptions().match(pattern == null || pattern.isBlank() ? "*" : pattern)
-                        .count(200).build();
                 try (var cursor = connection.scan(options)) {
                     long scanned = 0;
-                    while (cursor.hasNext() && items.size() < effectiveLimit) {
+                    while (cursor.hasNext()) {
                         byte[] rawKey = cursor.next();
                         scanned++;
-                        if (scanned > effectiveLimit * 10) {
-                            break; // 防止极端情况下扫描过久
+                        if (keys.size() >= effectiveLimit) {
+                            break;
                         }
-                        String key = new String(rawKey, java.nio.charset.StandardCharsets.UTF_8);
-                        CacheKeyItemVO item = new CacheKeyItemVO();
-                        item.setKey(key);
-                        item.setType(typeOf(key));
-                        item.setTtl(ttlOf(key));
-                        items.add(item);
+                        if (scanned > effectiveLimit * 10) {
+                            break;
+                        }
+                        keys.add(new String(rawKey, java.nio.charset.StandardCharsets.UTF_8));
                     }
                 } catch (Exception e) {
                     log.warn("[缓存监控] SCAN 失败", e);
                 }
                 return null;
             });
+            truncated = keys.size() >= effectiveLimit;
         } catch (Exception e) {
             log.warn("[缓存监控] SCAN 连接失败", e);
         }
+
+        keys.sort(Comparator.naturalOrder());
+
+        // 2) Pipeline 批量获取 TYPE + TTL（单体同款：一次 Redis 往返）
+        List<CacheKeyItemVO> items = enrichKeyItems(keys);
+
         vo.setItems(items);
         vo.setCount((long) items.size());
         vo.setLimit(effectiveLimit);
-        vo.setTruncated(items.size() >= effectiveLimit);
+        vo.setTruncated(truncated);
         return vo;
+    }
+
+    private List<CacheKeyItemVO> enrichKeyItems(List<String> keys) {
+        if (keys.isEmpty()) {
+            return List.of();
+        }
+        List<Object> pipelineResults = stringRedisTemplate.executePipelined((RedisCallback<Object>) connection -> {
+            for (String key : keys) {
+                byte[] raw = stringRedisTemplate.getStringSerializer().serialize(Objects.requireNonNull(key));
+                if (raw != null) {
+                    connection.keyCommands().type(raw);
+                    connection.keyCommands().ttl(raw);
+                }
+            }
+            return null;
+        });
+
+        List<CacheKeyItemVO> items = new ArrayList<>(keys.size());
+        for (int i = 0; i < keys.size(); i++) {
+            CacheKeyItemVO item = new CacheKeyItemVO();
+            item.setKey(keys.get(i));
+            int base = i * 2;
+            item.setType(resolvePipelineType(pipelineResults, base));
+            item.setTtl(resolvePipelineTtl(pipelineResults, base + 1));
+            items.add(item);
+        }
+        return items;
+    }
+
+    private String resolvePipelineType(List<Object> results, int index) {
+        if (index >= results.size() || results.get(index) == null) {
+            return "unknown";
+        }
+        Object raw = results.get(index);
+        if (raw instanceof DataType dataType) {
+            return dataType.code();
+        }
+        return String.valueOf(raw);
+    }
+
+    private long resolvePipelineTtl(List<Object> results, int index) {
+        if (index >= results.size() || results.get(index) == null) {
+            return -2L;
+        }
+        Object raw = results.get(index);
+        if (raw instanceof Long ttl) {
+            return ttl;
+        }
+        if (raw instanceof Number number) {
+            return number.longValue();
+        }
+        return -2L;
     }
 
     @Override
@@ -193,7 +257,9 @@ public class CacheMonitorServiceImpl implements CacheMonitorService {
 
     private Long ttlOf(String key) {
         try {
-            return stringRedisTemplate.getExpire(key);
+            return stringRedisTemplate.execute((RedisCallback<Long>) connection ->
+                    connection.ttl(key.getBytes(java.nio.charset.StandardCharsets.UTF_8))
+            );
         } catch (Exception e) {
             return null;
         }

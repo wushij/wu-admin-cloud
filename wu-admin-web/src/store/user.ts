@@ -7,7 +7,6 @@ import { useMessageStore } from '@/store/message'
 import { useTagsViewStore } from '@/store/tagsView'
 import { resetMonitorBackground } from '@/composables/useMonitorBackground'
 import { resetSecurityConfig, requestSessionSignKey } from '@/utils/security-config'
-import { clearAccessToken, setAccessToken } from '@/utils/auth-token'
 import http from '@/utils/request'
 
 /** 登录后内存中的用户信息（与 /auth/info 字段子集一致） */
@@ -33,7 +32,6 @@ export const useUserStore = defineStore('user', () => {
 
   const loginAction = async (loginForm: LoginForm) => {
     const res = await login(loginForm)
-    setAccessToken(res.data?.token)
     // 登录成功后，立刻尝试初始化签名密钥。即使获取失败也绝不打断登录主流程（由后续拦截器自愈机制兜底）
     try {
       await initSessionKey()
@@ -75,7 +73,6 @@ export const useUserStore = defineStore('user', () => {
   }
 
   const logout = () => {
-    clearAccessToken()
     // 登出时，清空签名密钥闭包配置！
     resetSecurityConfig()
     try {

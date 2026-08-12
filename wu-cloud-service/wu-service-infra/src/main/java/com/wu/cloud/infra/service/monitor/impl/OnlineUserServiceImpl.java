@@ -9,7 +9,7 @@ import com.wu.cloud.api.system.feign.RemoteUserService;
 import com.wu.cloud.common.core.domain.R;
 import com.wu.cloud.infra.security.TokenService;
 import com.wu.cloud.infra.service.monitor.OnlineUserService;
-import com.wu.cloud.infra.util.IpLocationUtils;
+import com.wu.cloud.common.utils.web.IpLocationUtils;
 import com.wu.cloud.infra.util.UserAgentUtils;
 import jakarta.annotation.Resource;
 import lombok.Data;

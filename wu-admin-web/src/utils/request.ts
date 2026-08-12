@@ -7,7 +7,6 @@ import { getErrorMessage, markErrorToastShown } from '@/utils/axiosError'
 import { useUserStore } from '@/store/user'
 import { generateNonce, getTimestamp, encryptSm4, decryptSm4, signHmacSm3 } from '@/utils/crypto'
 import { getSecurityConfig, getClientId, requestSessionSignKey, clearSignKeys } from '@/utils/security-config'
-import { getAccessToken } from '@/utils/auth-token'
 
 export type { ApiResult } from '@/types/api'
 export { getErrorMessage, isErrorToastShown } from '@/utils/axiosError'
@@ -33,13 +32,18 @@ function resolveBodyMessage(message?: string, fallback = '请求失败') {
   return message || fallback
 }
 
+let isRedirectingLogin = false
 function clearSessionAndRedirectLogin() {
+  if (isRedirectingLogin) return
+  isRedirectingLogin = true
   try {
     useUserStore().logout()
   } catch {
     /* store 可能尚未初始化 */
   }
-  router.push('/login')
+  Promise.resolve(router.push('/login')).finally(() => {
+    setTimeout(() => { isRedirectingLogin = false }, 2000)
+  })
 }
 
 /** 公开认证接口（登录 Cookie 写入前不依赖会话） */
@@ -60,6 +64,8 @@ function isAuthPublicUrl(url?: string): boolean {
 /** 扩展 axios 配置：静默错误 / 503 重试（工作台等非关键读接口使用） */
 export type WuRequestConfig = AxiosRequestConfig & {
   silent403?: boolean
+  /** 401 不触发全局登出跳转（后台轮询等旁路请求） */
+  silent401?: boolean
   /** 仅 503 静默 */
   silent503?: boolean
   /** 任意错误均不弹窗（埋点等旁路请求） */
@@ -166,11 +172,6 @@ service.interceptors.request.use(
     config.headers['X-Nonce'] = nonce
     // 【安全加固 P0】携带会话 clientId，服务端据此从 Redis 查找临时签名密钥
     config.headers['X-Client-Id'] = getClientId()
-
-    const token = getAccessToken()
-    if (token) {
-      config.headers['Authorization'] = token
-    }
 
     // 读取运行时下发的安全策略（闭包保存，不挂 window，密钥未下发时不启用加密/签名）
     const secConfig = getSecurityConfig()
@@ -337,6 +338,10 @@ service.interceptors.response.use(
       }
 
       if (status === 401) {
+        if (cfg?.silent401) {
+          markErrorToastShown(error)
+          return Promise.reject(error)
+        }
         if (isAuthPublicUrl(cfg?.url)) {
           ElMessage.error(text || '认证失败')
         } else {

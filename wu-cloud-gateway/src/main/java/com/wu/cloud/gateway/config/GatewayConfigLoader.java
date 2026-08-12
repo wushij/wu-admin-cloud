@@ -29,7 +29,7 @@ public class GatewayConfigLoader {
 
     private static final Logger log = LoggerFactory.getLogger(GatewayConfigLoader.class);
 
-    @Value("${gateway.config-source-url:http://wu-service-system/inner/system/config/get-group}")
+    @Value("${gateway.config-source-url:lb://wu-service-system/inner/system/config/get-group}")
     private String configSourceUrl;
 
     private final Map<String, JSONObject> cache = new ConcurrentHashMap<>();

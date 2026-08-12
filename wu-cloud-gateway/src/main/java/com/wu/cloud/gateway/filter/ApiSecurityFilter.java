@@ -168,6 +168,11 @@ public class ApiSecurityFilter implements GlobalFilter, Ordered {
                                     return verifyAndMutate(exchange, chain, request, signature, nonce,
                                             timestampStr, signKey, sm4Key, path, isPublicAuth);
                                 }
+                                // 公开接口 + 明文 body：与单体「无签名/无密文则原样转发」等价；
+                                // WebFlux 下无必要读 body 再重写（易触发 503），登录/注册等 POST 直接放行
+                                if (!requestEncrypted) {
+                                    return chain.filter(exchange);
+                                }
                                 return verifyAndMutate(exchange, chain, request, null, nonce,
                                         timestampStr, signKey, sm4Key, path, isPublicAuth);
                             });
@@ -356,11 +361,12 @@ public class ApiSecurityFilter implements GlobalFilter, Ordered {
     private ServerHttpRequest mutateBody(ServerWebExchange exchange, byte[] body) {
         ServerHttpRequest request = exchange.getRequest();
         DataBufferFactory bufferFactory = exchange.getResponse().bufferFactory();
-        final Flux<DataBuffer> mutatedBody = Flux.just(bufferFactory.wrap(body));
+        final byte[] bodyBytes = body;
         return new ServerHttpRequestDecorator(request) {
             @Override
             public Flux<DataBuffer> getBody() {
-                return mutatedBody;
+                // 每次订阅新建 DataBuffer：Netty 路由层可能多次读取 body，Flux.just 只能消费一次会抛异常 → 503
+                return Flux.defer(() -> Flux.just(bufferFactory.wrap(bodyBytes)));
             }
 
             @Override

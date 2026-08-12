@@ -33,7 +33,10 @@ class GlobalExceptionHandlerTest {
     @Test
     @DisplayName("业务异常：透传 code/msg")
     void handleBusinessException() {
-        R<Void> r = handler.handleBusinessException(new BusinessException(400, "无法发送，存在拉黑关系"), request);
+        var resp = handler.handleBusinessException(new BusinessException(400, "无法发送，存在拉黑关系"), request);
+        assertEquals(400, resp.getStatusCode().value());
+        R<Void> r = resp.getBody();
+        assertNotNull(r);
         assertEquals(400, r.getCode());
         assertEquals("无法发送，存在拉黑关系", r.getMsg());
     }

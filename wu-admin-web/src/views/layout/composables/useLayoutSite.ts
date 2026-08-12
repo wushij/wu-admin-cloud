@@ -8,7 +8,10 @@ export function useLayoutSite() {
 
   async function loadSiteConfig() {
     try {
-      const res = await getConfigGroup('site', { silent403: true } as AxiosRequestConfig & { silent403?: boolean })
+      const res = await getConfigGroup('site', { silent403: true, silent401: true } as AxiosRequestConfig & {
+        silent403?: boolean
+        silent401?: boolean
+      })
       if (res.data?.configValue) {
         const parsed = JSON.parse(res.data.configValue)
         if (parsed.platformName) sitePlatformName.value = parsed.platformName

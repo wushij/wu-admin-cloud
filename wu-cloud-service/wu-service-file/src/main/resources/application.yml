@@ -32,7 +32,8 @@ spring:
 
 app:
   file:
-    # 相对 wu-service-file 工作目录：../../ = 仓库根目录 wu-admin-cloud
+    # 当前启动方式（launch.json / 手工 cd 模块）cwd 在 wu-service-file 模块目录，
+    # 需要回到仓库根再定位上传目录，避免 /api/files/** 读不到历史文件
     local-base-dir: ${FILE_LOCAL_BASE_DIR:../../wu-admin-copy/backend/data/uploads}
     max-size: 52428800
     # P1-4：留空表示「不限制白名单」，但 LocalFileStorage 中的高危后缀黑名单始终生效

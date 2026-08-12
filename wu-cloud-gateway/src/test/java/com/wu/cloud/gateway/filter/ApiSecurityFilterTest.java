@@ -202,6 +202,32 @@ class ApiSecurityFilterTest {
     }
 
     @Test
+    @DisplayName("安全开启：公开登录接口免签且明文 POST 直接放行（不读 body）")
+    void securityOn_publicLogin_passthroughWithoutBodyRead() {
+        properties.setEnabled(true);
+        String body = "{\"username\":\"admin\",\"password\":\"admin123\"}";
+        String ts = String.valueOf(System.currentTimeMillis());
+        String nonce = "nonce-login-01";
+
+        when(redisTemplate.opsForValue()).thenReturn(valueOps);
+        when(valueOps.get(startsWith("security:session-sign:"))).thenReturn(Mono.just(""));
+        when(valueOps.get(startsWith("security:session-sm4:"))).thenReturn(Mono.just(""));
+        when(valueOps.setIfAbsent(anyString(), eq("1"), any())).thenReturn(Mono.just(true));
+
+        MockServerWebExchange exchange = MockServerWebExchange.from(
+                MockServerHttpRequest.post("/api/auth/login")
+                        .header("X-Client-Id", CLIENT_ID)
+                        .header("X-Timestamp", ts)
+                        .header("X-Nonce", nonce)
+                        .body(body));
+        GatewayFilterChain chain = mock(GatewayFilterChain.class);
+        when(chain.filter(exchange)).thenReturn(Mono.empty());
+
+        StepVerifier.create(filter.filter(exchange, chain)).verifyComplete();
+        verify(chain).filter(exchange);
+    }
+
+    @Test
     @DisplayName("安全开启：验签通过后转发明文请求体")
     void securityOn_validSignature_forwards() {
         properties.setEnabled(true);
