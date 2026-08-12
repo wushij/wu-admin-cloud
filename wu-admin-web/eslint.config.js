@@ -31,6 +31,8 @@ export default tseslint.config(
       'vue/multi-word-component-names': 'off',
       'vue/no-v-html': 'off',
       'vue/no-deprecated-filter': 'off',
+      // 表单子组件普遍通过可变 props 双向绑定 draft/query，与 defineModel 迁移前现状一致
+      'vue/no-mutating-props': 'off',
     },
   },
 )

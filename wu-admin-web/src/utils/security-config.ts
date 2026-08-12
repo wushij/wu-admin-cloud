@@ -1,3 +1,5 @@
+import type { AxiosInstance, AxiosResponse } from 'axios'
+
 /**
  * 客户端接口安全配置（SM4 加密 / SM2/HMAC-SM3 签名）
  *
@@ -71,7 +73,7 @@ function stopHeartbeatTimer(): void {
   }
 }
 
-function startHeartbeatTimer(axiosInstance: any): void {
+function startHeartbeatTimer(axiosInstance: AxiosInstance): void {
   stopHeartbeatTimer()
   // 每 20 分钟自动静默刷新一次签名密钥，防止 Redis Key（120分钟）过期
   refreshTimer = setTimeout(() => {
@@ -95,7 +97,7 @@ export function clearSignKeys(): void {
   sessionSignPromise = null
 }
 
-let sessionSignPromise: Promise<any> | null = null
+let sessionSignPromise: Promise<AxiosResponse | null> | null = null
 
 /**
  * 请求初始化会话签名密钥。
@@ -106,7 +108,7 @@ let sessionSignPromise: Promise<any> | null = null
  * - 失败时才清空 Promise，允许下次重试。
  * - resetSecurityConfig（登出）时一并清空，保证下次登录重新初始化。
  */
-export function requestSessionSignKey(axiosInstance: any): Promise<any> {
+export function requestSessionSignKey(axiosInstance: AxiosInstance): Promise<AxiosResponse | null> {
   // 快速返回：密钥已在内存，无需再请求
   const existing = securityConfig
   if (existing.sm3SignKey || existing.sm4Key) {

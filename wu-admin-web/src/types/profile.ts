@@ -54,6 +54,6 @@ export interface ProfilePasswordSmsResetDTO {
   confirmPassword: string
 }
 
-export interface ProfileLoginLogQuery extends PageQuery {}
+export type ProfileLoginLogQuery = PageQuery
 
 export type ProfileLoginLogPage = PageResult<LoginLogVO>

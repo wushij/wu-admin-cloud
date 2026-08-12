@@ -16,6 +16,7 @@
 - [📁 目录结构](#-目录结构)
 - [⚙️ 配置说明](#️-配置说明)
 - [💡 开发指南](#-开发指南)
+- [🧪 测试与 CI](#-测试与-ci)
 - [📦 构建与部署](#-构建与部署)
 
 ---
@@ -220,6 +221,8 @@ npm run dev:h5
 wu-admin-cloud/                       # 工程根目录
 ├── pom.xml                          # 父 POM
 ├── .vscode/launch.json              # 本地一键启动配置
+├── .github/workflows/ci.yml         # CI 门禁
+├── docs/                            # 设计文档
 ├── wu-cloud-common/                 # 公共底层基础库
 ├── wu-cloud-api/                    # 跨服务 Feign 契约与共享 DTO
 ├── wu-cloud-infra/                  # 基础能力 Starter
@@ -240,7 +243,6 @@ wu-admin-cloud/                       # 工程根目录
 │   └── wu-service-order/           # [9206] 📦 订单 → sql/08
 ├── wu-admin-web/                    # PC 前端 (Vue 3 + Vite)
 ├── wu-admin-uniapp/                 # 移动端 (uni-app)
-├── wu-admin-copy/                   # 单体对照源码（非启动模块）
 └── sql/                             # 库名 wu-admin；01～08 + admin_platform.sql
 ```
 
@@ -324,9 +326,34 @@ mvn install -pl wu-cloud-common,wu-cloud-api -DskipTests
 | Feign 503 / No servers | 目标服务未注册 Nacos；检查 namespace/group/ip |
 | 改了 DB 安全开关不生效 | auth/gateway 配置缓存约 60s，或重启对应服务 |
 
-### 📚 单体对照
+---
 
-`wu-admin-copy/` 为单体源码基线，用于对齐行为与表结构，**不作为微服务启动模块**。
+## 🧪 测试与 CI
+
+设计说明见 [`docs/05-微服务测试与CI设计.md`](docs/05-微服务测试与CI设计.md)（对齐单体 Mockito 单测 + GitHub Actions）。
+
+```powershell
+# 后端单测（无需 MySQL/Redis/Nacos）
+mvn -B test
+
+# PC 前端
+cd wu-admin-web
+npm ci
+npm run lint
+npm run typecheck
+npm run test
+
+# 移动端 uni-app
+cd ../wu-admin-uniapp
+npm ci
+npm run type-check
+npm run test
+
+# 本地冒烟（需已启动基础设施与微服务）
+.\scripts\smoke\smoke-test.ps1
+```
+
+CI：`.github/workflows/ci.yml`，在 `main` 的 push/PR 上跑 Backend `mvn test` + PC Frontend typecheck/test + Uni-app type-check/test。
 
 ---
 

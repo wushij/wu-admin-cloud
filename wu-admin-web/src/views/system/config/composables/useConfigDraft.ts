@@ -249,7 +249,11 @@ export function useConfigDraft() {
     }
     try {
       const res = await getRoleList({ status: 1 })
-      roleOptions.value = (res.data || []).map((r: any) => ({ id: r.id, name: r.name, code: r.code }))
+      roleOptions.value = (res.data || []).map((r: { id: number; name: string; code: string }) => ({
+        id: r.id,
+        name: r.name,
+        code: r.code,
+      }))
     } catch {
       roleOptions.value = [{ id: 0, name: '普通用户', code: 'user' }]
     }
@@ -284,7 +288,8 @@ export function useConfigDraft() {
     ])
     for (const r of results) {
       if (r.status === 'rejected') {
-        const msg = String((r as any).reason?.message || '')
+        const reason = r.reason
+        const msg = String(reason instanceof Error ? reason.message : reason ?? '')
         if (msg.includes('权限不足')) forbidden = true
       }
     }

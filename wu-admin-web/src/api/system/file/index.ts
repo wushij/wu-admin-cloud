@@ -210,7 +210,8 @@ export function getStreamPreviewUrl(file?: FileRecord | null): string {
 export function needsBlobPreview(file?: FileRecord | null): boolean {
   if (!file?.id) return false
   const url = getStreamPreviewUrl(file)
-  return url.includes('/api/infra/file/preview/') && (file.fileType?.startsWith('video/') || file.fileType?.startsWith('audio/'))
+  return url.includes('/api/infra/file/preview/')
+    && !!(file.fileType?.startsWith('video/') || file.fileType?.startsWith('audio/'))
 }
 
 /** 列表缩略图 / 视频封面（优先 /files/ 直链流式加载） */

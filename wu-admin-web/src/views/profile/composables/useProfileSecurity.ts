@@ -58,7 +58,7 @@ export function useProfileSecurity(
     confirmPassword: [
       { required: true, message: '请确认新密码', trigger: 'blur' },
       {
-        validator: (_rule: any, value: string, callback: any) => {
+        validator: (_rule: unknown, value: string, callback: (error?: Error) => void) => {
           if (value !== pwdForm.newPassword) callback(new Error('两次输入的密码不一致'))
           else callback()
         },
@@ -79,7 +79,7 @@ export function useProfileSecurity(
     confirmPassword: [
       { required: true, message: '请确认新密码', trigger: 'blur' },
       {
-        validator: (_rule: any, value: string, callback: any) => {
+        validator: (_rule: unknown, value: string, callback: (error?: Error) => void) => {
           if (value !== smsPwdForm.newPassword) callback(new Error('两次输入的密码不一致'))
           else callback()
         },
@@ -100,7 +100,7 @@ export function useProfileSecurity(
     confirmPassword: [
       { required: true, message: '请确认新密码', trigger: 'blur' },
       {
-        validator: (_rule: any, value: string, callback: any) => {
+        validator: (_rule: unknown, value: string, callback: (error?: Error) => void) => {
           if (value !== emailPwdForm.newPassword) callback(new Error('两次输入的密码不一致'))
           else callback()
         },

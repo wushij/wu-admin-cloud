@@ -77,7 +77,7 @@ export function encryptSm4(plainText: string, secretKey: string): string {
     mode: 'cbc',
     iv: hexIv,
     padding: 'pkcs#7',
-  } as any)
+  } as unknown as Parameters<typeof sm4.encrypt>[2])
   // 前 32 位放置随机 IV，后面接密文
   return hexIv + cipherHex
 }
@@ -105,7 +105,7 @@ export function decryptSm4(cipherText: string, secretKey: string): string {
           mode: 'cbc',
           iv: hexIv,
           padding: 'pkcs#7',
-        } as any)
+        } as unknown as Parameters<typeof sm4.decrypt>[2])
         if (decrypted) return decrypted
       } catch {
         /* CBC 模式失败则尝试 ECB 降级 */
@@ -116,7 +116,7 @@ export function decryptSm4(cipherText: string, secretKey: string): string {
     return sm4.decrypt(bytes, hexKey, {
       mode: 'ecb',
       padding: 'pkcs#7',
-    } as any)
+    } as unknown as Parameters<typeof sm4.decrypt>[2])
   } catch (err) {
     console.error('SM4 解密失败:', err)
     return cipherText

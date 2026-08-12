@@ -69,6 +69,7 @@
 
 <script setup lang="ts">
 import { ref, watchEffect, defineAsyncComponent } from 'vue'
+import type { FormInstance } from 'element-plus'
 import ModulePageIcon from '@/components/ModulePageIcon.vue'
 import { MODULE_PAGE_ICON } from '@/constants/module-page-icons'
 import UserDeptTree from './UserDeptTree.vue'
@@ -80,7 +81,7 @@ const UserRoleDialog = defineAsyncComponent(() => import('./UserRoleDialog.vue')
 const UserResetPwdDialog = defineAsyncComponent(() => import('./UserResetPwdDialog.vue'))
 
 const deptTreeComponentRef = ref<InstanceType<typeof UserDeptTree> | null>(null)
-const formDialogRef = ref<any>(null)
+const formDialogRef = ref<{ formRef?: FormInstance | null } | null>(null)
 
 const {
   loading,

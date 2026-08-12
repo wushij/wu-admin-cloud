@@ -67,7 +67,7 @@ export type WuRequestConfig = AxiosRequestConfig & {
   _rawBody?: unknown
 }
 
-function retry503IfNeeded(error: AxiosErrorLike, cfg: WuRequestConfig | undefined) {
+function retry503IfNeeded(_error: AxiosErrorLike, cfg: WuRequestConfig | undefined) {
   if (!cfg || cfg.method?.toLowerCase() !== 'get') {
     return null
   }
@@ -103,7 +103,12 @@ function isSignKeyExpiredMessage(text?: string): boolean {
   return text.includes('签名密钥') || text.includes('签名验证失败') || text.includes('X-Signature')
 }
 
-async function retryRequestWithNewSignKey(cfg: any): Promise<any> {
+type RetryableRequestConfig = InternalAxiosRequestConfig & {
+  _rawBody?: unknown
+  _isRetrySign?: boolean
+}
+
+async function retryRequestWithNewSignKey(cfg: RetryableRequestConfig): Promise<AxiosResponse> {
   cfg._isRetrySign = true
   clearSignKeys()
   try {
@@ -119,7 +124,7 @@ async function retryRequestWithNewSignKey(cfg: any): Promise<any> {
 
 service.interceptors.request.use(
   async (config) => {
-    const customCfg = config as InternalAxiosRequestConfig & { _rawBody?: any; _isRetrySign?: boolean }
+    const customCfg = config as RetryableRequestConfig
     if (customCfg._rawBody === undefined) {
       customCfg._rawBody = config.data
     } else {

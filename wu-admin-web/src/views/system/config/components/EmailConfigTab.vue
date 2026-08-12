@@ -232,7 +232,7 @@ function onProviderChange(val: string) {
   if (saved && val && val === saved.provider) {
     props.draft.host = saved.host || 'smtp.qq.com'
     props.draft.port = saved.port || 465
-    props.draft.securityType = (saved.securityType as any) || 'SSL'
+    props.draft.securityType = (saved.securityType as typeof props.draft.securityType) || 'SSL'
     props.draft.username = saved.username || ''
     props.draft.password = saved.password || ''
     return

@@ -1,4 +1,5 @@
 import { ref } from 'vue'
+import type { AxiosRequestConfig } from 'axios'
 import { getConfigGroup } from '@/api/system/config'
 
 export function useLayoutSite() {
@@ -7,7 +8,7 @@ export function useLayoutSite() {
 
   async function loadSiteConfig() {
     try {
-      const res = await getConfigGroup('site', { silent403: true } as any)
+      const res = await getConfigGroup('site', { silent403: true } as AxiosRequestConfig & { silent403?: boolean })
       if (res.data?.configValue) {
         const parsed = JSON.parse(res.data.configValue)
         if (parsed.platformName) sitePlatformName.value = parsed.platformName
