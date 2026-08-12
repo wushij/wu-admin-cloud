@@ -1,8 +1,12 @@
 package com.wu.cloud.system.service.impl;
 
+import cn.hutool.core.util.StrUtil;
+import cn.hutool.json.JSONObject;
+import cn.hutool.json.JSONUtil;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.wu.cloud.api.log.OperLogContext;
 import com.wu.cloud.common.exception.BusinessException;
 import com.wu.cloud.common.mail.MailResult;
 import com.wu.cloud.common.mail.MailSender;
@@ -27,8 +31,10 @@ import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.regex.Pattern;
 
@@ -134,15 +140,207 @@ public class SysConfigGroupServiceImpl implements SysConfigGroupService {
         if (groupDO == null) {
             throw new BusinessException("参数不能为空");
         }
+        String groupCode = groupDO.getGroupCode();
         // 兼容前端仅传 groupCode 的场景：按编码回填主键后再更新
-        if (groupDO.getId() == null) {
-            SysConfigGroupDO exists = getConfigGroupByCode(groupDO.getGroupCode());
-            if (exists == null) {
-                throw new BusinessException("配置分组不存在：" + groupDO.getGroupCode());
-            }
-            groupDO.setId(exists.getId());
+        SysConfigGroupDO exists = groupDO.getId() != null
+                ? sysConfigGroupMapper.selectById(groupDO.getId())
+                : getConfigGroupByCode(groupCode);
+        if (exists == null) {
+            throw new BusinessException("配置分组不存在：" + (StringUtils.hasText(groupCode) ? groupCode : groupDO.getId()));
         }
-        sysConfigGroupMapper.updateById(groupDO);
+        groupCode = exists.getGroupCode();
+        groupDO.setId(exists.getId());
+        groupDO.setGroupCode(groupCode);
+
+        String newConfigValue = groupDO.getConfigValue();
+        if (!StringUtils.hasText(newConfigValue)) {
+            // 未传 configValue 时保持原行为：整行更新（兼容 /update）
+            sysConfigGroupMapper.updateById(groupDO);
+            return;
+        }
+        if (!JSONUtil.isTypeJSON(newConfigValue)) {
+            throw new BusinessException("配置内容必须是合法 JSON");
+        }
+
+        JSONObject newJson = JSONUtil.parseObj(newConfigValue);
+        JSONObject oldJson;
+        if (StrUtil.isNotBlank(exists.getConfigValue()) && JSONUtil.isTypeJSON(exists.getConfigValue())) {
+            oldJson = JSONUtil.parseObj(exists.getConfigValue());
+        } else {
+            oldJson = new JSONObject();
+        }
+
+        // 对齐单体：无实际变更则跳过写库与操作日志（前端会批量 PUT 全部 grouping）
+        List<String> diffItems = buildConfigDiffs(groupCode, oldJson, newJson);
+        if (diffItems.isEmpty()) {
+            OperLogContext.setSkipLog(true);
+            return;
+        }
+
+        String groupTitle = getGroupTitle(groupCode);
+        OperLogContext.setTitle("系统配置 - " + groupTitle);
+        OperLogContext.setDiffItems(diffItems);
+        OperLogContext.setAction("修改系统配置「" + groupTitle + "」: " + String.join("；", diffItems));
+
+        exists.setConfigValue(newJson.toString());
+        if (StringUtils.hasText(groupDO.getGroupName())) {
+            exists.setGroupName(groupDO.getGroupName());
+        }
+        if (StringUtils.hasText(groupDO.getRemark())) {
+            exists.setRemark(groupDO.getRemark());
+        }
+        sysConfigGroupMapper.updateById(exists);
+    }
+
+    private String getGroupTitle(String groupCode) {
+        if (groupCode == null) {
+            return "未知分组";
+        }
+        return switch (groupCode) {
+            case "site" -> "基础信息";
+            case "session" -> "会话令牌";
+            case "file" -> "文件存储";
+            case "rateLimit" -> "接口限流";
+            case "login" -> "登录认证";
+            case "register" -> "注册认证";
+            case "sms" -> "短信配置";
+            case "email" -> "邮件配置";
+            case "thirdParty" -> "第三方配置";
+            case "payment" -> "支付配置";
+            case "security" -> "安全防刷";
+            case "ai" -> "AI助手配置";
+            default -> groupCode;
+        };
+    }
+
+    private List<String> buildConfigDiffs(String groupCode, JSONObject oldJson, JSONObject newJson) {
+        List<String> diffs = new ArrayList<>();
+        if (oldJson == null) {
+            oldJson = new JSONObject();
+        }
+        if (newJson == null) {
+            newJson = new JSONObject();
+        }
+
+        Set<String> allKeys = new LinkedHashSet<>();
+        allKeys.addAll(oldJson.keySet());
+        allKeys.addAll(newJson.keySet());
+
+        for (String key : allKeys) {
+            Object oldVal = oldJson.get(key);
+            Object newVal = newJson.get(key);
+            if (configValuesEqual(oldVal, newVal)) {
+                continue;
+            }
+            String label = getFieldLabel(groupCode, key);
+            diffs.add(label + ": " + formatConfigValue(oldVal) + " -> " + formatConfigValue(newVal));
+        }
+        return diffs;
+    }
+
+    /**
+     * 比较配置值：对嵌套 JSON / 数字类型做宽松相等，避免「未改却记日志」。
+     */
+    private boolean configValuesEqual(Object oldVal, Object newVal) {
+        if (Objects.equals(oldVal, newVal)) {
+            return true;
+        }
+        if (oldVal == null || newVal == null) {
+            return false;
+        }
+        if (oldVal instanceof Number && newVal instanceof Number) {
+            return ((Number) oldVal).doubleValue() == ((Number) newVal).doubleValue();
+        }
+        // 嵌套对象/数组：规范化 JSON 字符串再比
+        if ((oldVal instanceof Map || oldVal instanceof Iterable || oldVal instanceof JSONObject)
+                || (newVal instanceof Map || newVal instanceof Iterable || newVal instanceof JSONObject)) {
+            try {
+                return Objects.equals(JSONUtil.toJsonStr(oldVal), JSONUtil.toJsonStr(newVal));
+            } catch (Exception ignored) {
+                return false;
+            }
+        }
+        return Objects.equals(String.valueOf(oldVal), String.valueOf(newVal));
+    }
+
+    private String getFieldLabel(String groupCode, String key) {
+        if ("login".equals(groupCode)) {
+            return switch (key) {
+                case "captchaEnabled" -> "登录人机校检";
+                case "captchaType" -> "验证码类型";
+                case "smsLoginEnabled" -> "短信验证码登录";
+                case "smsLoginSliderCaptchaEnabled" -> "短信发送前滑块";
+                case "emailLoginEnabled" -> "邮箱验证码登录";
+                case "emailLoginSliderCaptchaEnabled" -> "邮箱发送前滑块";
+                case "rememberMe" -> "记住我";
+                case "maxRetryCount" -> "账号最大重试";
+                case "maxRetryCountIp" -> "IP最大重试";
+                case "lockTime" -> "锁定时长";
+                default -> key;
+            };
+        }
+        if ("site".equals(groupCode)) {
+            return switch (key) {
+                case "platformName" -> "系统名称";
+                case "platformSubtitle" -> "系统副标题";
+                case "loginWelcome" -> "登录页欢迎语";
+                case "registerTitle" -> "注册页标题";
+                case "copyright" -> "版权信息";
+                default -> key;
+            };
+        }
+        if ("register".equals(groupCode)) {
+            return switch (key) {
+                case "enabled" -> "开放注册";
+                case "captchaEnabled" -> "注册验证码";
+                case "captchaType" -> "验证码类型";
+                case "needAudit" -> "注册审核";
+                default -> key;
+            };
+        }
+        if ("sms".equals(groupCode)) {
+            return switch (key) {
+                case "enabled" -> "启用短信";
+                case "provider" -> "短信服务商";
+                default -> key;
+            };
+        }
+        if ("email".equals(groupCode)) {
+            return switch (key) {
+                case "enabled" -> "启用邮件";
+                case "fromEmail" -> "发件人邮箱";
+                case "host" -> "SMTP 服务器";
+                default -> key;
+            };
+        }
+        if ("security".equals(groupCode)) {
+            return switch (key) {
+                case "disableDevtool" -> "禁用开发者工具";
+                case "isConcurrent" -> "并发登录";
+                default -> key;
+            };
+        }
+        return key;
+    }
+
+    private String formatConfigValue(Object val) {
+        if (val == null) {
+            return "无";
+        }
+        if (val instanceof Boolean) {
+            return ((Boolean) val) ? "开启" : "关闭";
+        }
+        if ("image".equals(val)) {
+            return "图片";
+        }
+        if ("slider".equals(val)) {
+            return "滑块";
+        }
+        String s = val.toString();
+        if (s.length() > 20) {
+            return s.substring(0, 17) + "...";
+        }
+        return s;
     }
 
     @Override

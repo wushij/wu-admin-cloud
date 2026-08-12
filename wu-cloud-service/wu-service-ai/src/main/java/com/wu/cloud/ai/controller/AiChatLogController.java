@@ -2,6 +2,7 @@ package com.wu.cloud.ai.controller;
 
 import com.wu.cloud.ai.entity.AiChatLogDO;
 import com.wu.cloud.ai.service.AiChatLogService;
+import com.wu.cloud.api.log.Log;
 import com.wu.cloud.common.core.PageParam;
 import com.wu.cloud.common.core.domain.PageResult;
 import com.wu.cloud.common.core.domain.R;
@@ -30,22 +31,26 @@ public class AiChatLogController {
     }
 
     /** 对齐前端 del(`/system/ai-log/${id}`) / 单体 DELETE /{id} */
+    @Log(title = "AI对话日志", businessType = Log.BusinessType.DELETE)
     @DeleteMapping("/{id}")
     public R<Boolean> delete(@PathVariable("id") Long id) {
         return R.ok(aiChatLogService.delete(id));
     }
 
     /** 对齐前端 del('/system/ai-log/clean') / 单体 DELETE /clean */
+    @Log(title = "AI对话日志", businessType = Log.BusinessType.DELETE)
     @DeleteMapping("/clean")
     public R<Boolean> clean() {
         return R.ok(aiChatLogService.cleanLogs());
     }
 
+    @Log(title = "AI对话日志", businessType = Log.BusinessType.DELETE)
     @PostMapping("/delete")
     public R<Boolean> deleteByPost(@RequestParam("id") Long id) {
         return R.ok(aiChatLogService.delete(id));
     }
 
+    @Log(title = "AI对话日志", businessType = Log.BusinessType.DELETE)
     @PostMapping("/clean")
     public R<Boolean> cleanByPost() {
         return R.ok(aiChatLogService.cleanLogs());

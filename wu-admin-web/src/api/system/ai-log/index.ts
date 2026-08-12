@@ -2,11 +2,12 @@ import { get, del } from '@/utils/request'
 import type { PageQuery, PageResult } from '@/types/api'
 
 export interface AiChatLogVO {
-  id: number
-  userId: number
+  /** 后端 Long 可能以字符串返回，避免雪花 ID 精度丢失 */
+  id: number | string
+  userId: number | string
   username: string
   conversationId: string
-  modelId: number
+  modelId: number | string
   provider: string
   modelName: string
   question: string
@@ -33,7 +34,7 @@ export function pageAiChatLog(params: AiChatLogPageQuery) {
   return get<PageResult<AiChatLogVO>>('/system/ai-log/page', params)
 }
 
-export function deleteAiChatLog(id: number) {
+export function deleteAiChatLog(id: number | string) {
   return del(`/system/ai-log/${id}`)
 }
 

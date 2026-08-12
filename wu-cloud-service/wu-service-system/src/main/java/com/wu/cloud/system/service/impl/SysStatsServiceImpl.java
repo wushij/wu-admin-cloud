@@ -3,6 +3,7 @@ package com.wu.cloud.system.service.impl;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.wu.cloud.api.system.dto.RecentLoginDTO;
 import com.wu.cloud.common.config.DynamicConfigHelper;
+import com.wu.cloud.system.entity.SysConfigGroupDO;
 import com.wu.cloud.system.entity.SysDashboardStatsRow;
 import com.wu.cloud.system.entity.SysDeptDO;
 import com.wu.cloud.system.entity.SysLoginLogDO;
@@ -14,6 +15,7 @@ import com.wu.cloud.system.mapper.DeptMapper;
 import com.wu.cloud.system.mapper.MenuMapper;
 import com.wu.cloud.system.mapper.PostMapper;
 import com.wu.cloud.system.mapper.RoleMapper;
+import com.wu.cloud.system.mapper.SysConfigGroupMapper;
 import com.wu.cloud.system.mapper.SysDashboardMapper;
 import com.wu.cloud.system.mapper.SysLoginLogMapper;
 import com.wu.cloud.system.mapper.SysUserMapper;
@@ -62,12 +64,14 @@ public class SysStatsServiceImpl implements SysStatsService {
     private final PostMapper postMapper;
     private final SysDashboardMapper sysDashboardMapper;
     private final SysLoginLogMapper sysLoginLogMapper;
+    private final SysConfigGroupMapper sysConfigGroupMapper;
     private final StringRedisTemplate stringRedisTemplate;
     private final DynamicConfigHelper dynamicConfigHelper;
 
     public SysStatsServiceImpl(SysUserMapper sysUserMapper, RoleMapper roleMapper,
                                MenuMapper menuMapper, DeptMapper deptMapper, PostMapper postMapper,
                                SysDashboardMapper sysDashboardMapper, SysLoginLogMapper sysLoginLogMapper,
+                               SysConfigGroupMapper sysConfigGroupMapper,
                                StringRedisTemplate stringRedisTemplate,
                                DynamicConfigHelper dynamicConfigHelper) {
         this.sysUserMapper = sysUserMapper;
@@ -77,6 +81,7 @@ public class SysStatsServiceImpl implements SysStatsService {
         this.postMapper = postMapper;
         this.sysDashboardMapper = sysDashboardMapper;
         this.sysLoginLogMapper = sysLoginLogMapper;
+        this.sysConfigGroupMapper = sysConfigGroupMapper;
         this.stringRedisTemplate = stringRedisTemplate;
         this.dynamicConfigHelper = dynamicConfigHelper;
     }
@@ -109,6 +114,7 @@ public class SysStatsServiceImpl implements SysStatsService {
             countAll().forEach(stats::put);
             stats.put("todayVisits", getDayVisitCount(today));
             stats.put("yesterdayVisits", getDayVisitCount(today.minusDays(1)));
+            stats.put("configGroupCount", sysConfigGroupMapper.selectCount(new LambdaQueryWrapper<SysConfigGroupDO>()));
             dynamicConfigHelper.fillDashboardConfigFields(stats);
             return stats;
         }
@@ -138,6 +144,7 @@ public class SysStatsServiceImpl implements SysStatsService {
 
         stats.put("todayVisits", getDayVisitCount(today));
         stats.put("yesterdayVisits", getDayVisitCount(today.minusDays(1)));
+        stats.put("configGroupCount", sysConfigGroupMapper.selectCount(new LambdaQueryWrapper<SysConfigGroupDO>()));
         dynamicConfigHelper.fillDashboardConfigFields(stats);
         return stats;
     }

@@ -31,7 +31,7 @@ public class RemoteTicketServiceFallback implements FallbackFactory<RemoteTicket
             }
 
             @Override
-            public R<TicketDashboardDTO> getDashboardStats() {
+            public R<TicketDashboardDTO> getDashboardStats(Long userId) {
                 return R.fail("工单服务暂不可用");
             }
         };

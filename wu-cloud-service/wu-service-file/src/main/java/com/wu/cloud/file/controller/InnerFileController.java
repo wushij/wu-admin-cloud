@@ -21,6 +21,11 @@ public class InnerFileController {
     @Resource
     private SysFileService sysFileService;
 
+    @GetMapping("/count")
+    public R<Long> countFiles() {
+        return R.ok(sysFileService.countForGroupSidebar(null, null, null));
+    }
+
     @GetMapping("/{id}")
     public R<SysFileDTO> getFileById(@PathVariable("id") Long id) {
         return R.ok(toDTO(sysFileService.getFileById(id)));

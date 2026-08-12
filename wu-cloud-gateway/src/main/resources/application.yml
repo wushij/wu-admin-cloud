@@ -22,7 +22,8 @@ spring:
     loadbalancer:
       cache:
         enabled: true
-        ttl: 5s
+        # 本地开发服务常热重启：过长缓存会把已挂实例继续打出偶发 503
+        ttl: 1s
         capacity: 256
     nacos:
       discovery:
@@ -37,6 +38,22 @@ spring:
     # P0-1: 网关必须与 auth 共用同一 Redis，否则登录态不互通（此前缺失导致全部 401）
     # 参数与 wu-cloud-auth 的 application.yml 保持一致，确保 Sa-Token Token 互认
     gateway:
+      # 下游连接失败 / 5xx：GET 自动重试，吸收热重启与 LB 短暂脏缓存
+      default-filters:
+        - name: Retry
+          args:
+            retries: 2
+            methods: GET
+            series: SERVER_ERROR
+            exceptions: java.io.IOException,java.util.concurrent.TimeoutException
+            backoff:
+              firstBackoff: 80ms
+              maxBackoff: 400ms
+              factor: 2
+              basedOnPreviousValue: false
+      httpclient:
+        connect-timeout: 3000
+        response-timeout: 15s
       routes:
         # ===== P0-2 兼容性重写路由（必须置顶，否则会被 /api/system/** 通配提前匹配）=====
         # 监控-服务器：前端 /system/monitor/server/** → 后端 /api/monitor/server/**
@@ -283,15 +300,10 @@ gateway:
     timestamp-window-seconds: 300
     exclude-paths:
       - /api/auth/session-sign-init
-      - /api/auth/login
-      - /api/auth/register
       - /api/auth/config
       - /api/auth/captcha
-      - /api/auth/sms-code
       - /api/auth/slider-challenge
       - /api/auth/slider-verify
-      - /api/auth/forgot-password
-      - /api/auth/refresh-token
       - /api/pay/notify
       - /api/file/
       - /api/files/
@@ -316,6 +328,8 @@ gateway:
       - /api/auth/captcha
       - /api/auth/sms-code
       - /api/auth/slider-challenge
+      - /api/auth/forgot-password
+      - /api/auth/refresh-token
     streaming-uri-suffixes:
       - /ai/chat/stream
       - /ai-stream

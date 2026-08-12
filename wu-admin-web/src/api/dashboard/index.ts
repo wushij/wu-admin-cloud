@@ -63,12 +63,20 @@ const DASHBOARD_REQUEST_CONFIG: WuRequestConfig = {
   timeout: 8000,
 }
 
+/** 访问埋点：旁路请求，失败完全静默（偶发 BFF 重启/网关 lb 无实例会 503） */
+const DASHBOARD_VISIT_CONFIG: WuRequestConfig = {
+  silent: true,
+  silent503: true,
+  retry503: 1,
+  timeout: 3000,
+}
+
 export function getDashboardStats() {
   return get<DashboardStats>('/system/dashboard/stats', undefined, DASHBOARD_REQUEST_CONFIG)
 }
 
 export function recordVisit() {
-  return get<unknown>('/system/dashboard/visit', undefined, DASHBOARD_REQUEST_CONFIG)
+  return get<unknown>('/system/dashboard/visit', undefined, DASHBOARD_VISIT_CONFIG)
 }
 
 export function getRecentLogins() {

@@ -2,10 +2,11 @@
  * AI wu助手对话 API
  *
  * 流式对话无法走 axios（不支持增量读取响应体），使用原生 fetch：
- * - 会话凭证：Sa-Token 走 httpOnly Cookie，fetch 显式 credentials: 'include'
+ * - 会话凭证：与 axios 一致，显式带 Authorization（网关 is-read-cookie=false，仅认 Header）
  * - 防重放头：复用 crypto/security-config 工具函数手动补齐 X-Timestamp/X-Nonce/X-Client-Id/X-Signature
  */
 import service, { get } from '@/utils/request'
+import { getAccessToken } from '@/utils/auth-token'
 import { generateNonce, getTimestamp, signHmacSm3 } from '@/utils/crypto'
 import { getClientId, getSecurityConfig, requestSessionSignKey } from '@/utils/security-config'
 import type { AiModelVO } from '@/api/system/ai-model'
@@ -97,6 +98,11 @@ export async function streamChat(
     'X-Timestamp': timestamp,
     'X-Nonce': nonce,
     'X-Client-Id': getClientId(),
+  }
+  // 必须与 axios 拦截器一致；缺 Token 时网关不注入 X-User-*，日志用户名为空且身份上下文丢失
+  const token = getAccessToken()
+  if (token) {
+    headers.Authorization = token
   }
 
   const secConfig = getSecurityConfig()

@@ -4,6 +4,8 @@ import cn.dev33.satoken.stp.StpUtil;
 import cn.hutool.crypto.digest.BCrypt;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.wu.cloud.api.log.OperLogContext;
+import com.wu.cloud.api.log.OperLogDiffUtils;
 import com.wu.cloud.api.system.dto.LoginUserDTO;
 import com.wu.cloud.api.system.dto.SysUserDTO;
 import com.wu.cloud.api.system.dto.UserProfileDTO;
@@ -485,6 +487,11 @@ public class SysUserServiceImpl implements SysUserService {
     @Transactional(rollbackFor = Exception.class)
     public Boolean updateUser(UserUpdateReqVO reqVO) {
         SysUserDO userDO = requireUser(reqVO.getId());
+        List<String> diffItems = OperLogDiffUtils.diff(userDO, reqVO);
+        if (!diffItems.isEmpty()) {
+            OperLogContext.setDiffItems(diffItems);
+            OperLogContext.setAction("修改用户「" + userDO.getUsername() + "」: " + String.join("；", diffItems));
+        }
         userDO.setNickname(reqVO.getNickname());
         userDO.setEmail(reqVO.getEmail());
         userDO.setMobile(reqVO.getMobile());

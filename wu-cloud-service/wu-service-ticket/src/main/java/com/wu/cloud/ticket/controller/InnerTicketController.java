@@ -15,6 +15,7 @@ import jakarta.annotation.Resource;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.time.LocalDateTime;
@@ -58,25 +59,38 @@ public class InnerTicketController {
     }
 
     /**
-     * 工作台工单/审批统计（缺实现曾导致 BFF 工单统计恒默认空值）
+     * 工作台工单/审批统计（对齐单体：按当前用户「待我处理/待我审批」过滤）
      */
     @GetMapping("/dashboard-stats")
-    public R<TicketDashboardDTO> getDashboardStats() {
+    public R<TicketDashboardDTO> getDashboardStats(@RequestParam(value = "userId", required = false) Long userId) {
         TicketDashboardDTO dto = new TicketDashboardDTO();
-        // 待处理工单（OPEN 状态）
+        if (userId == null || userId <= 0) {
+            dto.setTicketOpenCount(0L);
+            dto.setTicketOverdueCount(0L);
+            dto.setApprovalPendingCount(0L);
+            return R.ok(dto);
+        }
+        // 待我处理：OPEN 且指派给我，或尚未指派
         Long open = ticketMapper.selectCount(new LambdaQueryWrapper<TicketDO>()
-                .eq(TicketDO::getStatus, "OPEN"));
+                .eq(TicketDO::getStatus, "OPEN")
+                .and(w -> w.eq(TicketDO::getAssigneeUserId, userId)
+                        .or().eq(TicketDO::getAssigneeUserId, 0)
+                        .or().isNull(TicketDO::getAssigneeUserId)));
         dto.setTicketOpenCount(open == null ? 0L : open);
-        // 逾期工单（OPEN/IN_PROGRESS 且超过截止时间）
+        // 逾期：OPEN/IN_PROGRESS 且超过截止时间，且指派给我或未指派
         List<String> overdueStatus = List.of("OPEN", "IN_PROGRESS");
         Long overdue = ticketMapper.selectCount(new LambdaQueryWrapper<TicketDO>()
                 .in(TicketDO::getStatus, overdueStatus)
                 .isNotNull(TicketDO::getDeadline)
-                .lt(TicketDO::getDeadline, LocalDateTime.now()));
+                .lt(TicketDO::getDeadline, LocalDateTime.now())
+                .and(w -> w.eq(TicketDO::getAssigneeUserId, userId)
+                        .or().eq(TicketDO::getAssigneeUserId, 0)
+                        .or().isNull(TicketDO::getAssigneeUserId)));
         dto.setTicketOverdueCount(overdue == null ? 0L : overdue);
-        // 待审批（SUBMITTED 状态）
+        // 待我审批
         Long pending = approvalFormMapper.selectCount(new LambdaQueryWrapper<ApprovalFormDO>()
-                .eq(ApprovalFormDO::getStatus, "SUBMITTED"));
+                .eq(ApprovalFormDO::getStatus, "SUBMITTED")
+                .eq(ApprovalFormDO::getApproverUserId, userId));
         dto.setApprovalPendingCount(pending == null ? 0L : pending);
         return R.ok(dto);
     }

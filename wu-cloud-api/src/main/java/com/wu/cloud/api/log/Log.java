@@ -10,7 +10,7 @@ import java.lang.annotation.Target;
  * 操作日志注解
  * <p>
  * 标注在 Controller 方法上，切面会拦截并记录操作日志（模块/业务类型/入参/耗时/操作人），
- * 通过 RemoteLogService 异步写入 infra 服务的操作日志表。
+ * 通过 RemoteLogService 异步写入 system 服务的 {@code sys_oper_log}（与操作日志列表同源）。
  * </p>
  */
 @Target({ElementType.METHOD, ElementType.TYPE})

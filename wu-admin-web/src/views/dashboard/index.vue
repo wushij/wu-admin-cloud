@@ -31,7 +31,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useUserStore } from '@/store/user'
 import { resolveChatAvatar, avatarFallback as getAvatarFallback } from '@/utils/chat-avatar'
 import WelcomeBanner from './components/WelcomeBanner.vue'
@@ -42,7 +42,10 @@ import RecentLoginsTable from './components/RecentLoginsTable.vue'
 import { useDashboardData } from './composables/useDashboardData'
 import { useDashboardClock } from './composables/useDashboardClock'
 
+defineOptions({ name: 'Dashboard' })
+
 const userStore = useUserStore()
+const inited = ref(false)
 
 const avatarSrc = computed(() =>
   resolveChatAvatar(undefined, new Map(), userStore.userInfo.avatar),
@@ -64,12 +67,22 @@ const {
 
 const { currentTime, greetingMessage } = useDashboardClock()
 
-onMounted(async () => {
-  if (userStore.isLoggedIn) {
-    await userStore.refreshUserStore().catch(() => {})
-  }
-  initDashboard()
+async function bootstrapDashboard() {
+  if (inited.value) return
+  // 用户信息与工作台数据并行，避免串行等 refresh 再出卡片
+  const userTask = userStore.isLoggedIn
+    ? userStore.refreshUserStore().catch(() => {})
+    : Promise.resolve()
+  await Promise.all([userTask, initDashboard()])
+  inited.value = true
+}
+
+onMounted(() => {
+  bootstrapDashboard()
 })
+
+// keep-alive 再次进入：不再请求接口，直接展示缓存页（比单体更好）
+// 单体无 keep-alive，每次进首页都会 onMounted 全量重拉
 </script>
 
 <style scoped>

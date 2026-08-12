@@ -2,6 +2,7 @@ package com.wu.cloud.ai.controller;
 
 import com.wu.cloud.ai.entity.AiKnowledgeDO;
 import com.wu.cloud.ai.service.AiKnowledgeService;
+import com.wu.cloud.api.log.Log;
 import com.wu.cloud.common.core.PageParam;
 import com.wu.cloud.common.core.domain.PageResult;
 import com.wu.cloud.common.core.domain.R;
@@ -31,31 +32,37 @@ public class AiKnowledgeController {
         return R.ok(aiKnowledgeService.detail(id));
     }
 
+    @Log(title = "AI知识库", businessType = Log.BusinessType.INSERT)
     @PostMapping
     public R<Long> create(@RequestBody AiKnowledgeDO knowledge) {
         return R.ok(aiKnowledgeService.create(knowledge));
     }
 
+    @Log(title = "AI知识库", businessType = Log.BusinessType.INSERT)
     @PostMapping("/create")
     public R<Long> createCompat(@RequestBody AiKnowledgeDO knowledge) {
         return R.ok(aiKnowledgeService.create(knowledge));
     }
 
+    @Log(title = "AI知识库", businessType = Log.BusinessType.UPDATE)
     @PutMapping
     public R<Boolean> update(@RequestBody AiKnowledgeDO knowledge) {
         return R.ok(aiKnowledgeService.update(knowledge));
     }
 
+    @Log(title = "AI知识库", businessType = Log.BusinessType.UPDATE)
     @PostMapping("/update")
     public R<Boolean> updateCompat(@RequestBody AiKnowledgeDO knowledge) {
         return R.ok(aiKnowledgeService.update(knowledge));
     }
 
+    @Log(title = "AI知识库", businessType = Log.BusinessType.DELETE)
     @DeleteMapping("/{id}")
     public R<Boolean> delete(@PathVariable("id") Long id) {
         return R.ok(aiKnowledgeService.delete(id));
     }
 
+    @Log(title = "AI知识库", businessType = Log.BusinessType.DELETE)
     @PostMapping("/delete")
     public R<Boolean> deleteCompat(@RequestParam("id") Long id) {
         return R.ok(aiKnowledgeService.delete(id));

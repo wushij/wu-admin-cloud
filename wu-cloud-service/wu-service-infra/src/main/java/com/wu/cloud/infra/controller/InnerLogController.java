@@ -7,7 +7,11 @@ import jakarta.annotation.Resource;
 import org.springframework.web.bind.annotation.*;
 
 /**
- * 操作日志内部 RPC 端点（实现 RemoteLogService 契约，由网关 403 黑名单保护）
+ * 操作日志内部端点（历史实现，写入 {@code infra_oper_log}）。
+ * <p>
+ * 管理端「操作日志」已统一读 {@code sys_oper_log}，{@link com.wu.cloud.api.system.feign.RemoteLogService}
+ * 已切到 {@code wu-service-system}。本接口仅保留兼容，避免旧调用方直接 404。
+ * </p>
  */
 @RestController
 @RequestMapping("/inner/log")

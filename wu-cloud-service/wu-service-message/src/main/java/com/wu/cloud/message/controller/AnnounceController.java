@@ -4,6 +4,7 @@ import cn.dev33.satoken.stp.StpUtil;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.wu.cloud.api.log.Log;
 import com.wu.cloud.common.core.domain.PageResult;
 import com.wu.cloud.common.core.domain.R;
 import com.wu.cloud.common.exception.BusinessException;
@@ -62,24 +63,28 @@ public class AnnounceController {
         return R.ok(resp);
     }
 
+    @Log(title = "通知公告", businessType = Log.BusinessType.INSERT)
     @PostMapping
     public R<Boolean> create(@RequestBody AnnounceRequest req) {
         announceService.create(req.toEntity(objectMapper));
         return R.ok(true, "发布通知成功");
     }
 
+    @Log(title = "通知公告", businessType = Log.BusinessType.UPDATE)
     @PutMapping
     public R<Boolean> update(@RequestBody AnnounceRequest req) {
         announceService.update(req.toEntity(objectMapper));
         return R.ok(true, "修改通知成功");
     }
 
+    @Log(title = "通知公告", businessType = Log.BusinessType.DELETE)
     @DeleteMapping("/{id}")
     public R<Boolean> delete(@PathVariable("id") Long id) {
         announceService.delete(id);
         return R.ok(true, "删除通知成功");
     }
 
+    @Log(title = "通知公告", businessType = Log.BusinessType.OTHER)
     @PostMapping("/{id}/publish")
     public R<Boolean> publish(@PathVariable("id") Long id) {
         announceService.publish(id);
@@ -115,12 +120,14 @@ public class AnnounceController {
         return R.ok(announceService.recyclePage(pageNo, pageSize, title));
     }
 
+    @Log(title = "通知公告", businessType = Log.BusinessType.OTHER)
     @PutMapping("/restore")
     public R<Boolean> restore(@RequestParam("id") Long id) {
         announceService.restore(id);
         return R.ok(true, "恢复通知成功");
     }
 
+    @Log(title = "通知公告", businessType = Log.BusinessType.DELETE)
     @DeleteMapping("/delete-permanent")
     public R<Boolean> deletePermanent(@RequestParam("id") Long id) {
         announceService.deletePermanent(id);

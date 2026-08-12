@@ -57,14 +57,25 @@ function isAuthPublicUrl(url?: string): boolean {
   return AUTH_PUBLIC_SUFFIXES.some((suffix) => path === suffix || path.endsWith(suffix))
 }
 
-/** 扩展 axios 配置：503 静默 + 自动重试（工作台等非关键读接口使用） */
+/** 扩展 axios 配置：静默错误 / 503 重试（工作台等非关键读接口使用） */
 export type WuRequestConfig = AxiosRequestConfig & {
   silent403?: boolean
+  /** 仅 503 静默 */
   silent503?: boolean
+  /** 任意错误均不弹窗（埋点等旁路请求） */
+  silent?: boolean
   retry503?: number
   _retry503Count?: number
   _isRetrySign?: boolean
   _rawBody?: unknown
+}
+
+function isSilentRequest(cfg?: WuRequestConfig | null): boolean {
+  if (!cfg) return false
+  if (cfg.silent) return true
+  const url = cfg.url?.toString() || ''
+  // 访问埋点旁路：偶发 BFF/网关 503 不应打扰用户
+  return url.includes('/dashboard/visit')
 }
 
 function retry503IfNeeded(_error: AxiosErrorLike, cfg: WuRequestConfig | undefined) {
@@ -311,11 +322,17 @@ service.interceptors.response.use(
       }
 
       const { status } = error.response
-      const cfg = error.config as InternalAxiosRequestConfig & { silent403?: boolean; _isRetrySign?: boolean }
+      const cfg = error.config as WuRequestConfig
       const text = getErrorMessage(error) || error.message || '请求失败'
 
       // 🔐 静默排除：如果是初始化会话签名密钥失败，一律静默 Reject 不弹窗
       if (cfg?.url?.includes('/auth/session-sign-init')) {
+        return Promise.reject(error)
+      }
+
+      // 旁路请求（访问埋点等）：失败只记日志，不弹「服务暂时不可用」
+      if (isSilentRequest(cfg)) {
+        markErrorToastShown(error)
         return Promise.reject(error)
       }
 
@@ -329,7 +346,7 @@ service.interceptors.response.use(
       } else if (status === 403) {
         // 🔐 自动静默恢复：签名密钥过期时自动重新协商并发起一次重试
         if (isSignKeyExpiredMessage(text) && !cfg?._isRetrySign && !cfg?.url?.includes('/auth/session-sign-init')) {
-          return retryRequestWithNewSignKey(cfg)
+          return retryRequestWithNewSignKey(cfg as RetryableRequestConfig)
         }
         if (!cfg?.silent403) {
           showForbiddenOnce(text || '权限不足，无法访问')
@@ -337,11 +354,11 @@ service.interceptors.response.use(
       } else if (status === 429) {
         ElMessage.warning(text || '操作过于频繁，请稍后再试')
       } else if (status === 503) {
-        const retry = retry503IfNeeded(error, cfg as WuRequestConfig)
+        const retry = retry503IfNeeded(error, cfg)
         if (retry) {
           return retry
         }
-        if ((cfg as WuRequestConfig)?.silent503) {
+        if (cfg?.silent503) {
           markErrorToastShown(error)
           return Promise.reject(error)
         }
@@ -351,6 +368,10 @@ service.interceptors.response.use(
       }
       markErrorToastShown(error)
     } else {
+      if (isSilentRequest(error.config as WuRequestConfig)) {
+        markErrorToastShown(error)
+        return Promise.reject(error)
+      }
       ElMessage.error('网络异常，请检查网络连接')
       markErrorToastShown(error)
     }

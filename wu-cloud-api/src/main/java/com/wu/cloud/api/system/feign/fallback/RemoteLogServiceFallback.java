@@ -16,7 +16,7 @@ public class RemoteLogServiceFallback implements FallbackFactory<RemoteLogServic
 
     @Override
     public RemoteLogService create(Throwable cause) {
-        log.error("[Feign降级] wu-service-infra 日志服务调用失败", cause);
+        log.error("[Feign降级] wu-service-system 操作日志服务调用失败", cause);
         return new RemoteLogService() {
             @Override
             public R<Boolean> saveOperLog(OperLogDTO operLogDTO) {

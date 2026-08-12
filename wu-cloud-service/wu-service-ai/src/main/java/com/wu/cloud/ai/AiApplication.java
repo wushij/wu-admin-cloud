@@ -1,6 +1,7 @@
 package com.wu.cloud.ai;
 
 import com.wu.cloud.api.infra.feign.RemoteOnlineUserService;
+import com.wu.cloud.api.system.feign.RemoteLogService;
 import com.wu.cloud.api.system.feign.RemoteUserService;
 import org.mybatis.spring.annotation.MapperScan;
 import org.springframework.boot.SpringApplication;
@@ -15,7 +16,11 @@ import org.springframework.scheduling.annotation.EnableAsync;
 @SpringBootApplication(scanBasePackages = "com.wu.cloud")
 @EnableDiscoveryClient
 @EnableAsync
-@EnableFeignClients(basePackageClasses = {RemoteOnlineUserService.class, RemoteUserService.class})
+@EnableFeignClients(basePackageClasses = {
+        RemoteOnlineUserService.class,
+        RemoteUserService.class,
+        RemoteLogService.class
+})
 @MapperScan("com.wu.cloud.ai.mapper")
 public class AiApplication {
 

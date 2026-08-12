@@ -2,7 +2,10 @@ package com.wu.cloud.admin.service.impl;
 
 import com.wu.cloud.admin.service.DashboardService;
 import com.wu.cloud.admin.vo.DashboardStatsVO;
+import com.wu.cloud.api.file.feign.RemoteFileService;
+import com.wu.cloud.api.infra.feign.RemoteJobService;
 import com.wu.cloud.api.infra.feign.RemoteOnlineUserService;
+import com.wu.cloud.api.message.feign.RemoteMessageService;
 import com.wu.cloud.api.system.dto.RecentLoginDTO;
 import com.wu.cloud.api.system.feign.RemoteStatsService;
 import com.wu.cloud.api.ticket.dto.TicketDashboardDTO;
@@ -10,6 +13,7 @@ import com.wu.cloud.api.ticket.feign.RemoteTicketService;
 import com.wu.cloud.common.core.context.UserContextHolder;
 import com.wu.cloud.common.core.domain.R;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 
 import java.time.format.DateTimeFormatter;
@@ -19,84 +23,112 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.function.Supplier;
 
 /**
- * 工作台聚合服务实现：并行聚合系统、工单等微服务的统计数据。
- *
- * <p>任一下游服务不可用时进行降级（返回默认值），保证工作台整体仍能渲染。</p>
+ * 工作台聚合（对齐单体：主统计优先 + 分钟级缓存；次要指标短超时降级，避免拖慢首屏）。
  */
 @Slf4j
 @Service
 public class DashboardServiceImpl implements DashboardService {
 
-    /** 单个下游调用的超时时间，避免慢服务拖垮整个工作台 */
-    private static final long RPC_TIMEOUT_SECONDS = 3L;
+    /** 单路 RPC 硬超时：下游挂起时尽快降级，对齐单体「本地查库」量级体验 */
+    private static final long RPC_TIMEOUT_MS = 800L;
+    /** 整体等待上限：略大于单路超时，避免被最慢一路拖到 Feign 默认 3s */
+    private static final long AGGREGATE_WAIT_MS = 1200L;
+    /** 与单体 aggregate 缓存同量级（分钟级延迟可接受） */
+    private static final long STATS_CACHE_SECONDS = 60L;
+    private static final String STATS_CACHE_KEY = "dashboard:bff:stats:v1:";
 
-    /** 最近登录展示条数 */
     private static final int RECENT_LOGIN_LIMIT = 8;
-
     private static final DateTimeFormatter TIME_FORMATTER =
             DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
     private final RemoteStatsService remoteStatsService;
     private final RemoteTicketService remoteTicketService;
     private final RemoteOnlineUserService remoteOnlineUserService;
+    private final RemoteFileService remoteFileService;
+    private final RemoteMessageService remoteMessageService;
+    private final RemoteJobService remoteJobService;
+    private final StringRedisTemplate stringRedisTemplate;
 
     public DashboardServiceImpl(RemoteStatsService remoteStatsService,
                                 RemoteTicketService remoteTicketService,
-                                RemoteOnlineUserService remoteOnlineUserService) {
+                                RemoteOnlineUserService remoteOnlineUserService,
+                                RemoteFileService remoteFileService,
+                                RemoteMessageService remoteMessageService,
+                                RemoteJobService remoteJobService,
+                                StringRedisTemplate stringRedisTemplate) {
         this.remoteStatsService = remoteStatsService;
         this.remoteTicketService = remoteTicketService;
         this.remoteOnlineUserService = remoteOnlineUserService;
+        this.remoteFileService = remoteFileService;
+        this.remoteMessageService = remoteMessageService;
+        this.remoteJobService = remoteJobService;
+        this.stringRedisTemplate = stringRedisTemplate;
     }
 
     @Override
     public DashboardStatsVO getDashboardStats() {
         Long userId = UserContextHolder.getUserId();
-
-        // 三路并行发起 RPC，整体耗时取决于最慢的一路而非累加
-        CompletableFuture<Map<String, Object>> statsFuture =
-                CompletableFuture.supplyAsync(() -> callOrDefault(
-                        () -> remoteStatsService.getDashboardStats(), Collections.emptyMap(), "系统统计"));
-
-        CompletableFuture<List<RecentLoginDTO>> loginsFuture =
-                CompletableFuture.supplyAsync(() -> callOrDefault(
-                        () -> remoteStatsService.getRecentLogins(RECENT_LOGIN_LIMIT),
-                        Collections.emptyList(), "最近登录"));
-
-        CompletableFuture<Long> unreadFuture =
-                CompletableFuture.supplyAsync(() -> userId == null ? 0L : callOrDefault(
-                        () -> remoteTicketService.getNoticeUnreadCount(userId), 0L, "未读通知"));
-
-        CompletableFuture<TicketDashboardDTO> ticketStatsFuture =
-                CompletableFuture.supplyAsync(() -> callOrDefault(
-                        () -> remoteTicketService.getDashboardStats(), new TicketDashboardDTO(), "工单统计"));
-
-        CompletableFuture<Integer> onlineFuture =
-                CompletableFuture.supplyAsync(() -> callOrDefault(
-                        () -> remoteOnlineUserService.countOnlineUsers(), 0, "在线用户"));
-
+        // 心跳异步，不挡首屏
         if (userId != null) {
-            try {
-                remoteOnlineUserService.touchLastAccess(userId);
-            } catch (Exception e) {
-                log.debug("[工作台] 在线心跳失败 userId={}", userId);
-            }
+            CompletableFuture.runAsync(() -> {
+                try {
+                    remoteOnlineUserService.touchLastAccess(userId);
+                } catch (Exception e) {
+                    log.debug("[工作台] 在线心跳失败 userId={}", userId);
+                }
+            });
         }
 
-        // 并行发起后一次性等待，避免逐个 join 叠加超时（原先最坏约 15 秒）
+        String cacheKey = STATS_CACHE_KEY + (userId == null ? "anon" : userId);
         try {
-            CompletableFuture.allOf(statsFuture, loginsFuture, unreadFuture, ticketStatsFuture, onlineFuture)
-                    .get(RPC_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+            String cached = stringRedisTemplate.opsForValue().get(cacheKey);
+            if (cached != null && !cached.isBlank()) {
+                DashboardStatsVO hit = cn.hutool.json.JSONUtil.toBean(cached, DashboardStatsVO.class);
+                if (hit != null) {
+                    return hit;
+                }
+            }
+        } catch (Exception e) {
+            log.debug("[工作台] 读缓存失败，走实时聚合: {}", e.getMessage());
+        }
+
+        // 主路径：系统聚合（含用户数/访问/配置分组等）
+        CompletableFuture<Map<String, Object>> statsFuture = supplyWithTimeout(
+                () -> callOrDefault(() -> remoteStatsService.getDashboardStats(), Collections.emptyMap(), "系统统计"),
+                Collections.emptyMap());
+
+        // 次要路径：短超时，失败即 0（不拖主统计）
+        CompletableFuture<Integer> onlineFuture = supplyWithTimeout(
+                () -> callOrDefault(() -> remoteOnlineUserService.countOnlineUsers(), 0, "在线用户"), 0);
+        CompletableFuture<TicketDashboardDTO> ticketStatsFuture = supplyWithTimeout(
+                () -> callOrDefault(() -> remoteTicketService.getDashboardStats(userId), new TicketDashboardDTO(), "工单统计"),
+                new TicketDashboardDTO());
+        CompletableFuture<Long> chatUnreadFuture = supplyWithTimeout(
+                () -> userId == null ? 0L : callOrDefault(
+                        () -> remoteMessageService.getChatUnreadCount(userId), 0L, "IM未读"), 0L);
+        CompletableFuture<Long> fileCountFuture = supplyWithTimeout(
+                () -> callOrDefault(() -> remoteFileService.countFiles(), 0L, "文件数量"), 0L);
+        CompletableFuture<Map<String, Object>> jobFuture = supplyWithTimeout(
+                () -> callOrDefault(() -> remoteJobService.overview(), Collections.emptyMap(), "定时任务"),
+                Collections.emptyMap());
+
+        try {
+            CompletableFuture.allOf(statsFuture, onlineFuture, ticketStatsFuture,
+                            chatUnreadFuture, fileCountFuture, jobFuture)
+                    .get(AGGREGATE_WAIT_MS, TimeUnit.MILLISECONDS);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
+        } catch (TimeoutException e) {
+            log.debug("[工作台] 聚合等待超时，已用已完成结果降级");
         } catch (Exception e) {
-            log.warn("[工作台] 聚合子任务超时或异常，已降级", e);
+            log.warn("[工作台] 聚合子任务异常，已降级", e);
         }
 
         DashboardStatsVO vo = new DashboardStatsVO();
-
         Map<String, Object> stats = getNowOrDefault(statsFuture, Collections.emptyMap());
         applySiteFromStats(vo, stats);
         vo.setUserCount(toLong(stats.get("userCount")));
@@ -108,17 +140,28 @@ public class DashboardServiceImpl implements DashboardService {
         vo.setTodayLoginFail(toLong(stats.get("todayLoginFail")));
         vo.setTodayVisits(toLong(stats.get("todayVisits")));
         vo.setYesterdayVisits(toLong(stats.get("yesterdayVisits")));
-        vo.setVisitCount(vo.getTodayVisits() + vo.getYesterdayVisits());
+        vo.setVisitCount(nullToZero(vo.getTodayVisits()) + nullToZero(vo.getYesterdayVisits()));
+        vo.setConfigGroupCount(toLong(stats.get("configGroupCount")));
         vo.setOnlineCount((long) getNowOrDefault(onlineFuture, 0));
+        vo.setChatUnreadCount(getNowOrDefault(chatUnreadFuture, 0L));
+        vo.setFileCount(getNowOrDefault(fileCountFuture, 0L));
 
-        vo.setRecentLogins(convertRecentLogins(getNowOrDefault(loginsFuture, Collections.emptyList())));
-        vo.setChatUnreadCount(getNowOrDefault(unreadFuture, 0L));
+        Map<String, Object> job = getNowOrDefault(jobFuture, Collections.emptyMap());
+        vo.setJobTotalCount(toLong(firstNonNull(job.get("totalJobs"), job.get("jobTotalCount"))));
+        vo.setJobRunningCount(toLong(firstNonNull(job.get("runningJobs"), job.get("jobRunningCount"))));
+        vo.setJobPausedCount(toLong(firstNonNull(job.get("pausedJobs"), job.get("jobPausedCount"))));
 
-        // 工单/审批统计，工单服务不可用时降级为 0
         TicketDashboardDTO ticketStats = getNowOrDefault(ticketStatsFuture, new TicketDashboardDTO());
-        vo.setTicketOpenCount(ticketStats == null ? 0L : ticketStats.getTicketOpenCount());
-        vo.setTicketOverdueCount(ticketStats == null ? 0L : ticketStats.getTicketOverdueCount());
-        vo.setApprovalPendingCount(ticketStats == null ? 0L : ticketStats.getApprovalPendingCount());
+        vo.setTicketOpenCount(ticketStats == null ? 0L : nullToZero(ticketStats.getTicketOpenCount()));
+        vo.setTicketOverdueCount(ticketStats == null ? 0L : nullToZero(ticketStats.getTicketOverdueCount()));
+        vo.setApprovalPendingCount(ticketStats == null ? 0L : nullToZero(ticketStats.getApprovalPendingCount()));
+
+        try {
+            stringRedisTemplate.opsForValue().set(cacheKey,
+                    cn.hutool.json.JSONUtil.toJsonStr(vo), STATS_CACHE_SECONDS, TimeUnit.SECONDS);
+        } catch (Exception e) {
+            log.debug("[工作台] 写缓存失败: {}", e.getMessage());
+        }
         return vo;
     }
 
@@ -137,6 +180,18 @@ public class DashboardServiceImpl implements DashboardService {
         } catch (Exception e) {
             log.warn("[工作台] 访问埋点上报失败", e);
         }
+    }
+
+    private <T> CompletableFuture<T> supplyWithTimeout(Supplier<T> supplier, T defaultValue) {
+        return CompletableFuture.supplyAsync(supplier)
+                .orTimeout(RPC_TIMEOUT_MS, TimeUnit.MILLISECONDS)
+                .exceptionally(ex -> {
+                    if (!(ex.getCause() instanceof TimeoutException)
+                            && !(ex instanceof TimeoutException)) {
+                        log.debug("[工作台] 子任务失败已降级: {}", ex.toString());
+                    }
+                    return defaultValue;
+                });
     }
 
     private void applySiteFromStats(DashboardStatsVO vo, Map<String, Object> stats) {
@@ -170,9 +225,6 @@ public class DashboardServiceImpl implements DashboardService {
         return result;
     }
 
-    /**
-     * 执行远程调用，异常或响应为空时返回默认值
-     */
     private <T> T callOrDefault(Supplier<R<T>> supplier, T defaultValue, String scene) {
         try {
             R<T> response = supplier.get();
@@ -181,14 +233,11 @@ public class DashboardServiceImpl implements DashboardService {
             }
             return response.getData();
         } catch (Exception e) {
-            log.warn("[工作台] {} 数据获取失败，已降级为默认值", scene, e);
+            log.warn("[工作台] {} 数据获取失败，已降级为默认值", scene);
             return defaultValue;
         }
     }
 
-    /**
-     * allOf 等待结束后立即取结果，未完成则返回默认值
-     */
     private <T> T getNowOrDefault(CompletableFuture<T> future, T defaultValue) {
         T value = future.getNow(null);
         return value == null ? defaultValue : value;
@@ -206,5 +255,13 @@ public class DashboardServiceImpl implements DashboardService {
         } catch (NumberFormatException e) {
             return 0L;
         }
+    }
+
+    private Long nullToZero(Long value) {
+        return value == null ? 0L : value;
+    }
+
+    private Object firstNonNull(Object a, Object b) {
+        return a != null ? a : b;
     }
 }

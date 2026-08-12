@@ -90,6 +90,7 @@ public class PromptAssembler {
             sb.append("\n<user_context>\n").append(userCtx).append("\n</user_context>\n");
         } else {
             log.warn("AI 用户上下文为空 userId={}，身份类问题将无法准确回答", userId);
+            sb.append("\n<user_context>\n当前无法确认登录用户的账号/角色/部门，回答身份类问题时必须明确说明「无法获取」，禁止编造角色或部门。\n</user_context>\n");
         }
 
         String referenceBlock = safeRetrieve(latestUserQuery);

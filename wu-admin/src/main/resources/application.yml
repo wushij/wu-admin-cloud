@@ -41,5 +41,6 @@ feign:
   client:
     config:
       default:
-        connect-timeout: 2000
-        read-timeout: 3000
+        connect-timeout: 1000
+        # 工作台等聚合场景靠业务侧 orTimeout；单路不要拖到 3s
+        read-timeout: 1200

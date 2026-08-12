@@ -1,4 +1,11 @@
-import { get, post, put, del } from '@/utils/request'
+import { get, post, put, del, type WuRequestConfig } from '@/utils/request'
+
+/** 布局启动/角标用的读接口：偶发网关 503 自动重试，最终失败也不弹红框打扰 */
+const MESSAGE_BOOTSTRAP_GET: WuRequestConfig = {
+  silent503: true,
+  retry503: 2,
+  timeout: 8000,
+}
 import type { PageQuery, PageResult } from '@/types/api'
 import type { FileRecord } from '@/api/system/file/index'
 import type {
@@ -60,7 +67,7 @@ export interface MessagePageQuery extends PageQuery {
 }
 
 export function getMessageSummary() {
-  return get<MessageSummary>('/message/summary')
+  return get<MessageSummary>('/message/summary', undefined, MESSAGE_BOOTSTRAP_GET)
 }
 
 export function getAnnouncePage(params: MessagePageQuery) {
@@ -160,7 +167,7 @@ export function getChatHistory(targetId: number, params?: MessagePageQuery) {
 }
 
 export function getChatUsers() {
-  return get<ChatUser[]>('/message/chat/users')
+  return get<ChatUser[]>('/message/chat/users', undefined, MESSAGE_BOOTSTRAP_GET)
 }
 
 export function readChat(senderId: number) {
@@ -192,7 +199,7 @@ export function createChatGroup(data: CreateGroupPayload) {
 }
 
 export function getChatGroups() {
-  return get<ChatGroup[]>('/message/chat/group/list')
+  return get<ChatGroup[]>('/message/chat/group/list', undefined, MESSAGE_BOOTSTRAP_GET)
 }
 
 export function sendGroupMessage(groupId: number, data: ChatSendPayload) {

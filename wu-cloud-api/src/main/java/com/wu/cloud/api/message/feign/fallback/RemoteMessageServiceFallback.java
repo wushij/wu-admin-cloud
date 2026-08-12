@@ -22,6 +22,11 @@ public class RemoteMessageServiceFallback implements FallbackFactory<RemoteMessa
             public R<SysAnnounceDTO> getAnnounceById(Long id) {
                 return R.fail("消息服务暂不可用");
             }
+
+            @Override
+            public R<Long> getChatUnreadCount(Long userId) {
+                return R.ok(0L);
+            }
         };
     }
 }

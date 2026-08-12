@@ -12,7 +12,7 @@ import {
 } from '@/plugins/global-error-handler'
 import { resolveApiBaseUrl } from '@/utils/api-base'
 import { generateNonce, getTimestamp, encryptSm4, decryptSm4, signHmacSm3 } from '@/utils/crypto'
-import { getSecurityConfig, getClientId, requestSessionSignKey, clearSignKeys } from '@/utils/security-config'
+import { getSecurityConfig, getClientId, requestSessionSignKey, clearSignKeys, resetSecurityConfig } from '@/utils/security-config'
 
 function isSignKeyExpiredMessage(text?: string): boolean {
   if (!text) return false
@@ -63,6 +63,7 @@ function showForbiddenOnce(message: string) {
 
 function clearSessionAndRedirectLogin() {
   removeToken()
+  resetSecurityConfig()
   uni.reLaunch({ url: '/pages/login/index' })
 }
 
@@ -118,10 +119,12 @@ http.interceptors.request.use(
     }
 
     // 自动植入接口请求 SM4 加密 / SM2 数字签名
+    // 登录/注册等公开接口不对 body 加密（网关对部分公开路径免验签，但历史上曾整段 exclude 导致密文直达 auth → 500）
     const secConfig = getSecurityConfig()
     const isFormData = typeof FormData !== 'undefined' && config.data instanceof FormData
+    const authPublic = isAuthPublicUrl(config.url)
 
-    if (secConfig.sm4EncryptEnabled && secConfig.sm4Key) {
+    if (!authPublic && secConfig.sm4EncryptEnabled && secConfig.sm4Key) {
       config.header['X-Accept-Encrypted'] = '1'
       if (config.data && !isFormData) {
         const plainStr = typeof config.data === 'string' ? config.data : JSON.stringify(config.data)
@@ -130,7 +133,7 @@ http.interceptors.request.use(
       }
     }
 
-    const isSignEnabled = (secConfig.sm3SignEnabled || secConfig.sm2SignEnabled) && secConfig.sm3SignKey
+    const isSignEnabled = !authPublic && (secConfig.sm3SignEnabled || secConfig.sm2SignEnabled) && secConfig.sm3SignKey
     if (isSignEnabled) {
       let bodyStr = ''
       if (config.data && !isFormData) {

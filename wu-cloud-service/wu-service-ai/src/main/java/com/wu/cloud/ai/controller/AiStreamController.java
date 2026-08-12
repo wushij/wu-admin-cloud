@@ -1,13 +1,16 @@
 package com.wu.cloud.ai.controller;
 
+import cn.hutool.core.util.StrUtil;
 import com.wu.cloud.ai.dto.AiChatStreamReqVO;
 import com.wu.cloud.ai.dto.AiModelRespVO;
 import com.wu.cloud.ai.service.AiChatService;
 import com.wu.cloud.ai.service.AiModelService;
 import com.wu.cloud.common.core.context.UserContextHolder;
 import com.wu.cloud.common.core.domain.R;
+import com.wu.cloud.common.exception.BusinessException;
 import jakarta.annotation.Resource;
 import org.springframework.http.MediaType;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -40,6 +43,9 @@ public class AiStreamController {
     @Resource
     private com.wu.cloud.common.config.DynamicConfigHelper dynamicConfigHelper;
 
+    @Resource
+    private JdbcTemplate jdbcTemplate;
+
     /**
      * 启用中的模型列表（供聊天窗口模型选择器使用）
      * 前端调用：GET /api/ai/chat/models（契约 /ai/chat/models，返回启用模型）
@@ -56,7 +62,7 @@ public class AiStreamController {
     public SseEmitter streamChat(@RequestParam("prompt") String prompt,
                                  @RequestParam(value = "conversationId", required = false) String conversationId) {
         if (!dynamicConfigHelper.isAiAssistantEnabled()) {
-            throw new com.wu.cloud.common.exception.BusinessException("AI 助手功能已关闭");
+            throw new BusinessException("AI 助手功能已关闭");
         }
         AiChatStreamReqVO req = new AiChatStreamReqVO();
         req.setConversationId(conversationId);
@@ -64,9 +70,7 @@ public class AiStreamController {
         msg.setRole("user");
         msg.setContent(prompt);
         req.setMessages(List.of(msg));
-        Long userId = UserContextHolder.getUserId();
-        String username = UserContextHolder.getUsername();
-        return aiChatService.stream(req, userId, username);
+        return aiChatService.stream(req, requireUserId(), resolveUsername());
     }
 
     /**
@@ -76,10 +80,39 @@ public class AiStreamController {
     @PostMapping(value = "/chat/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public SseEmitter streamChatPost(@RequestBody AiChatStreamReqVO req) {
         if (!dynamicConfigHelper.isAiAssistantEnabled()) {
-            throw new com.wu.cloud.common.exception.BusinessException("AI 助手功能已关闭");
+            throw new BusinessException("AI 助手功能已关闭");
+        }
+        return aiChatService.stream(req, requireUserId(), resolveUsername());
+    }
+
+    /** 未登录禁止对话，避免 userId=0 时空上下文导致模型编造身份 */
+    private Long requireUserId() {
+        Long userId = UserContextHolder.getUserId();
+        if (userId == null || userId <= 0) {
+            throw new BusinessException(401, "登录已过期，请重新登录后使用 AI wu助手");
+        }
+        return userId;
+    }
+
+    /**
+     * 优先用网关透传的用户名；缺失时按 userId 回查库（对齐单体日志必有 username）。
+     */
+    private String resolveUsername() {
+        String username = UserContextHolder.getUsername();
+        if (StrUtil.isNotBlank(username)) {
+            return username.trim();
         }
         Long userId = UserContextHolder.getUserId();
-        String username = UserContextHolder.getUsername();
-        return aiChatService.stream(req, userId, username);
+        if (userId == null || userId <= 0) {
+            return "";
+        }
+        try {
+            List<String> names = jdbcTemplate.query(
+                    "SELECT username FROM sys_user WHERE id = ? AND deleted = 0 LIMIT 1",
+                    (rs, i) -> rs.getString(1), userId);
+            return names == null || names.isEmpty() ? "" : StrUtil.nullToEmpty(names.get(0));
+        } catch (Exception e) {
+            return "";
+        }
     }
 }

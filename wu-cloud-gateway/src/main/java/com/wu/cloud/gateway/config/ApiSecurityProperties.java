@@ -29,18 +29,13 @@ public class ApiSecurityProperties {
     /** 时间戳有效窗口（秒），同时作为 nonce 的 Redis 过期时间，对齐单体 5 分钟窗口 */
     private long timestampWindowSeconds = 300L;
 
-    /** 免校验路径前缀（登录、验证码、回调、静态资源、WebSocket、文档、文件下载等） */
+    /** 免校验路径前缀（静态资源/回调/文档等；登录类公开接口走 publicAuthUris，仍可 SM4 解密） */
     private List<String> excludePaths = new ArrayList<>(Arrays.asList(
             "/api/auth/session-sign-init",
-            "/api/auth/login",
-            "/api/auth/register",
             "/api/auth/config",
             "/api/auth/captcha",
-            "/api/auth/sms-code",
             "/api/auth/slider-challenge",
             "/api/auth/slider-verify",
-            "/api/auth/forgot-password",
-            "/api/auth/refresh-token",
             "/api/pay/notify",
             "/api/file/",
             "/api/files/",
@@ -59,7 +54,7 @@ public class ApiSecurityProperties {
             "/favicon.ico"
     ));
 
-    /** 公开免验签接口（与单体 PUBLIC_AUTH_URIS 对齐），即使不带 clientId 也放行 */
+    /** 公开免验签接口（与单体 PUBLIC_AUTH_URIS 对齐）：免强制签名，但仍会解密 X-Encrypted 请求体 */
     private List<String> publicAuthUris = new ArrayList<>(Arrays.asList(
             "/api/auth/session-sign-init",
             "/api/auth/login",
@@ -67,7 +62,9 @@ public class ApiSecurityProperties {
             "/api/auth/config",
             "/api/auth/captcha",
             "/api/auth/sms-code",
-            "/api/auth/slider-challenge"
+            "/api/auth/slider-challenge",
+            "/api/auth/forgot-password",
+            "/api/auth/refresh-token"
     ));
 
     /** 流式响应接口后缀（与单体 STREAMING_URI_SUFFIXES 对齐）：保留验签但响应不整体加密 */

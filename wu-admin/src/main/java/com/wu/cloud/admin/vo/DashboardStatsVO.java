@@ -32,6 +32,15 @@ public class DashboardStatsVO implements Serializable {
     private Long approvalPendingCount;
     private Long chatUnreadCount;
 
+    /** 文件数量（对齐单体 fileCount） */
+    private Long fileCount;
+    /** 定时任务总数 */
+    private Long jobTotalCount;
+    private Long jobRunningCount;
+    private Long jobPausedCount;
+    /** 系统配置分组数 */
+    private Long configGroupCount;
+
     private List<RecentLoginVO> recentLogins;
 
     @Data

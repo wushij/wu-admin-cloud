@@ -8,9 +8,10 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 
 /**
- * 远程日志服务 OpenFeign 接口契约
+ * 远程操作日志服务 OpenFeign 契约。
+ * <p>写入 system 的 {@code sys_oper_log}，与管理端「操作日志」查询同源（对齐单体）。</p>
  */
-@FeignClient(contextId = "remoteLogService", value = "wu-service-infra", path = "/inner/log", fallbackFactory = RemoteLogServiceFallback.class)
+@FeignClient(contextId = "remoteLogService", value = "wu-service-system", path = "/inner/log", fallbackFactory = RemoteLogServiceFallback.class)
 public interface RemoteLogService {
 
     @PostMapping("/saveOperLog")

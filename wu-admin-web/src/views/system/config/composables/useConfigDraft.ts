@@ -317,14 +317,20 @@ export function useConfigDraft() {
     saving.value = true
     const devtoolChanged = draft.security.disableDevtool !== savedSnapshot.security.disableDevtool
     try {
-      await Promise.all(GROUP_CODES.map(code =>
-        updateConfigGroup(code, JSON.stringify(normalizePayload(code, cloneConfig(draft[code])))),
-      ))
-      for (const code of GROUP_CODES) {
-        const saved = cloneConfig(normalizePayload(code, cloneConfig(draft[code])))
-        setConfigGroup(savedSnapshot, code, saved)
-        setConfigGroup(draft, code, cloneConfig(saved))
-      }
+      // 只提交实际变更的分组，避免无改动分组刷操作日志（后端也会 skip，双保险）
+      const dirtyCodes = GROUP_CODES.filter((code) => {
+        const normalizedDraft = normalizePayload(code, cloneConfig(draft[code]))
+        const normalizedSaved = normalizePayload(code, cloneConfig(savedSnapshot[code]))
+        return JSON.stringify(normalizedDraft) !== JSON.stringify(normalizedSaved)
+      })
+      await Promise.all(dirtyCodes.map((code) => {
+        const payload = normalizePayload(code, cloneConfig(draft[code]))
+        return updateConfigGroup(code, JSON.stringify(payload)).then(() => {
+          const saved = cloneConfig(payload)
+          setConfigGroup(savedSnapshot, code, saved)
+          setConfigGroup(draft, code, cloneConfig(saved))
+        })
+      }))
       checkDirty()
       siteStore.setDisableDevtool(draft.security.disableDevtool)
       await siteStore.loadConfig()

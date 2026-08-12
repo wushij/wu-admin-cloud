@@ -21,6 +21,10 @@ public interface RemoteFileService {
     @GetMapping("/{id}")
     R<SysFileDTO> getFileById(@PathVariable("id") Long id);
 
+    /** 工作台文件数量（对齐单体 countForGroupSidebar） */
+    @GetMapping("/count")
+    R<Long> countFiles();
+
     @PostMapping(value = "/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     R<SysFileDTO> uploadFile(@RequestPart("file") MultipartFile file,
                             @RequestParam(value = "type", required = false) String type);

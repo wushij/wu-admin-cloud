@@ -15,4 +15,8 @@ public interface RemoteMessageService {
 
     @GetMapping("/announce/{id}")
     R<SysAnnounceDTO> getAnnounceById(@PathVariable("id") Long id);
+
+    /** 工作台企业 IM 未读数 */
+    @GetMapping("/chat/unread-count/{userId}")
+    R<Long> getChatUnreadCount(@PathVariable("userId") Long userId);
 }

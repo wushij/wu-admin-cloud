@@ -3,9 +3,12 @@
     "target": "ES2020",
     "useDefineForClassFields": true,
     "module": "ESNext",
-    "lib": ["ES2020", "DOM", "DOM.Iterable"],
+    "lib": [
+      "ES2020",
+      "DOM",
+      "DOM.Iterable"
+    ],
     "skipLibCheck": true,
-
     /* Bundler mode */
     "moduleResolution": "bundler",
     "allowImportingTsExtensions": true,
@@ -13,21 +16,23 @@
     "isolatedModules": true,
     "noEmit": true,
     "jsx": "preserve",
-
     /* Linting */
     "strict": true,
     "noImplicitAny": true,
     "noUnusedLocals": true,
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true,
-
     /* Path Alias（TS 6+ 不再使用 baseUrl，前缀写在 paths 中） */
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": [
+        "./src/*"
+      ]
     },
-
     /* Types */
-    "types": ["vite/client", "element-plus/global"]
+    "types": [
+      "vite/client",
+      "element-plus/global"
+    ]
   },
   "include": [
     "src/**/*.ts",
@@ -37,5 +42,9 @@
     "tests/**/*.ts",
     "env.d.ts"
   ],
-  "references": [{ "path": "./tsconfig.node.json" }]
+  "references": [
+    {
+      "path": "./tsconfig.node.json"
+    }
+  ]
 }

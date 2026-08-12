@@ -6,7 +6,7 @@ import { getToken, setToken, removeToken } from '@/utils/auth'
 import { useMessageStore } from '@/store/message'
 import { logger } from '@/utils/logger'
 import { resetMonitorBackground } from '@/composables/useMonitorBackground'
-import { setSecurityConfig, getClientId, requestSessionSignKey } from '@/utils/security-config'
+import { setSecurityConfig, getClientId, requestSessionSignKey, resetSecurityConfig } from '@/utils/security-config'
 import http from '@/utils/request'
 
 export type UserInfo = Partial<
@@ -94,6 +94,8 @@ export const useUserStore = defineStore('user', () => {
     menus.value = []
     token.value = ''
     removeToken()
+    // 必须清空会话 SM4/SM3 密钥，否则下次登录仍按密文发包，而网关曾整段跳过 login 解密 → 500
+    resetSecurityConfig()
   }
 
   const logoutAction = async () => {

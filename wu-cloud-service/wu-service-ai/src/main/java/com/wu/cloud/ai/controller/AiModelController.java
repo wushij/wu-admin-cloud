@@ -5,6 +5,7 @@ import com.wu.cloud.ai.dto.AiModelRespVO;
 import com.wu.cloud.ai.dto.AiModelSaveReqVO;
 import com.wu.cloud.ai.dto.AiModelTestReqVO;
 import com.wu.cloud.ai.service.AiModelService;
+import com.wu.cloud.api.log.Log;
 import com.wu.cloud.common.core.domain.PageResult;
 import com.wu.cloud.common.core.domain.R;
 import jakarta.annotation.Resource;
@@ -39,24 +40,28 @@ public class AiModelController {
         return R.ok(aiModelService.detail(id));
     }
 
+    @Log(title = "AI模型配置", businessType = Log.BusinessType.INSERT)
     @PostMapping
     public R<Boolean> create(@RequestBody AiModelSaveReqVO reqVO) {
         aiModelService.create(reqVO);
         return R.ok(true, "保存模型配置成功");
     }
 
+    @Log(title = "AI模型配置", businessType = Log.BusinessType.UPDATE)
     @PutMapping
     public R<Boolean> update(@RequestBody AiModelSaveReqVO reqVO) {
         aiModelService.update(reqVO);
         return R.ok(true, "修改模型配置成功");
     }
 
+    @Log(title = "AI模型配置", businessType = Log.BusinessType.DELETE)
     @DeleteMapping("/{id}")
     public R<Boolean> delete(@PathVariable("id") Long id) {
         aiModelService.delete(id);
         return R.ok(true, "删除模型配置成功");
     }
 
+    @Log(title = "AI模型配置", businessType = Log.BusinessType.UPDATE)
     @PutMapping("/{id}/default")
     public R<Boolean> setDefault(@PathVariable("id") Long id) {
         aiModelService.setDefault(id);

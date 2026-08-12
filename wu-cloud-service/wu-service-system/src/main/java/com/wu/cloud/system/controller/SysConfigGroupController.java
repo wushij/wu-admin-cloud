@@ -60,7 +60,7 @@ public class SysConfigGroupController {
      * 请求体仅含 configValue，由 service 按 groupCode 回填主键后更新（见 updateConfigGroup）。
      */
     @RequiresPermissions("system:config:edit")
-    @Log(title = "系统配置分组", businessType = Log.BusinessType.UPDATE)
+    @Log(title = "系统配置", businessType = Log.BusinessType.UPDATE)
     @PutMapping("/{groupCode}")
     public R<Boolean> updateConfigGroupByPath(@PathVariable("groupCode") String groupCode,
                                               @RequestBody Map<String, Object> body) {
@@ -73,7 +73,7 @@ public class SysConfigGroupController {
     }
 
     @RequiresPermissions("system:config:add")
-    @Log(title = "系统配置分组", businessType = Log.BusinessType.INSERT)
+    @Log(title = "系统配置", businessType = Log.BusinessType.INSERT)
     @PostMapping("/create")
     public R<Boolean> createConfigGroup(@RequestBody SysConfigGroupDO groupDO) {
         sysConfigGroupService.createConfigGroup(groupDO);
@@ -81,7 +81,7 @@ public class SysConfigGroupController {
     }
 
     @RequiresPermissions("system:config:edit")
-    @Log(title = "系统配置分组", businessType = Log.BusinessType.UPDATE)
+    @Log(title = "系统配置", businessType = Log.BusinessType.UPDATE)
     @PostMapping("/update")
     public R<Boolean> updateConfigGroup(@RequestBody SysConfigGroupDO groupDO) {
         sysConfigGroupService.updateConfigGroup(groupDO);
@@ -89,7 +89,7 @@ public class SysConfigGroupController {
     }
 
     @RequiresPermissions("system:config:remove")
-    @Log(title = "系统配置分组", businessType = Log.BusinessType.DELETE)
+    @Log(title = "系统配置", businessType = Log.BusinessType.DELETE)
     @DeleteMapping("/delete")
     public R<Boolean> deleteConfigGroup(@RequestParam("id") Long id) {
         sysConfigGroupService.deleteConfigGroup(id);

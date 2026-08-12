@@ -1,5 +1,6 @@
 package com.wu.cloud.ticket.controller;
 
+import com.wu.cloud.api.log.Log;
 import com.wu.cloud.common.core.PageParam;
 import com.wu.cloud.common.core.PageResult;
 import com.wu.cloud.common.core.domain.R;
@@ -50,17 +51,20 @@ public class TicketController {
         return R.ok(ticketService.getDetail(id));
     }
 
+    @Log(title = "工单管理", businessType = Log.BusinessType.INSERT)
     @PostMapping("/create")
     public R<Long> create(@RequestBody TicketDO ticket) {
         return R.ok(ticketService.create(ticket));
     }
 
+    @Log(title = "工单管理", businessType = Log.BusinessType.UPDATE)
     @PutMapping("/update")
     public R<Boolean> update(@RequestBody TicketDO ticket) {
         ticketService.update(ticket);
         return R.ok(true);
     }
 
+    @Log(title = "工单管理", businessType = Log.BusinessType.UPDATE)
     @PostMapping("/update")
     public R<Boolean> updateByPost(@RequestBody TicketDO ticket) {
         ticketService.update(ticket);
@@ -68,6 +72,7 @@ public class TicketController {
     }
 
     /** 对齐前端 put('/system/ticket/transition', { id, status }) */
+    @Log(title = "工单管理", businessType = Log.BusinessType.UPDATE)
     @PutMapping("/transition")
     public R<Boolean> transition(@RequestBody TicketTransitionReqVO req) {
         if (req == null || req.getId() == null) {
@@ -77,54 +82,63 @@ public class TicketController {
         return R.ok(true);
     }
 
+    @Log(title = "工单管理", businessType = Log.BusinessType.UPDATE)
     @PostMapping("/status")
     public R<Boolean> changeStatus(@RequestParam Long id, @RequestParam String status) {
         ticketService.changeStatus(id, status);
         return R.ok(true);
     }
 
+    @Log(title = "工单管理", businessType = Log.BusinessType.UPDATE)
     @PostMapping("/assign")
     public R<Boolean> assign(@RequestParam Long id, @RequestParam Long assigneeUserId) {
         ticketService.assign(id, assigneeUserId);
         return R.ok(true);
     }
 
+    @Log(title = "工单管理", businessType = Log.BusinessType.DELETE)
     @DeleteMapping("/delete")
     public R<Boolean> delete(@RequestParam Long id) {
         ticketService.delete(id);
         return R.ok(true);
     }
 
+    @Log(title = "工单管理", businessType = Log.BusinessType.DELETE)
     @PostMapping("/delete")
     public R<Boolean> deleteByPost(@RequestParam Long id) {
         ticketService.delete(id);
         return R.ok(true);
     }
 
+    @Log(title = "工单管理", businessType = Log.BusinessType.DELETE)
     @PostMapping("/delete-batch")
     public R<Boolean> deleteBatch(@RequestParam Long[] ids) {
         ticketService.deleteBatch(ids);
         return R.ok(true);
     }
 
+    @Log(title = "工单管理", businessType = Log.BusinessType.UPDATE)
     @PutMapping("/restore")
     public R<Boolean> restore(@RequestParam Long id) {
         ticketService.restore(id);
         return R.ok(true);
     }
 
+    @Log(title = "工单管理", businessType = Log.BusinessType.UPDATE)
     @PostMapping("/restore")
     public R<Boolean> restoreByPost(@RequestParam Long id) {
         ticketService.restore(id);
         return R.ok(true);
     }
 
+    @Log(title = "工单管理", businessType = Log.BusinessType.DELETE)
     @DeleteMapping("/delete-permanent")
     public R<Boolean> deletePermanent(@RequestParam Long id) {
         ticketService.deletePermanent(id);
         return R.ok(true);
     }
 
+    @Log(title = "工单管理", businessType = Log.BusinessType.DELETE)
     @PostMapping("/delete-permanent")
     public R<Boolean> deletePermanentByPost(@RequestParam Long id) {
         ticketService.deletePermanent(id);
@@ -136,6 +150,7 @@ public class TicketController {
         return R.ok(ticketService.recyclePage(pageParam, title, status, priority));
     }
 
+    @Log(title = "工单管理", businessType = Log.BusinessType.INSERT)
     @PostMapping("/comment/create")
     public R<Long> createComment(@RequestBody TicketCommentCreateReqVO req) {
         if (req == null || req.getTicketId() == null) {
@@ -144,6 +159,7 @@ public class TicketController {
         return R.ok(ticketService.addComment(req.getTicketId(), req.getContent()));
     }
 
+    @Log(title = "工单管理", businessType = Log.BusinessType.INSERT)
     @PostMapping("/comment")
     public R<Long> addComment(@RequestParam Long ticketId, @RequestParam String content) {
         return R.ok(ticketService.addComment(ticketId, content));
@@ -188,3 +204,4 @@ public class TicketController {
                 .body(bytes);
     }
 }
+

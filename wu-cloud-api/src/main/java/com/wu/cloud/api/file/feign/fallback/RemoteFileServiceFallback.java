@@ -25,6 +25,11 @@ public class RemoteFileServiceFallback implements FallbackFactory<RemoteFileServ
             }
 
             @Override
+            public R<Long> countFiles() {
+                return R.ok(0L);
+            }
+
+            @Override
             public R<SysFileDTO> uploadFile(MultipartFile file, String type) {
                 return R.fail("文件服务暂不可用，上传失败");
             }

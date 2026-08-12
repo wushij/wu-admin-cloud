@@ -1,21 +1,29 @@
 package com.wu.cloud.ai.entity;
 
+import com.baomidou.mybatisplus.annotation.IdType;
+import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
+import com.fasterxml.jackson.databind.annotation.JsonSerialize;
+import com.fasterxml.jackson.databind.ser.std.ToStringSerializer;
 import com.wu.cloud.common.core.domain.BaseEntity;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 
 /**
- * AI 对话日志 DO（与单体对齐：主键沿用 BaseEntity 的 IdType.AUTO 自增）
+ * AI 对话日志 DO（主键必须 AUTO，与单体 sys_ai_chat_log 自增一致）
  * <p>
- * 不要再声明 {@code @TableId private Long id}，否则会覆盖父类 AUTO，
- * 默认变成雪花 ID；前端 JS 精度丢失后删除会提示「对话日志不存在」。
+ * 显式声明 {@code @TableId(AUTO)}，避免继承场景下落到雪花 ID；
+ * Long 序列化为字符串，防止前端 JS 精度丢失导致删除「对话日志不存在」。
  * </p>
  */
 @Data
 @EqualsAndHashCode(callSuper = true)
 @TableName("sys_ai_chat_log")
 public class AiChatLogDO extends BaseEntity {
+
+    @TableId(value = "id", type = IdType.AUTO)
+    @JsonSerialize(using = ToStringSerializer.class)
+    private Long id;
 
     private Long userId;
     private String username;

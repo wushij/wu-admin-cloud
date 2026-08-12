@@ -7,6 +7,7 @@ import com.wu.cloud.common.core.context.UserContextHolder;
 import com.wu.cloud.common.utils.web.ClientIpUtils;
 import jakarta.annotation.PreDestroy;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import org.aspectj.lang.JoinPoint;
 import org.aspectj.lang.annotation.AfterReturning;
 import org.aspectj.lang.annotation.AfterThrowing;
@@ -20,36 +21,26 @@ import org.springframework.core.annotation.AnnotationUtils;
 import org.springframework.stereotype.Component;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.lang.reflect.Method;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 
 /**
- * 操作日志切面。
+ * 操作日志切面（对齐单体：支持 {@link OperLogContext} 跳过/自定义标题/摘要/变更明细）。
  *
- * <p>拦截所有标注 {@link Log} 的方法，采集请求/响应/异常信息后写入 infra 操作日志。</p>
+ * <p>拦截所有标注 {@link Log} 的方法，采集请求/响应/异常信息后写入 system {@code sys_oper_log}。</p>
  *
- * <p><b>P1-3 修复</b>：原实现虽然注释写着「异步写入」，但实际是在业务线程里
- * <b>同步</b>调用 {@code remote.saveOperLog(dto)}。这带来两个问题：</p>
- * <ol>
- *   <li>每个带 @Log 的请求都要多等一次跨服务 RPC，直接抬高接口 RT；</li>
- *   <li>infra 服务抖动/变慢时会反压所有业务服务的工作线程，可能引发级联故障
- *       （日志是旁路能力，绝不应拖垮主链路）。</li>
- * </ol>
- *
- * <p>现改为投递到<b>有界队列 + 独立线程池</b>异步上报：</p>
- * <ul>
- *   <li>有界队列（4096）避免 infra 长时间不可用时内存无限增长；</li>
- *   <li>拒绝策略为 DiscardOldest 并计数告警——日志可丢，业务不可挂；</li>
- *   <li>上报线程为守护线程，关闭时优雅等待少量时间冲刷剩余日志。</li>
- * </ul>
- *
- * <p>注意：DTO 在业务线程内组装完毕后才入队，因为 {@link UserContextHolder}
- * 与 {@link RequestContextHolder} 都是 ThreadLocal，异步线程中取不到。</p>
+ * <p>异步上报：有界队列 + 独立线程池，避免 system 抖动反压业务线程。</p>
  */
 @Aspect
 @Component
@@ -86,7 +77,7 @@ public class LogAspect {
                 (r, executor) -> {
                     long n = discarded.incrementAndGet();
                     if (n % 100 == 1) {
-                        log.warn("[OperLog] 上报队列已满，已累计丢弃 {} 条操作日志（infra 可能不可用）", n);
+                        log.warn("[OperLog] 上报队列已满，已累计丢弃 {} 条操作日志（system 可能不可用）", n);
                     }
                 });
     }
@@ -94,6 +85,7 @@ public class LogAspect {
     @Before("@annotation(com.wu.cloud.api.log.Log)")
     public void doBefore() {
         START_TIME.set(System.currentTimeMillis());
+        OperLogContext.clear();
     }
 
     @AfterReturning(pointcut = "@annotation(com.wu.cloud.api.log.Log)", returning = "result")
@@ -108,6 +100,9 @@ public class LogAspect {
 
     private void handleLog(JoinPoint joinPoint, Object result, Exception e) {
         try {
+            if (OperLogContext.isSkipLog()) {
+                return;
+            }
             Method method = resolveMethod(joinPoint);
             Log annotation = AnnotationUtils.findAnnotation(method, Log.class);
             if (annotation == null) {
@@ -116,15 +111,23 @@ public class LogAspect {
             Long start = START_TIME.get();
             long cost = start != null ? System.currentTimeMillis() - start : 0L;
 
+            String customTitle = OperLogContext.getTitle();
+            String customAction = OperLogContext.getAction();
+            List<String> diffItems = OperLogContext.getDiffItems();
+
             OperLogDTO dto = new OperLogDTO();
-            dto.setTitle(annotation.title().isEmpty() ? annotation.value() : annotation.title());
+            String title = annotation.title().isEmpty() ? annotation.value() : annotation.title();
+            if (customTitle != null && !customTitle.isBlank()) {
+                title = customTitle;
+            }
+            dto.setTitle(title);
             dto.setBusinessType(annotation.businessType().getType());
             dto.setOperatorType(annotation.operatorType().getType());
             dto.setMethod(joinPoint.getSignature().getDeclaringType().getName() + "." + method.getName());
             dto.setCostTime(cost);
             dto.setOperTime(LocalDateTime.now());
             dto.setStatus(e == null ? 0 : 1);
-            dto.setErrorMsg(e != null ? e.getMessage() : null);
+            dto.setErrorMsg(e != null ? truncate(e.getMessage(), MAX_RESULT_LEN) : null);
 
             // ThreadLocal 上下文必须在业务线程内取出
             ServletRequestAttributes attributes = (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
@@ -134,17 +137,14 @@ public class LogAspect {
                 dto.setOperUrl(request.getRequestURI());
                 dto.setOperIp(ClientIpUtils.resolve(request));
                 if (annotation.isSaveRequestData()) {
-                    dto.setOperParam(buildParamJson(joinPoint));
+                    dto.setOperParam(buildParamJson(joinPoint, customAction, diffItems));
                 }
             }
             dto.setOperName(UserContextHolder.getUsername());
 
             if (annotation.isSaveResponseData() && result != null) {
                 String json = JSONUtil.toJsonStr(result);
-                if (json != null && json.length() > MAX_RESULT_LEN) {
-                    json = json.substring(0, MAX_RESULT_LEN);
-                }
-                dto.setJsonResult(json);
+                dto.setJsonResult(truncate(json, MAX_RESULT_LEN));
             }
 
             submit(dto);
@@ -152,6 +152,7 @@ public class LogAspect {
             // 切面异常不能影响业务
         } finally {
             START_TIME.remove();
+            OperLogContext.clear();
         }
     }
 
@@ -185,16 +186,82 @@ public class LogAspect {
         }
     }
 
-    private String buildParamJson(JoinPoint joinPoint) {
+    private String buildParamJson(JoinPoint joinPoint, String customAction, List<String> diffItems) {
         try {
             Object[] args = joinPoint.getArgs();
-            if (args == null || args.length == 0) {
+            List<Object> validArgs = new ArrayList<>();
+            if (args != null) {
+                for (Object arg : args) {
+                    if (arg != null && !isFilterObject(arg)) {
+                        validArgs.add(arg);
+                    }
+                }
+            }
+
+            Map<String, Object> reqData = new LinkedHashMap<>();
+            if (customAction != null && !customAction.isBlank()) {
+                reqData.put("action", customAction);
+            }
+            if (diffItems != null && !diffItems.isEmpty()) {
+                reqData.put("diffItems", diffItems);
+            }
+
+            if (!reqData.isEmpty()) {
+                if (validArgs.size() == 1) {
+                    reqData.put("params", validArgs.get(0));
+                } else if (!validArgs.isEmpty()) {
+                    reqData.put("params", validArgs);
+                }
+                return truncate(maskSensitive(JSONUtil.toJsonStr(reqData)), MAX_RESULT_LEN);
+            }
+
+            if (validArgs.isEmpty()) {
                 return null;
             }
-            return JSONUtil.toJsonStr(args);
+            return truncate(maskSensitive(JSONUtil.toJsonStr(validArgs.size() == 1 ? validArgs.get(0) : validArgs)),
+                    MAX_RESULT_LEN);
         } catch (Exception e) {
             return null;
         }
+    }
+
+    private String maskSensitive(String json) {
+        if (json == null) {
+            return null;
+        }
+        return json.replaceAll("(\"password\"\\s*:\\s*)\"[^\"]*\"", "$1\"******\"");
+    }
+
+    private boolean isFilterObject(Object obj) {
+        if (obj instanceof MultipartFile || obj instanceof HttpServletRequest || obj instanceof HttpServletResponse) {
+            return true;
+        }
+        Class<?> clazz = obj.getClass();
+        if (clazz.isArray()) {
+            return MultipartFile.class.isAssignableFrom(clazz.getComponentType());
+        }
+        if (Collection.class.isAssignableFrom(clazz)) {
+            for (Object item : (Collection<?>) obj) {
+                if (item instanceof MultipartFile) {
+                    return true;
+                }
+            }
+        }
+        if (Map.class.isAssignableFrom(clazz)) {
+            for (Object value : ((Map<?, ?>) obj).values()) {
+                if (value instanceof MultipartFile) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    private static String truncate(String value, int max) {
+        if (value == null) {
+            return null;
+        }
+        return value.length() > max ? value.substring(0, max) : value;
     }
 
     private Method resolveMethod(JoinPoint joinPoint) throws NoSuchMethodException {
