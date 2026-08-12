@@ -222,7 +222,6 @@ wu-admin-cloud/                       # 工程根目录
 ├── pom.xml                          # 父 POM
 ├── .vscode/launch.json              # 本地一键启动配置
 ├── .github/workflows/ci.yml         # CI 门禁
-├── docs/                            # 设计文档
 ├── wu-cloud-common/                 # 公共底层基础库
 ├── wu-cloud-api/                    # 跨服务 Feign 契约与共享 DTO
 ├── wu-cloud-infra/                  # 基础能力 Starter
@@ -330,7 +329,7 @@ mvn install -pl wu-cloud-common,wu-cloud-api -DskipTests
 
 ## 🧪 测试与 CI
 
-设计说明见 [`docs/05-微服务测试与CI设计.md`](docs/05-微服务测试与CI设计.md)（对齐单体 Mockito 单测 + GitHub Actions）。
+设计采用 Mockito 单测 + GitHub Actions CI 门禁。
 
 ```powershell
 # 后端单测（无需 MySQL/Redis/Nacos）
