@@ -17,10 +17,10 @@ export interface OnlineUser {
 }
 
 export const getOnlineUserList = () => {
-  return get<OnlineUser[]>('/system/monitor/online/list')
+  return get<OnlineUser[]>('/infra/online/list')
 }
 
 /** 强退：清除 Sa-Token 会话与在线记录 */
 export const forceLogoutOnlineUser = (userId: number) => {
-  return del(`/system/monitor/online/${userId}`)
+  return del(`/infra/online/${userId}`)
 }

@@ -6,7 +6,7 @@ import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.wu.cloud.api.pay.dto.PayRefundDTO;
 import com.wu.cloud.api.pay.feign.RemotePayService;
 import com.wu.cloud.common.core.PageParam;
-import com.wu.cloud.common.core.PageResult;
+import com.wu.cloud.common.core.domain.PageResult;
 import com.wu.cloud.common.core.context.UserContextHolder;
 import com.wu.cloud.common.core.domain.R;
 import com.wu.cloud.common.exception.BusinessException;

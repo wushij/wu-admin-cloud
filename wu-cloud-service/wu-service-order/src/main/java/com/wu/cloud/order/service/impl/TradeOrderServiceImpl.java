@@ -4,7 +4,7 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.wu.cloud.common.core.PageParam;
-import com.wu.cloud.common.core.PageResult;
+import com.wu.cloud.common.core.domain.PageResult;
 import com.wu.cloud.common.core.context.UserContextHolder;
 import com.wu.cloud.common.exception.BusinessException;
 import com.wu.cloud.order.entity.OrderItemDO;

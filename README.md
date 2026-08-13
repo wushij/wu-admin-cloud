@@ -148,7 +148,19 @@
 
 ### 1. 🗄️ 初始化数据库
 
-库名统一 **`wu-admin`**。本地单机建议一次导入全部脚本，或直接用全量基线。
+库名统一 **`wu-admin`**。推荐用脚本一键导入（共享库模式）：
+
+```powershell
+# Windows（默认账号 root/root，可用参数覆盖）
+.\scripts\init-databases.ps1
+.\scripts\init-databases.ps1 -UseBaseline
+
+# Linux/macOS
+./scripts/init-databases.sh
+./scripts/init-databases.sh --baseline
+```
+
+也可手动导入：
 
 ```bash
 # 方式 A：按服务拆分脚本
@@ -249,9 +261,22 @@ wu-admin-cloud/                       # 工程根目录
 
 ## ⚙️ 配置说明
 
-### 📡 Nacos / 注册
+### 📋 配置清单（P2）
 
-各服务 `application.yml` 中统一：
+| 配置项 | 存放位置 | 说明 |
+|--------|----------|------|
+| 端口、`spring.application.name`、Nacos 地址 | 各服务本地 `application.yml` | L0，可提交 |
+| Redis、Sa-Token 公共段 | Nacos `wu-cloud-common.yaml`（Group=`WU_CLOUD`）+ 本地兜底 | L1；样例见 `docs/nacos/` |
+| 服务私有开关 / 文件路径等 | Nacos `{app}.yaml`（可选）+ 本地 | L2 |
+| site / login / security / ai | DB `sys_config_group` | L3，动态业务 |
+| JDBC 密码、支付/AI 密钥 | 环境变量或加密配置；**勿明文进 Git/Nacos 公共库** | — |
+| Gateway 路由表 | 本地 `wu-cloud-gateway/.../application.yml` | 暂不外置，防误改 |
+
+发布公共配置：`.\scripts\nacos-publish-common.ps1`（Nacos **3.x** 控制台默认 `:8849`，脚本会登录后写入；客户端仍连 `:8848` 经 gRPC 拉配置）或见 `docs/nacos/README.md`。
+
+### 📡 Nacos / 注册与配置中心
+
+各服务统一：
 
 ```yaml
 spring.cloud.nacos.discovery:
@@ -259,15 +284,21 @@ spring.cloud.nacos.discovery:
   namespace: dev
   group: WU_CLOUD
   ip: 127.0.0.1   # 本地避免注册到错误网卡 / 代理假 IP
+
+spring.config.import:
+  - optional:nacos:wu-cloud-common.yaml?group=WU_CLOUD&refreshEnabled=true
+  - optional:nacos:${spring.application.name}.yaml?group=WU_CLOUD&refreshEnabled=true
 ```
+
+`optional:`：未发布 DataId 或 Config 短暂不可用时仍可启动（依赖本地 YAML 兜底）。`import-check.enabled: false` 避免强依赖私有 DataId。
 
 ### 🔴 Redis（必须一致）
 
-gateway、auth、BFF、业务服务均指向同一 Redis `127.0.0.1:6379`、`database: 0`，否则登录态无法跨服务识别。
+gateway、auth、BFF、业务服务均指向同一 Redis `127.0.0.1:6379`、`database: 0`，否则登录态无法跨服务识别。优先以 Nacos 公共配置为准，本地 YAML 为降级。
 
 ### 🔑 Sa-Token
 
-各服务 `sa-token` 配置需一致（`token-name: Authorization`、timeout、share 等）。网关 `is-read-header: true`，从 Header 读 Token。
+各服务 `sa-token` 配置需一致（`token-name: Authorization`、timeout、share 等）。网关 `is-read-header: true`，从 Header 读 Token（网关特有项仍在本地）。
 
 ### 🎛️ 动态配置
 
@@ -286,7 +317,7 @@ gateway、auth、BFF、业务服务均指向同一 Redis `127.0.0.1:6379`、`dat
 
 ### 📁 文件本地路径
 
-file 服务可用环境变量 `FILE_LOCAL_BASE_DIR` 指定上传根目录（launch.json 中 09 已示例指向单体 uploads 目录以便联调）。
+file 服务上传根目录默认本模块 `data/file-upload`；可用环境变量 `FILE_LOCAL_BASE_DIR` 覆盖（`.vscode/launch.json` 与 `scripts/start-services.ps1` 均指向该目录）。
 
 ---
 

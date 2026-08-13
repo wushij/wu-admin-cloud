@@ -1,7 +1,7 @@
 package com.wu.cloud.ticket.controller;
 
 import com.wu.cloud.common.core.PageParam;
-import com.wu.cloud.common.core.PageResult;
+import com.wu.cloud.common.core.domain.PageResult;
 import com.wu.cloud.common.core.domain.R;
 import com.wu.cloud.ticket.dto.ApprovalApproveReqVO;
 import com.wu.cloud.ticket.dto.ApprovalArchiveReqVO;
@@ -18,7 +18,7 @@ import java.util.Map;
  * 审批单接口（路径/方法对齐单体 + wu-admin-web 契约）
  */
 @RestController
-@RequestMapping("/api/system/approval")
+@RequestMapping("/api/approval")
 public class ApprovalFormController {
 
     @Resource
@@ -50,7 +50,7 @@ public class ApprovalFormController {
         return R.ok(true);
     }
 
-    /** 对齐前端 put('/system/approval/approve', { id, action, remark }) */
+    /** 对齐前端 put('/approval/approve', { id, action, remark }) */
     @PutMapping("/approve")
     public R<Boolean> approve(@RequestBody ApprovalApproveReqVO req) {
         if (req == null || req.getId() == null) {
@@ -76,7 +76,7 @@ public class ApprovalFormController {
         return R.ok(true);
     }
 
-    /** 对齐前端 put('/system/approval/archive', { id, remark }) */
+    /** 对齐前端 put('/approval/archive', { id, remark }) */
     @PutMapping("/archive")
     public R<Boolean> archive(@RequestBody ApprovalArchiveReqVO req) {
         if (req == null || req.getId() == null) {
@@ -92,7 +92,7 @@ public class ApprovalFormController {
         return R.ok(true);
     }
 
-    /** 对齐前端 del('/system/approval/delete', { params: { id } }) */
+    /** 对齐前端 del('/approval/delete', { params: { id } }) */
     @DeleteMapping("/delete")
     public R<Boolean> delete(@RequestParam Long id) {
         approvalFormService.delete(id);

@@ -4,6 +4,10 @@ server:
 spring:
   application:
     name: wu-cloud-auth
+  config:
+    import:
+      - optional:nacos:wu-cloud-common.yaml?group=WU_CLOUD&refreshEnabled=true
+      - optional:nacos:${spring.application.name}.yaml?group=WU_CLOUD&refreshEnabled=true
   # 认证中心不直连业务库，用户数据统一通过 OpenFeign 调用 wu-service-system
   autoconfigure:
     exclude:
@@ -16,6 +20,13 @@ spring:
         group: WU_CLOUD
         register-enabled: true
         ip: 127.0.0.1
+      config:
+        server-addr: 127.0.0.1:8848
+        namespace: dev
+        group: WU_CLOUD
+        file-extension: yaml
+        import-check:
+          enabled: false
   data:
     redis:
       host: 127.0.0.1

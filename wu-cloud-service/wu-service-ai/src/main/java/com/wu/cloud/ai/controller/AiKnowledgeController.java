@@ -10,10 +10,11 @@ import jakarta.annotation.Resource;
 import org.springframework.web.bind.annotation.*;
 
 /**
- * AI 知识库（对齐前端 POST/PUT /system/ai-knowledge、DELETE /{id}）
+ * AI 知识库管理 REST 控制器
+ * <p>规范路径：/api/ai/knowledge/*（P1 已去掉 /api/system/ai-knowledge 兼容映射）。</p>
  */
 @RestController
-@RequestMapping({"/api/ai/knowledge", "/api/system/ai-knowledge"})
+@RequestMapping("/api/ai/knowledge")
 public class AiKnowledgeController {
 
     @Resource

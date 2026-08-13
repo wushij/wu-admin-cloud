@@ -52,15 +52,15 @@ export interface ApprovalArchiveDTO {
 }
 
 export function getApprovalPage(params: ApprovalPageQuery) {
-  return get<PageResult<ApprovalVO>>('/system/approval/page', params)
+  return get<PageResult<ApprovalVO>>('/approval/page', params)
 }
 
 export function getApproval(id: number) {
-  return get<ApprovalVO>('/system/approval/get', { id })
+  return get<ApprovalVO>('/approval/get', { id })
 }
 
 export function getApprovalRecords(formId: number) {
-  return get<ApprovalRecordVO[]>('/system/approval/record/list', { formId })
+  return get<ApprovalRecordVO[]>('/approval/record/list', { formId })
 }
 
 export interface ApprovalApproverOptionVO {
@@ -70,33 +70,33 @@ export interface ApprovalApproverOptionVO {
 }
 
 export function getApprovalApproverOptions() {
-  return get<ApprovalApproverOptionVO[]>('/system/approval/approver-options')
+  return get<ApprovalApproverOptionVO[]>('/approval/approver-options')
 }
 
 export function createApproval(data: ApprovalCreateDTO) {
-  return post('/system/approval/create', data)
+  return post('/approval/create', data)
 }
 
 export function approveApproval(data: ApprovalActionDTO) {
-  return put('/system/approval/approve', data)
+  return put('/approval/approve', data)
 }
 
 export function archiveApproval(data: ApprovalArchiveDTO) {
-  return put('/system/approval/archive', data)
+  return put('/approval/archive', data)
 }
 
 export function deleteApproval(id: number) {
-  return del('/system/approval/delete', { params: { id } })
+  return del('/approval/delete', { params: { id } })
 }
 
 export function getApprovalRecyclePage(params: RecyclePageQuery) {
-  return get<PageResult<ApprovalVO>>('/system/approval/recycle/page', params)
+  return get<PageResult<ApprovalVO>>('/approval/recycle/page', params)
 }
 
 export function restoreApproval(id: number) {
-  return put('/system/approval/restore', null, { params: { id } })
+  return put('/approval/restore', null, { params: { id } })
 }
 
 export function deleteApprovalPermanent(id: number) {
-  return del('/system/approval/delete-permanent', { params: { id } })
+  return del('/approval/delete-permanent', { params: { id } })
 }

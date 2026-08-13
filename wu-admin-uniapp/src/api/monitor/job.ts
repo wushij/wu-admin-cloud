@@ -5,12 +5,12 @@ import type { PageResult } from '@/types/api'
 import type { JobPageQuery, JobOverview, SysJob, SysJobLog } from '@/types/system'
 
 export function getJobOverview() {
-  return get<JobOverview>('/system/monitor/job/overview')
+  return get<JobOverview>('/infra/job/overview')
 }
 
 export function getJobPage(params: JobPageQuery) {
 
-  return get<PageResult<SysJob>>('/system/monitor/job/page', params)
+  return get<PageResult<SysJob>>('/infra/job/page', params)
 
 }
 
@@ -18,7 +18,7 @@ export function getJobPage(params: JobPageQuery) {
 
 export function getJobLogPage(params: JobPageQuery) {
 
-  return get<PageResult<SysJobLog>>('/system/monitor/job/log/page', params)
+  return get<PageResult<SysJobLog>>('/infra/job/log/page', params)
 
 }
 
@@ -26,7 +26,7 @@ export function getJobLogPage(params: JobPageQuery) {
 
 export function createJob(data: SysJob) {
 
-  return post<boolean>('/system/monitor/job', data)
+  return post<boolean>('/infra/job', data)
 
 }
 
@@ -34,7 +34,7 @@ export function createJob(data: SysJob) {
 
 export function updateJob(data: SysJob) {
 
-  return put<boolean>('/system/monitor/job', data)
+  return put<boolean>('/infra/job', data)
 
 }
 
@@ -42,7 +42,7 @@ export function updateJob(data: SysJob) {
 
 export function deleteJob(id: number) {
 
-  return del<boolean>(`/system/monitor/job/${id}`)
+  return del<boolean>(`/infra/job/${id}`)
 
 }
 
@@ -50,7 +50,7 @@ export function deleteJob(id: number) {
 
 export function changeJobStatus(id: number, status: number) {
 
-  return put<boolean>('/system/monitor/job/changeStatus', { id, status })
+  return put<boolean>('/infra/job/changeStatus', { id, status })
 
 }
 
@@ -58,21 +58,21 @@ export function changeJobStatus(id: number, status: number) {
 
 export function runJob(id: number) {
 
-  return post<boolean>(`/system/monitor/job/run/${id}`)
+  return post<boolean>(`/infra/job/run/${id}`)
 
 }
 
 
 
 export function cleanJobLogs(params?: { jobName?: string; jobGroup?: string }) {
-  return del<boolean>('/system/monitor/job/log/clean', { params })
+  return del<boolean>('/infra/job/log/clean', { params })
 }
 
 
 
 export function getRecycleJobPage(params: JobPageQuery) {
 
-  return get<PageResult<SysJob>>('/system/monitor/job/recycle/page', params)
+  return get<PageResult<SysJob>>('/infra/job/recycle/page', params)
 
 }
 
@@ -80,7 +80,7 @@ export function getRecycleJobPage(params: JobPageQuery) {
 
 export function restoreJob(id: number) {
 
-  return put<boolean>('/system/monitor/job/restore', null, { params: { id } })
+  return put<boolean>('/infra/job/restore', null, { params: { id } })
 
 }
 
@@ -88,25 +88,25 @@ export function restoreJob(id: number) {
 
 export function deleteJobPermanent(id: number) {
 
-  return del<boolean>('/system/monitor/job/delete-permanent', { params: { id } })
+  return del<boolean>('/infra/job/delete-permanent', { params: { id } })
 
 }
 
 export function getRecycleJobLogPage(params: Record<string, unknown>) {
 
-  return get<PageResult<SysJobLog>>('/system/monitor/job/log/recycle/page', params)
+  return get<PageResult<SysJobLog>>('/infra/job/log/recycle/page', params)
 
 }
 
 export function restoreJobLog(id: number) {
 
-  return put<boolean>('/system/monitor/job/log/restore', null, { params: { id } })
+  return put<boolean>('/infra/job/log/restore', null, { params: { id } })
 
 }
 
 export function deleteJobLogPermanent(id: number) {
 
-  return del<boolean>('/system/monitor/job/log/delete-permanent', { params: { id } })
+  return del<boolean>('/infra/job/log/delete-permanent', { params: { id } })
 
 }
 

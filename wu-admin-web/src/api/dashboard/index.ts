@@ -72,13 +72,13 @@ const DASHBOARD_VISIT_CONFIG: WuRequestConfig = {
 }
 
 export function getDashboardStats() {
-  return get<DashboardStats>('/system/dashboard/stats', undefined, DASHBOARD_REQUEST_CONFIG)
+  return get<DashboardStats>('/admin/dashboard/stats', undefined, DASHBOARD_REQUEST_CONFIG)
 }
 
 export function recordVisit() {
-  return get<unknown>('/system/dashboard/visit', undefined, DASHBOARD_VISIT_CONFIG)
+  return get<unknown>('/admin/dashboard/visit', undefined, DASHBOARD_VISIT_CONFIG)
 }
 
 export function getRecentLogins() {
-  return get<RecentLogin[]>('/system/dashboard/recent-logins', undefined, DASHBOARD_REQUEST_CONFIG)
+  return get<RecentLogin[]>('/admin/dashboard/recent-logins', undefined, DASHBOARD_REQUEST_CONFIG)
 }

@@ -32,13 +32,13 @@ export interface AiChatLogPageQuery {
 }
 
 export function pageAiChatLog(params: AiChatLogPageQuery) {
-  return get<PageResult<AiChatLogVO>>('/system/ai-log/page', params)
+  return get<PageResult<AiChatLogVO>>('/ai/log/page', params)
 }
 
 export function deleteAiChatLog(id: number) {
-  return del(`/system/ai-log/${id}`)
+  return del(`/ai/log/${id}`)
 }
 
 export function cleanAiChatLog() {
-  return del('/system/ai-log/clean')
+  return del('/ai/log/clean')
 }

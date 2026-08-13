@@ -360,7 +360,7 @@ const handleUploadAttachment = async (uploadFile: UploadFile) => {
   attachments.value = attachmentRes.data || []
 }
 
-const downloadAttachmentUrl = (id: number) => `/api/system/ticket/attachment/download/${id}`
+const downloadAttachmentUrl = (id: number) => `/api/ticket/attachment/download/${id}`
 
 const relayoutTable = async () => {
   await nextTick()

@@ -15,7 +15,7 @@ import java.util.List;
  * Admin BFF 聚合 API 控制层
  */
 @RestController
-@RequestMapping("/api/system/dashboard")
+@RequestMapping("/api/admin/dashboard")
 public class AdminBffController {
 
     @Resource

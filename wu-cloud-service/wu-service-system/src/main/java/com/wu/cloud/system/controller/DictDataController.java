@@ -24,10 +24,10 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
- * 字典数据（兼容 /dict-data 与网关 rewrite 后的 /dict/data）
+ * 字典数据（规范路径 /api/system/dict/data；P1 已去掉 /dict-data 兼容映射）
  */
 @RestController
-@RequestMapping({"/api/system/dict-data", "/api/system/dict/data"})
+@RequestMapping("/api/system/dict/data")
 public class DictDataController {
 
     private static final String DICT_CACHE_PREFIX = "system:dict:";

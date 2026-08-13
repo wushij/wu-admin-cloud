@@ -13,10 +13,10 @@ const MODULE_PATH: Record<ExportModule, string> = {
   user: '/system/export/user',
   'login-log': '/system/export/login-log',
   'oper-log': '/system/export/oper-log',
-  ticket: '/system/export/ticket',
-  approval: '/system/export/approval',
-  'api-access': '/system/monitor/api-access/export',
-  'online-user': '/system/monitor/online/export',
+  ticket: '/export/ticket',
+  approval: '/export/approval',
+  'api-access': '/infra/access-log/export',
+  'online-user': '/infra/online/export',
 }
 
 const MODULE_LABEL: Record<ExportModule, string> = {

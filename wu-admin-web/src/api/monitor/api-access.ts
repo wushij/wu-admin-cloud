@@ -93,9 +93,9 @@ export function toApiAccessStatsView(data?: ApiAccessStatistics | null): ApiAcce
 
 /** API 访问统计 */
 export const getApiAccessPage = (params: ApiAccessPageQuery) => {
-  return get<PageResult<ApiAccessLogRow>>('/system/monitor/api-access/page', params)
+  return get<PageResult<ApiAccessLogRow>>('/infra/access-log/page', params)
 }
 
 export const getApiAccessStatistics = (params: ApiAccessStatisticsQuery) => {
-  return get<ApiAccessStatistics>('/system/monitor/api-access/statistics', params)
+  return get<ApiAccessStatistics>('/infra/access-log/statistics', params)
 }

@@ -49,7 +49,7 @@ export function testEmail(toEmail: string) {
 }
 
 export function getRecentSmsLogs(limit = 5) {
-  return get<SmsLogRecord[]>('/system/config-group/sms-logs/recent', { limit })
+  return get<SmsLogRecord[]>('/infra/config-log/sms-logs/recent', { limit })
 }
 
 export function getSmsLogs(params: {
@@ -64,11 +64,11 @@ export function getSmsLogs(params: {
   }
   if (params.phone) query.phone = params.phone
   if (params.status != null) query.status = params.status
-  return get<{ list: SmsLogRecord[]; total: number }>('/system/config-group/sms-logs', query)
+  return get<{ list: SmsLogRecord[]; total: number }>('/infra/config-log/sms-logs', query)
 }
 
 export function getRecentEmailLogs(limit = 5) {
-  return get<EmailLogRecord[]>('/system/config-group/email-logs/recent', { limit })
+  return get<EmailLogRecord[]>('/infra/config-log/email-logs/recent', { limit })
 }
 
 export function getEmailLogs(params: {
@@ -83,5 +83,5 @@ export function getEmailLogs(params: {
   }
   if (params.email) query.email = params.email
   if (params.status != null) query.status = params.status
-  return get<{ list: EmailLogRecord[]; total: number }>('/system/config-group/email-logs', query)
+  return get<{ list: EmailLogRecord[]; total: number }>('/infra/config-log/email-logs', query)
 }

@@ -2,7 +2,7 @@ package com.wu.cloud.ticket.controller;
 
 import com.wu.cloud.api.log.Log;
 import com.wu.cloud.common.core.PageParam;
-import com.wu.cloud.common.core.PageResult;
+import com.wu.cloud.common.core.domain.PageResult;
 import com.wu.cloud.common.core.domain.R;
 import com.wu.cloud.ticket.dto.TicketCommentCreateReqVO;
 import com.wu.cloud.ticket.dto.TicketTransitionReqVO;
@@ -30,7 +30,7 @@ import java.util.Map;
  * 工单接口（HTTP 方法/路径对齐单体 + wu-admin-web）
  */
 @RestController
-@RequestMapping("/api/system/ticket")
+@RequestMapping("/api/ticket")
 public class TicketController {
 
     @Resource
@@ -71,7 +71,7 @@ public class TicketController {
         return R.ok(true);
     }
 
-    /** 对齐前端 put('/system/ticket/transition', { id, status }) */
+    /** 对齐前端 put('/ticket/transition', { id, status }) */
     @Log(title = "工单管理", businessType = Log.BusinessType.UPDATE)
     @PutMapping("/transition")
     public R<Boolean> transition(@RequestBody TicketTransitionReqVO req) {

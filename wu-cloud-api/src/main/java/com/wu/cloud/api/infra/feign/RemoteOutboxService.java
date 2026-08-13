@@ -14,7 +14,7 @@ import org.springframework.web.bind.annotation.RequestBody;
  * infra 会通过定时任务轮询并调用目标服务 API，保证最终一致性。
  * </p>
  */
-@FeignClient(name = "wu-service-infra", path = "/inner/outbox",
+@FeignClient(contextId = "remoteOutboxService", value = "wu-service-infra", path = "/inner/outbox",
         fallbackFactory = RemoteOutboxServiceFallback.class)
 public interface RemoteOutboxService {
 

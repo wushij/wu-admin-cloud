@@ -56,13 +56,13 @@ export interface RecentLogin {
 }
 
 export function getDashboardStats() {
-  return get<DashboardStats>('/system/dashboard/stats')
+  return get<DashboardStats>('/admin/dashboard/stats')
 }
 
 export function recordVisit() {
-  return get<unknown>('/system/dashboard/visit')
+  return get<unknown>('/admin/dashboard/visit')
 }
 
 export function getRecentLogins() {
-  return get<RecentLogin[]>('/system/dashboard/recent-logins')
+  return get<RecentLogin[]>('/admin/dashboard/recent-logins')
 }

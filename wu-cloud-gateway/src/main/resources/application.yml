@@ -6,6 +6,10 @@ spring:
     web-application-type: reactive
   application:
     name: wu-cloud-gateway
+  config:
+    import:
+      - optional:nacos:wu-cloud-common.yaml?group=WU_CLOUD&refreshEnabled=true
+      - optional:nacos:${spring.application.name}.yaml?group=WU_CLOUD&refreshEnabled=true
   # P0-1: 网关必须与 auth 共用同一 Redis，否则登录态不互通（此前缺失导致全部 401）
   data:
     redis:
@@ -33,6 +37,10 @@ spring:
         register-enabled: true
         ip: 127.0.0.1
       config:
+        server-addr: 127.0.0.1:8848
+        namespace: dev
+        group: WU_CLOUD
+        file-extension: yaml
         import-check:
           enabled: false
     # P0-1: 网关必须与 auth 共用同一 Redis，否则登录态不互通（此前缺失导致全部 401）
@@ -57,66 +65,8 @@ spring:
         connect-timeout: 3000
         response-timeout: 15s
       routes:
-        # ===== P0-2 兼容性重写路由（必须置顶，否则会被 /api/system/** 通配提前匹配）=====
-        # 监控-服务器：前端 /system/monitor/server/** → 后端 /api/monitor/server/**
-        - id: compat-monitor-server
-          uri: lb://wu-service-infra
-          predicates:
-            - Path=/api/system/monitor/server/**
-          filters:
-            - RewritePath=/api/system/monitor/server/(?<seg>.*), /api/monitor/server/$\{seg}
-
-        # 监控-缓存：前端 /system/monitor/cache/** → 后端 /api/monitor/cache/**
-        - id: compat-monitor-cache
-          uri: lb://wu-service-infra
-          predicates:
-            - Path=/api/system/monitor/cache/**
-          filters:
-            - RewritePath=/api/system/monitor/cache/(?<seg>.*), /api/monitor/cache/$\{seg}
-
-        # 监控-定时任务：前端 /system/monitor/job → 后端 /api/infra/job（含叶子路径 POST/PUT）
-        - id: compat-monitor-job
-          uri: lb://wu-service-infra
-          predicates:
-            - Path=/api/system/monitor/job,/api/system/monitor/job/**
-          filters:
-            - RewritePath=/api/system/monitor/job(?<rest>/.*)?, /api/infra/job$\{rest}
-
-        # 监控-访问日志：前端 /system/monitor/api-access/** → 后端 /api/infra/access-log/**
-        - id: compat-monitor-access
-          uri: lb://wu-service-infra
-          predicates:
-            - Path=/api/system/monitor/api-access/**
-          filters:
-            - RewritePath=/api/system/monitor/api-access/(?<seg>.*), /api/infra/access-log/$\{seg}
-
-        # B队-监控-在线用户：前端 /system/monitor/online/** → 后端 /api/infra/online/**
-        - id: compat-monitor-online
-          uri: lb://wu-service-infra
-          predicates:
-            - Path=/api/system/monitor/online/**
-          filters:
-            - RewritePath=/api/system/monitor/online/(?<seg>.*), /api/infra/online/$\{seg}
-
-        # C队-短信/邮件发送记录：前端 /system/config-group/sms-logs|email-logs（含叶子路径）
-        # → 后端 /api/infra/config-log/**（表在 infra 库，故由 infra 服务提供）
-        - id: compat-config-log
-          uri: lb://wu-service-infra
-          predicates:
-            - Path=/api/system/config-group/sms-logs,/api/system/config-group/sms-logs/**,/api/system/config-group/email-logs,/api/system/config-group/email-logs/**
-          filters:
-            - RewritePath=/api/system/config-group/(?<seg>.*), /api/infra/config-log/$\{seg}
-
-        # 代码生成器：前端 /system/tool/gen/** → 后端 /api/infra/codegen/**
-        # 修正：CodegenController 实际部署在 wu-service-file（非 infra），uri 必须指向 file 服务
-        - id: compat-codegen
-          uri: lb://wu-service-file
-          predicates:
-            - Path=/api/system/tool/gen/**
-          filters:
-            - RewritePath=/api/system/tool/gen/(?<seg>.*), /api/infra/codegen/$\{seg}
-
-        # Knife4j 接口文档：前端 /doc.html → system 服务 /doc.html
+        # ===== 业务路由（P1：已移除 monitor/AI/dict/codegen/config-log 的 compat Rewrite）=====
+        # Knife4j 接口文档：/api/doc.html → system 服务 /doc.html
         - id: compat-api-doc
           uri: lb://wu-service-system
           predicates:
@@ -124,84 +74,76 @@ spring:
           filters:
             - RewritePath=/api/(?<seg>.*), /$\{seg}
 
-        # 字典：前端 /system/dict-type|dict-data（含叶子路径 POST/PUT）→ 后端 /system/dict/type|data
-        # Controller 同时注册了 /api/system/dict-type 双前缀，叶子路径不重写也能命中；有尾段时重写到 /dict/{kind}/
-        - id: compat-dict
-          uri: lb://wu-service-system
-          predicates:
-            - Path=/api/system/dict-type,/api/system/dict-type/**,/api/system/dict-data,/api/system/dict-data/**
-          filters:
-            - RewritePath=/api/system/dict-(?<kind>type|data)(?<rest>/.*)?, /api/system/dict/$\{kind}$\{rest}
-
-        # ===== 原有路由 =====
         - id: wu-cloud-auth
           uri: lb://wu-cloud-auth
           predicates:
             - Path=/api/auth/**
 
-        # wu-admin BFF 服务（C队确认：wu-admin 模块存在且可独立部署，服务名 wu-admin）
+        # wu-admin BFF（含规范仪表盘 /api/admin/dashboard/**）
         - id: wu-admin
           uri: lb://wu-admin
           predicates:
             - Path=/api/admin/**
 
-        # 业务聚合接口：仪表盘统计（BFF 聚合）——归属 wu-admin 模块
-        - id: wu-admin-dashboard
+        # 双轨：旧 /api/system/dashboard → /api/admin/dashboard
+        - id: compat-dashboard-legacy
           uri: lb://wu-admin
           predicates:
-            - Path=/api/system/dashboard/**
+            - Path=/api/system/dashboard,/api/system/dashboard/**
+          filters:
+            - RewritePath=/api/system/dashboard(?<seg>/?.*), /api/admin/dashboard$\{seg}
 
-        # 导出工单/审批：落在 ticket 服务（须在 /api/system/** 之前）
+        # 导出工单/审批（规范路径）
         - id: wu-service-ticket-export
           uri: lb://wu-service-ticket
           predicates:
-            - Path=/api/system/export/ticket,/api/system/export/approval
+            - Path=/api/export/ticket,/api/export/approval
 
-        # 工单/审批/通知（归属 ticket 服务；含叶子路径，避免仅 /** 漏匹配）
+        # 工单/审批/通知（P1.5 规范路径）
         - id: wu-service-ticket-biz
           uri: lb://wu-service-ticket
           predicates:
+            - Path=/api/ticket,/api/ticket/**,/api/approval,/api/approval/**,/api/notice,/api/notice/**
+
+        # P1.5 双轨：旧 /api/system/export/* → /api/export/*
+        - id: compat-ticket-export-legacy
+          uri: lb://wu-service-ticket
+          predicates:
+            - Path=/api/system/export/ticket,/api/system/export/approval
+          filters:
+            - RewritePath=/api/system/export/(?<seg>.*), /api/export/$\{seg}
+
+        # P1.5 双轨：旧 /api/system/ticket|approval|notice → /api/ticket|approval|notice
+        - id: compat-ticket-legacy
+          uri: lb://wu-service-ticket
+          predicates:
             - Path=/api/system/ticket,/api/system/ticket/**,/api/system/approval,/api/system/approval/**,/api/system/notice,/api/system/notice/**
-
-        # AI SSE 流式对话：前端 /api/system/ai-stream/** → 后端 /api/ai/chat/stream/**
-        # 必须置于通用 ai 路由之前（更具体的路径优先匹配）
-        - id: wu-service-ai-stream
-          uri: lb://wu-service-ai
-          predicates:
-            - Path=/api/system/ai-stream/**
           filters:
-            - RewritePath=/api/system/ai-stream/(?<seg>.*), /api/ai/chat/stream/$\{seg}
-
-        # AI 管理接口（归属 ai 服务，前端按 /system/ai-* 体系调用，必须在 system 通配符之前匹配）
-        # 后端真实前缀为 /api/ai/*（AiChatController/AiModelController/... 均注册 /api/ai/*），
-        # 通过 RewritePath 将前端 /api/system/ai-* 映射到 /api/ai/*（model/knowledge/log 后端另有
-        # /api/system/ai-* 双映射亦兼容）。chat/prompt 仅有 /api/ai/* 映射，故必须重写。
-        # 含叶子路径：POST/PUT /api/system/ai-model、/ai-knowledge 等
-        - id: wu-service-ai-biz
-          uri: lb://wu-service-ai
-          predicates:
-            - Path=/api/system/ai-knowledge,/api/system/ai-knowledge/**,/api/system/ai-log,/api/system/ai-log/**,/api/system/ai-model,/api/system/ai-model/**,/api/system/ai-chat,/api/system/ai-chat/**
-          filters:
-            - RewritePath=/api/system/ai-(?<seg>.*), /api/ai/$\{seg}
-
+            - RewritePath=/api/system/(?<seg>.*), /api/$\{seg}
 
         - id: wu-service-system
           uri: lb://wu-service-system
           predicates:
             - Path=/api/system/**
 
-        # 文件分组必须在 /api/infra/** 通配之前；含叶子路径 POST/PUT /api/infra/file-group
+        # 文件分组必须在 /api/infra/** 通配之前
         - id: wu-service-file-group
           uri: lb://wu-service-file
           predicates:
             - Path=/api/infra/file-group,/api/infra/file-group/**
+
+        # codegen 部署在 file；规范路径 /api/infra/codegen 须在 infra 通配前直达 file
+        - id: wu-service-file-codegen
+          uri: lb://wu-service-file
+          predicates:
+            - Path=/api/infra/codegen,/api/infra/codegen/**
 
         - id: wu-service-file
           uri: lb://wu-service-file
           predicates:
             - Path=/api/infra/file,/api/infra/file/**
 
-        # 单体兼容：前端/DB 中头像等为 /api/files/images/avatar/... → file 服务 /files/...
+        # 存量静态 URL 一期兼容：DB/前端历史 /api/files/** → /files/**
         - id: wu-service-file-api-static
           uri: lb://wu-service-file
           predicates:
@@ -209,7 +151,6 @@ spring:
           filters:
             - RewritePath=/api/files/(?<seg>.*), /files/$\{seg}
 
-        # 本地上传静态访问（上传返回的 /file/... URL）
         - id: wu-service-file-static
           uri: lb://wu-service-file
           predicates:
@@ -219,11 +160,6 @@ spring:
           uri: lb://wu-service-infra
           predicates:
             - Path=/api/infra/**, /api/monitor/**
-
-        - id: wu-service-ticket
-          uri: lb://wu-service-ticket
-          predicates:
-            - Path=/api/ticket/**
 
         - id: wu-service-ai
           uri: lb://wu-service-ai

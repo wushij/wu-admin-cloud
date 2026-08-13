@@ -20,21 +20,21 @@ export interface NoticePageQuery extends PageQuery {
 }
 
 export function getUnreadNoticeCount() {
-  return get<number>('/system/notice/unread-count')
+  return get<number>('/notice/unread-count')
 }
 
 export function getMyNoticeList() {
-  return get<NoticeVO[]>('/system/notice/my-list')
+  return get<NoticeVO[]>('/notice/my-list')
 }
 
 export function readNotice(id: number) {
-  return put('/system/notice/read', { id })
+  return put('/notice/read', { id })
 }
 
 export function readAllNotice() {
-  return put('/system/notice/read-all')
+  return put('/notice/read-all')
 }
 
 export function getNoticePage(params: NoticePageQuery) {
-  return get<PageResult<NoticeVO>>('/system/notice/page', params)
+  return get<PageResult<NoticeVO>>('/notice/page', params)
 }

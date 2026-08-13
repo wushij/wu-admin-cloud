@@ -20,7 +20,7 @@ export function pageDictType(params: {
 
 }) {
 
-  return get<PageResult<DictTypeVO>>('/system/dict-type/page', params)
+  return get<PageResult<DictTypeVO>>('/system/dict/type/page', params)
 
 }
 
@@ -28,7 +28,7 @@ export function pageDictType(params: {
 
 export function getDictType(id: number) {
 
-  return get<DictTypeVO>(`/system/dict-type/${id}`)
+  return get<DictTypeVO>(`/system/dict/type/${id}`)
 
 }
 
@@ -36,7 +36,7 @@ export function getDictType(id: number) {
 
 export function createDictType(data: DictTypeSaveDTO) {
 
-  return post('/system/dict-type', data)
+  return post('/system/dict/type', data)
 
 }
 
@@ -44,7 +44,7 @@ export function createDictType(data: DictTypeSaveDTO) {
 
 export function updateDictType(data: DictTypeSaveDTO) {
 
-  return put('/system/dict-type', data)
+  return put('/system/dict/type', data)
 
 }
 
@@ -52,7 +52,7 @@ export function updateDictType(data: DictTypeSaveDTO) {
 
 export function deleteDictType(id: number) {
 
-  return del(`/system/dict-type/${id}`)
+  return del(`/system/dict/type/${id}`)
 
 }
 
@@ -60,7 +60,7 @@ export function deleteDictType(id: number) {
 
 export function copyDictType(id: number) {
 
-  return post(`/system/dict-type/${id}/copy`)
+  return post(`/system/dict/type/${id}/copy`)
 
 }
 
@@ -68,7 +68,7 @@ export function copyDictType(id: number) {
 
 export function listDictDataByType(dictType: string) {
 
-  return get<DictDataItem[]>(`/system/dict-data/type/${dictType}`)
+  return get<DictDataItem[]>(`/system/dict/data/type/${dictType}`)
 
 }
 
@@ -76,7 +76,7 @@ export function listDictDataByType(dictType: string) {
 
 export function listDictDataForManage(dictType: string) {
 
-  return get<DictDataItem[]>(`/system/dict-data/manage/${dictType}`)
+  return get<DictDataItem[]>(`/system/dict/data/manage/${dictType}`)
 
 }
 
@@ -84,7 +84,7 @@ export function listDictDataForManage(dictType: string) {
 
 export function batchDictData(types: string[]) {
 
-  return get<Record<string, DictDataItem[]>>('/system/dict-data/batch', {
+  return get<Record<string, DictDataItem[]>>('/system/dict/data/batch', {
 
     types: types.join(','),
 
@@ -96,7 +96,7 @@ export function batchDictData(types: string[]) {
 
 export function refreshDictCache() {
 
-  return post('/system/dict-data/refresh-cache')
+  return post('/system/dict/data/refresh-cache')
 
 }
 
@@ -104,7 +104,7 @@ export function refreshDictCache() {
 
 export function createDictData(data: DictDataItem) {
 
-  return post('/system/dict-data', data)
+  return post('/system/dict/data', data)
 
 }
 
@@ -112,7 +112,7 @@ export function createDictData(data: DictDataItem) {
 
 export function updateDictData(data: DictDataItem) {
 
-  return put('/system/dict-data', data)
+  return put('/system/dict/data', data)
 
 }
 
@@ -120,7 +120,7 @@ export function updateDictData(data: DictDataItem) {
 
 export function deleteDictData(id: number) {
 
-  return del(`/system/dict-data/${id}`)
+  return del(`/system/dict/data/${id}`)
 
 }
 
@@ -138,7 +138,7 @@ export function getRecycleDictTypePage(params: {
 
 }) {
 
-  return get<PageResult<DictTypeVO>>('/system/dict-type/recycle/page', params)
+  return get<PageResult<DictTypeVO>>('/system/dict/type/recycle/page', params)
 
 }
 
@@ -146,7 +146,7 @@ export function getRecycleDictTypePage(params: {
 
 export function restoreDictType(id: number) {
 
-  return put('/system/dict-type/restore', null, { params: { id } })
+  return put('/system/dict/type/restore', null, { params: { id } })
 
 }
 
@@ -154,7 +154,7 @@ export function restoreDictType(id: number) {
 
 export function deleteDictTypePermanent(id: number) {
 
-  return del('/system/dict-type/delete-permanent', { params: { id } })
+  return del('/system/dict/type/delete-permanent', { params: { id } })
 
 }
 
@@ -172,7 +172,7 @@ export function getRecycleDictDataPage(params: {
 
 }) {
 
-  return get<PageResult<DictDataItem>>('/system/dict-data/recycle/page', params)
+  return get<PageResult<DictDataItem>>('/system/dict/data/recycle/page', params)
 
 }
 
@@ -180,7 +180,7 @@ export function getRecycleDictDataPage(params: {
 
 export function restoreDictData(id: number) {
 
-  return put('/system/dict-data/restore', null, { params: { id } })
+  return put('/system/dict/data/restore', null, { params: { id } })
 
 }
 
@@ -188,7 +188,7 @@ export function restoreDictData(id: number) {
 
 export function deleteDictDataPermanent(id: number) {
 
-  return del('/system/dict-data/delete-permanent', { params: { id } })
+  return del('/system/dict/data/delete-permanent', { params: { id } })
 
 }
 

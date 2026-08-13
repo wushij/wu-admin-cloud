@@ -1,9 +1,13 @@
-﻿server:
+server:
   port: 9206
 
 spring:
   application:
     name: wu-service-order
+  config:
+    import:
+      - optional:nacos:wu-cloud-common.yaml?group=WU_CLOUD&refreshEnabled=true
+      - optional:nacos:${spring.application.name}.yaml?group=WU_CLOUD&refreshEnabled=true
   datasource:
     url: jdbc:mysql://127.0.0.1:3306/wu-admin?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true&nullCatalogMeansCurrent=true
     username: root
@@ -17,6 +21,13 @@ spring:
         group: WU_CLOUD
         register-enabled: true
         ip: 127.0.0.1
+      config:
+        server-addr: 127.0.0.1:8848
+        namespace: dev
+        group: WU_CLOUD
+        file-extension: yaml
+        import-check:
+          enabled: false
   # P0-1: 业务服务需 Redis（wu-cloud-starter-redis 的 RedisService 依赖 StringRedisTemplate/RedissonClient）
   data:
     redis:

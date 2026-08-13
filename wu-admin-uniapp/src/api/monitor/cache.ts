@@ -6,7 +6,7 @@ import type { CacheInfo, CacheKeysResult, CacheStats, CacheValueDetail } from '@
 
 export function getCacheStats() {
 
-  return get<CacheStats>('/system/monitor/cache/stats')
+  return get<CacheStats>('/monitor/cache/stats')
 
 }
 
@@ -14,7 +14,7 @@ export function getCacheStats() {
 
 export function getCacheInfo() {
 
-  return get<CacheInfo>('/system/monitor/cache/info')
+  return get<CacheInfo>('/monitor/cache/info')
 
 }
 
@@ -22,7 +22,7 @@ export function getCacheInfo() {
 
 export function scanCacheKeys(pattern = '*', limit = 200) {
 
-  return get<CacheKeysResult>('/system/monitor/cache/keys', { pattern, limit })
+  return get<CacheKeysResult>('/monitor/cache/keys', { pattern, limit })
 
 }
 
@@ -30,7 +30,7 @@ export function scanCacheKeys(pattern = '*', limit = 200) {
 
 export function getCacheValue(key: string) {
 
-  return get<CacheValueDetail>('/system/monitor/cache/value', { key })
+  return get<CacheValueDetail>('/monitor/cache/value', { key })
 
 }
 
@@ -38,7 +38,7 @@ export function getCacheValue(key: string) {
 
 export function deleteCacheKey(key: string) {
 
-  return del<boolean>('/system/monitor/cache', { params: { key } })
+  return del<boolean>('/monitor/cache', { params: { key } })
 
 }
 

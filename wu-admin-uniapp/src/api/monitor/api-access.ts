@@ -3,7 +3,7 @@ import type { PageResult } from '@/types/api'
 import type { ApiAccessLogRow, ApiAccessPageQuery, ApiAccessStatistics } from '@/types/system'
 
 export function getApiAccessPage(params: ApiAccessPageQuery) {
-  return get<PageResult<ApiAccessLogRow>>('/system/monitor/api-access/page', params)
+  return get<PageResult<ApiAccessLogRow>>('/infra/access-log/page', params)
 }
 
 export function getApiAccessStatistics(params?: {
@@ -12,5 +12,5 @@ export function getApiAccessStatistics(params?: {
   startTime?: string
   endTime?: string
 }) {
-  return get<ApiAccessStatistics>('/system/monitor/api-access/statistics', params)
+  return get<ApiAccessStatistics>('/infra/access-log/statistics', params)
 }

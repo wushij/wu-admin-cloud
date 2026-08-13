@@ -1,4 +1,4 @@
-/** 统一 API 响应结构（与后端 CommonResult 一致） */
+/** 统一 API 响应结构（与后端 R<T> 一致） */
 export interface ApiResult<T = unknown> {
   code: number
   msg?: string

@@ -1,7 +1,7 @@
 package com.wu.cloud.ticket.service;
 
 import com.wu.cloud.common.core.PageParam;
-import com.wu.cloud.common.core.PageResult;
+import com.wu.cloud.common.core.domain.PageResult;
 import com.wu.cloud.ticket.entity.ApprovalFormDO;
 import com.wu.cloud.ticket.entity.ApprovalRecordDO;
 

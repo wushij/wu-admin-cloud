@@ -6,8 +6,11 @@ import lombok.Data;
 import lombok.EqualsAndHashCode;
 
 /**
- * 部门表 DO 实体
+ * 部门表 DO 实体（历史命名）。
+ *
+ * @deprecated 请使用 {@link SysDeptDO}；本类将在后续版本删除。
  */
+@Deprecated
 @Data
 @EqualsAndHashCode(callSuper = true)
 @TableName("sys_dept")

@@ -15,10 +15,10 @@ import java.util.List;
 
 /**
  * AI 模型配置管理 REST 控制器
- * <p>契约对齐 wu-admin-web/src/api/system/ai-model/index.ts（/system/ai-model/*）。</p>
+ * <p>规范路径：/api/ai/model/*（P1 已去掉 /api/system/ai-model 兼容映射）。</p>
  */
 @RestController
-@RequestMapping({"/api/system/ai-model", "/api/ai/model"})
+@RequestMapping("/api/ai/model")
 public class AiModelController {
 
     @Resource

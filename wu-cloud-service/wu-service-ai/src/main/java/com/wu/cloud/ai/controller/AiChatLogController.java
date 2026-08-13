@@ -12,10 +12,11 @@ import org.springframework.web.bind.annotation.*;
 import java.util.Map;
 
 /**
- * AI 对话日志管理 REST 控制器（对齐单体 DELETE /{id}、DELETE /clean）
+ * AI 对话日志管理 REST 控制器
+ * <p>规范路径：/api/ai/log/*（P1 已去掉 /api/system/ai-log 兼容映射）。</p>
  */
 @RestController
-@RequestMapping({"/api/ai/log", "/api/system/ai-log"})
+@RequestMapping("/api/ai/log")
 public class AiChatLogController {
 
     @Resource

@@ -4,12 +4,23 @@ server:
 spring:
   application:
     name: wu-admin
+  config:
+    import:
+      - optional:nacos:wu-cloud-common.yaml?group=WU_CLOUD&refreshEnabled=true
+      - optional:nacos:${spring.application.name}.yaml?group=WU_CLOUD&refreshEnabled=true
   cloud:
     nacos:
       discovery:
         server-addr: 127.0.0.1:8848
         namespace: dev
         group: WU_CLOUD
+      config:
+        server-addr: 127.0.0.1:8848
+        namespace: dev
+        group: WU_CLOUD
+        file-extension: yaml
+        import-check:
+          enabled: false
   # P0-1: BFF 需 Redis（Sa-Token 共享 token 存储 + RedisService）
   data:
     redis:

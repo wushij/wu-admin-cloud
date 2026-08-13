@@ -23,10 +23,10 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * 字典类型（兼容 /dict-type 与网关 rewrite 后的 /dict/type）
+ * 字典类型（规范路径 /api/system/dict/type；P1 已去掉 /dict-type 兼容映射）
  */
 @RestController
-@RequestMapping({"/api/system/dict-type", "/api/system/dict/type"})
+@RequestMapping("/api/system/dict/type")
 public class DictTypeController {
 
     @Resource

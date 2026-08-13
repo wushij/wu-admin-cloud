@@ -1,4 +1,6 @@
 {
   "java.debug.settings.vmArgs": "-Dspring.profiles.active=dev",
-  "java.configuration.updateBuildConfiguration": "automatic"
+  "java.configuration.updateBuildConfiguration": "automatic",
+  "typescript.enablePromptUseWorkspaceTsdk": true,
+  "vue.server.hybridMode": true
 }

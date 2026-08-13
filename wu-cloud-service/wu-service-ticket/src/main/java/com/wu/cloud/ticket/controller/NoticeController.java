@@ -14,10 +14,10 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 /**
- * 工单/审批通知 REST 控制器 (路由映射 /api/system/notice/**)
+ * 工单/审批通知 REST 控制器（规范路径 /api/notice/**）
  */
 @RestController
-@RequestMapping("/api/system/notice")
+@RequestMapping("/api/notice")
 public class NoticeController {
 
     @Resource

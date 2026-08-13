@@ -71,32 +71,32 @@ export interface JobLogPageQuery extends PageQuery {
   status?: number | null
 }
 
-export const getJobOverview = () => get<JobOverview>('/system/monitor/job/overview')
+export const getJobOverview = () => get<JobOverview>('/infra/job/overview')
 
-export const getJobTemplates = () => get<JobTemplate[]>('/system/monitor/job/templates')
+export const getJobTemplates = () => get<JobTemplate[]>('/infra/job/templates')
 
 export const checkJobCron = (cronExpression: string) =>
-  get<CronCheckResult>('/system/monitor/job/checkCron', { cronExpression })
+  get<CronCheckResult>('/infra/job/checkCron', { cronExpression })
 
 export const getJobPage = (params: JobPageQuery) =>
-  get<PageResult<SysJob>>('/system/monitor/job/page', params)
+  get<PageResult<SysJob>>('/infra/job/page', params)
 
-export const createJob = (data: SysJob) => post<boolean>('/system/monitor/job', data)
+export const createJob = (data: SysJob) => post<boolean>('/infra/job', data)
 
-export const updateJob = (data: SysJob) => put<boolean>('/system/monitor/job', data)
+export const updateJob = (data: SysJob) => put<boolean>('/infra/job', data)
 
-export const deleteJob = (id: number) => del<boolean>(`/system/monitor/job/${id}`)
+export const deleteJob = (id: number) => del<boolean>(`/infra/job/${id}`)
 
 export const changeJobStatus = (id: number, status: number) =>
-  put<boolean>('/system/monitor/job/changeStatus', { id, status })
+  put<boolean>('/infra/job/changeStatus', { id, status })
 
-export const runJob = (id: number) => post<boolean>(`/system/monitor/job/run/${id}`)
+export const runJob = (id: number) => post<boolean>(`/infra/job/run/${id}`)
 
 export const getJobLogPage = (params: JobLogPageQuery) =>
-  get<PageResult<SysJobLog>>('/system/monitor/job/log/page', params)
+  get<PageResult<SysJobLog>>('/infra/job/log/page', params)
 
 export const cleanJobLogs = (params?: { jobName?: string; jobGroup?: string }) =>
-  del<boolean>('/system/monitor/job/log/clean', { params })
+  del<boolean>('/infra/job/log/clean', { params })
 
 export function getRecycleJobPage(params: {
   pageNo: number
@@ -104,15 +104,15 @@ export function getRecycleJobPage(params: {
   jobName?: string
   jobGroup?: string
 }) {
-  return get<PageResult<SysJob>>('/system/monitor/job/recycle/page', params)
+  return get<PageResult<SysJob>>('/infra/job/recycle/page', params)
 }
 
 export function restoreJob(id: number) {
-  return put<boolean>('/system/monitor/job/restore', null, { params: { id } })
+  return put<boolean>('/infra/job/restore', null, { params: { id } })
 }
 
 export function deleteJobPermanent(id: number) {
-  return del<boolean>('/system/monitor/job/delete-permanent', { params: { id } })
+  return del<boolean>('/infra/job/delete-permanent', { params: { id } })
 }
 
 export function getRecycleJobLogPage(params: {
@@ -121,13 +121,13 @@ export function getRecycleJobLogPage(params: {
   jobName?: string
   jobGroup?: string
 }) {
-  return get<PageResult<SysJobLog>>('/system/monitor/job/log/recycle/page', params)
+  return get<PageResult<SysJobLog>>('/infra/job/log/recycle/page', params)
 }
 
 export function restoreJobLog(id: number) {
-  return put<boolean>('/system/monitor/job/log/restore', null, { params: { id } })
+  return put<boolean>('/infra/job/log/restore', null, { params: { id } })
 }
 
 export function deleteJobLogPermanent(id: number) {
-  return del<boolean>('/system/monitor/job/log/delete-permanent', { params: { id } })
+  return del<boolean>('/infra/job/log/delete-permanent', { params: { id } })
 }

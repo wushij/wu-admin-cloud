@@ -57,32 +57,32 @@ export interface AiModelPageQuery {
 }
 
 export function pageAiModel(params: AiModelPageQuery) {
-  return get<PageResult<AiModelVO>>('/system/ai-model/page', params)
+  return get<PageResult<AiModelVO>>('/ai/model/page', params)
 }
 
 export function getAiModel(id: number) {
-  return get<AiModelVO>(`/system/ai-model/${id}`)
+  return get<AiModelVO>(`/ai/model/${id}`)
 }
 
 export function createAiModel(data: AiModelSaveDTO) {
-  return post('/system/ai-model', data)
+  return post('/ai/model', data)
 }
 
 export function updateAiModel(data: AiModelSaveDTO) {
-  return put('/system/ai-model', data)
+  return put('/ai/model', data)
 }
 
 export function deleteAiModel(id: number) {
-  return del(`/system/ai-model/${id}`)
+  return del(`/ai/model/${id}`)
 }
 
 export function setDefaultAiModel(id: number) {
-  return put(`/system/ai-model/${id}/default`)
+  return put(`/ai/model/${id}/default`)
 }
 
 /** 连通性测试，返回延迟毫秒数（耗时较长，放宽超时） */
 export function testAiModel(data: AiModelTestDTO) {
-  return http.post('/system/ai-model/test', data as unknown as Record<string, unknown>, {
+  return http.post('/ai/model/test', data as unknown as Record<string, unknown>, {
     timeout: 40000,
   }) as Promise<ApiResult<number>>
 }

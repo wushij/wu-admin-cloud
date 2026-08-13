@@ -1,7 +1,7 @@
 package com.wu.cloud.order.controller;
 
 import com.wu.cloud.common.core.PageParam;
-import com.wu.cloud.common.core.PageResult;
+import com.wu.cloud.common.core.domain.PageResult;
 import com.wu.cloud.common.core.domain.R;
 import com.wu.cloud.order.entity.StockDO;
 import com.wu.cloud.order.entity.TradeOrderDO;

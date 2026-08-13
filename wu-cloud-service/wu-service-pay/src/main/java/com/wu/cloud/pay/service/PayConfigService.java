@@ -1,7 +1,7 @@
 package com.wu.cloud.pay.service;
 
 import com.wu.cloud.common.core.PageParam;
-import com.wu.cloud.common.core.PageResult;
+import com.wu.cloud.common.core.domain.PageResult;
 import com.wu.cloud.pay.entity.PayConfigDO;
 
 /**

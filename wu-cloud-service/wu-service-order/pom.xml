@@ -42,6 +42,10 @@
             <groupId>com.alibaba.cloud</groupId>
             <artifactId>spring-cloud-starter-alibaba-nacos-discovery</artifactId>
         </dependency>
+        <dependency>
+            <groupId>com.alibaba.cloud</groupId>
+            <artifactId>spring-cloud-starter-alibaba-nacos-config</artifactId>
+        </dependency>
         <!-- Feign 通过服务名调用 wu-service-pay 时，需要 loadbalancer 解析实例，否则运行时无法负载均衡 -->
         <dependency>
             <groupId>org.springframework.cloud</groupId>

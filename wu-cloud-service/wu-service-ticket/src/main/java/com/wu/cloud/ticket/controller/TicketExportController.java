@@ -3,7 +3,7 @@ package com.wu.cloud.ticket.controller;
 import com.alibaba.excel.EasyExcel;
 import com.alibaba.excel.annotation.ExcelProperty;
 import com.wu.cloud.common.core.PageParam;
-import com.wu.cloud.common.core.PageResult;
+import com.wu.cloud.common.core.domain.PageResult;
 import com.wu.cloud.common.security.annotation.RequiresPermissions;
 import com.wu.cloud.ticket.entity.ApprovalFormDO;
 import com.wu.cloud.ticket.entity.TicketDO;
@@ -25,10 +25,10 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * 工单/审批导出（路径对齐前端 /system/export/ticket|approval）
+ * 工单/审批导出（规范路径 /api/export/ticket|approval）
  */
 @RestController
-@RequestMapping("/api/system/export")
+@RequestMapping("/api/export")
 public class TicketExportController {
 
     private static final int MAX_ROWS = 5000;

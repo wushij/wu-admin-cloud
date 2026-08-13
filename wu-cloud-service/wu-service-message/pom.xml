@@ -36,9 +36,10 @@
             <groupId>cn.dev33</groupId>
             <artifactId>sa-token-redis-jackson</artifactId>
         </dependency>
+        <!-- Redis（统一走 starter，与其它业务服务一致） -->
         <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-data-redis</artifactId>
+            <groupId>com.wu.cloud</groupId>
+            <artifactId>wu-cloud-starter-redis</artifactId>
         </dependency>
 
         <!-- Web 依赖 -->
