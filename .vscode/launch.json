@@ -104,7 +104,7 @@
   ],
   "compounds": [
     {
-      "name": "一键启动后端全量微服务 (10大服务)",
+      "name": "一键启动后端全量微服务 (11个JVM服务)",
       "configurations": [
         "01-网关 gateway (:8080)",
         "02-认证中心 auth (:9200)",
@@ -121,7 +121,7 @@
       "stopAll": true
     },
     {
-      "name": "一键全栈启动 (10大微服务 + PC前端 + 移动端H5)",
+      "name": "一键全栈启动 (11个JVM服务 + PC前端 + 移动端H5)",
       "configurations": [
         "01-网关 gateway (:8080)",
         "02-认证中心 auth (:9200)",

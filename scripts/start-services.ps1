@@ -81,6 +81,6 @@ if ($StartGateway) {
 Write-Host "`n==== all service windows launched (includes BFF wu-admin :9100) ====" -ForegroundColor Cyan
 Write-Host "gateway: 8080"
 Write-Host "bff:     9100"
-Write-Host "nacos:   http://127.0.0.1:8848/nacos"
+Write-Host "nacos:   http://127.0.0.1:8849  (console; microservices use server-addr :8848)"
 Write-Host "init db: .\scripts\init-databases.ps1"
 Write-Host "smoke:   .\scripts\smoke\smoke-test.ps1"

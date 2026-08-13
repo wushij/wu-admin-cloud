@@ -87,7 +87,8 @@ function Test-HttpReachable {
 Write-Host "==== infra ports ===="
 Test-Port "MySQL" "127.0.0.1" 3306 | Out-Null
 Test-Port "Redis" "127.0.0.1" 6379 | Out-Null
-Test-Port "Nacos" "127.0.0.1" 8848 | Out-Null
+Test-Port "Nacos API" "127.0.0.1" 8848 | Out-Null
+Test-Port "Nacos Console" "127.0.0.1" 8849 | Out-Null
 Test-Port "Gateway" "127.0.0.1" 8080 | Out-Null
 
 Write-Host "`n==== service ports ===="

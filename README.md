@@ -29,7 +29,7 @@
 - **🚪 统一网关入口**：`wu-cloud-gateway` (:8080) 按 Path 前缀分发，统一鉴权、Header 清洗、接口安全
 - **📡 Nacos 服务注册发现**：注册至命名空间 `dev` / 分组 `WU_CLOUD`，网关通过 `lb://` 负载均衡
 - **🔐 Sa-Token 共享会话**：Gateway / Auth / 业务服务共用同一 Redis（db=0）存 Token，网关鉴权后注入 `X-User-*` Header
-- **🔗 OpenFeign 跨服务调用**：契约集中在 `wu-cloud-api`；内部接口前缀为 `/inner/**`，Feign 直连下游（不经网关）；外部经网关访问 `/inner/**` 会被拦截返回 403
+- **🔗 OpenFeign 跨服务调用**：契约集中在 `wu-cloud-api`；内部接口前缀为 `/inner/**`，Feign 直连下游（不经网关）；全量 `fallbackFactory` + Sentinel 降级；外部经网关访问 `/inner/**` 会被拦截返回 403
 - **🗄️ 按域拆分 SQL**：库名统一 `wu-admin`；8 个带 JDBC 的业务服务各有脚本（`01`～`08`）；gateway / auth / BFF 无业务库
 - **🔄 渐进式一致性**：无 MQ 阶段采用「Feign 同步 + 本地事务 + Quartz / Outbox 补偿」
 
@@ -39,25 +39,25 @@
 - **🚫 内部接口保护**：网关 `InnerApiGuardFilter` 拦截入站 `/inner/**`；服务间 Feign 走 `lb://` 直连，不经网关
 - **🔑 全链路接口安全**（DB `security` 组动态开关）：HMAC-SM3 请求签名、SM4 请求/响应加解密、时间戳窗口、Nonce 防重放；会话密钥由 `/api/auth/session-sign-init` 按 `X-Client-Id` 下发到 Redis
 - **🔐 敏感字段加密**：AI 模型 API Key 等入库前 SM4 加密，回显掩码
-- **🌐 CORS 凭证**：网关配置凭证模式 + Origin 白名单
+- **🌐 CORS 凭证**：网关配置凭证模式 + 允许所有 Origin（`allowedOriginPattern("*")`；生产环境需收紧）
 
 ### 💼 业务能力
 
-- **👥 五维组织 + 数据权限**：用户 / 角色 / 菜单 / 部门 / 岗位，数据范围动态拼接
+- **👥 五维组织 + RBAC 权限**：用户 / 角色 / 菜单 / 部门 / 岗位；菜单/按钮级鉴权（角色 `dataScope` 字段已预留，查询层数据范围过滤尚未落地）
 - **📋 工单与审批流**：请假 / 采购 / 报销 / 用印 / 合同 / 通用 + 注册审核
 - **💬 企业 IM**：WebSocket 私聊 / 群聊、@提醒、撤回、免打扰、在线状态、正在输入
 - **🤖 AI 助手**：SSE 流式对话（DeepSeek / OpenAI / Qwen / Kimi）、模型配置、对话日志、知识库
-- **📁 文件存储**：本地存储适配，上传 / 下载 / 预览 / 回收站
+- **📁 文件存储**：当前为本地存储实现（接口预留 OSS/S3），上传 / 下载 / 预览 / 回收站；代码生成运行时亦部署在本服务
 - **💳 支付与订单**：微信 Native / 支付宝当面付、回调验签、订单与支付事件解耦
 
 ---
 
 ## 🛠️ 技术栈
 
-- **后端（微服务）**：Spring Boot **3.5.13** · Spring Cloud **2025.0.2** · Spring Cloud Alibaba **2025.0.0.0** · Nacos 2.3.x · Spring Cloud Gateway · OpenFeign · Sa-Token **1.39.0** · MyBatis Plus 3.5.9 · Druid 1.2.24 · Redis + Redisson 3.41.0 · Hutool 5.8.42 · BouncyCastle 1.78.1 (国密) · Velocity 2.4.1 (代码生成) · Sentinel
+- **后端（微服务）**：Spring Boot **3.5.13** · Spring Cloud **2025.0.2** · Spring Cloud Alibaba **2025.0.0.0** · Nacos **3.x**（`nacos-client` 3.0.3） · Spring Cloud Gateway · OpenFeign · Sa-Token **1.39.0** · MyBatis Plus 3.5.9 · Druid 1.2.24 · Redis + Redisson 3.41.0 · Hutool 5.8.42 · BouncyCastle 1.78.1 (国密) · Velocity 2.4.1 (代码生成) · Sentinel
 - **前端（PC）**：Vue 3.4 + TypeScript 5.3 + Pinia + Element Plus + Vite 5 + ECharts
 - **移动端**：uni-app (Vue 3) + uv-ui + luch-request + TypeScript
-- **运行时环境**：JDK **17** · MySQL **8.0** · Redis **7.x** · Nacos 2.3.x · Node.js 18+ · Maven 3.6+
+- **运行时环境**：JDK **17** · MySQL **8.0** · Redis **7.x** · Nacos **3.x**（控制台 **`http://127.0.0.1:8849`**；微服务 `server-addr` **`8848`**） · Node.js 18+ · Maven 3.6+
 
 ---
 
@@ -98,8 +98,8 @@
 
 | 维度 | 说明 |
 |------|------|
-| **🔀 网关路由顺序** | 兼容重写（monitor/AI 等）→ `/api/auth` → `/api/admin` → `/api/system/dashboard` → ticket/approval/notice → AI → `/api/system/**` → file-group → `/api/infra/**` → message / pay / order / file 等 |
-| **📡 跨服务调用** | OpenFeign（契约在 `wu-cloud-api`），路径约定 `/inner/{域}/**`；强一致走 Feign + 本地事务，弱一致走补偿任务 |
+| **🔀 网关路由顺序** | doc/swagger 兼容 → `/api/auth` → `/api/admin` → dashboard 双轨 → ticket/approval/notice（含 export/legacy 双轨）→ `/api/system/**` → file-group/codegen/file → `/api/infra/**`（含 monitor）→ AI → message/WebSocket → pay → order |
+| **📡 跨服务调用** | OpenFeign（契约在 `wu-cloud-api`），路径约定 `/inner/{域}/**`；全量 `fallbackFactory` + Sentinel 降级；强一致走 Feign + 本地事务，弱一致走 Outbox/Quartz 补偿 |
 | **🔑 鉴权链** | Gateway SaReactorFilter 校验 → `AuthGlobalFilter` 注入 `X-User-*` → 业务侧 `UserContextInterceptor` 还原上下文；部分接口仍可用 `StpUtil`（共享 Redis Token） |
 | **🔌 WebSocket** | `/ws/**`、`/api/ws/**` 路由至 `wu-service-message`，网关 Upgrade 透传；多实例经 Redis Pub/Sub 广播 |
 
@@ -120,8 +120,8 @@
 | `wu-service-ai` | 🤖 业务服务 | 9204 | `wu-admin` | SSE 流式对话、模型配置、对话日志、知识库 |
 | `wu-service-pay` | 💳 业务服务 | 9205 | `wu-admin` | 微信/支付宝接入、回调验签、支付状态 |
 | `wu-service-order` | 📦 业务服务 | 9206 | `wu-admin` | 下单/支付结果关联/退款（与 pay 事件解耦） |
-| `wu-service-file` | 📁 业务服务 | 9207 | `wu-admin` | 文件上传/下载/预览/回收站、本地存储适配 |
-| `wu-service-infra` | 🛠️ 业务服务 | 9300 | `wu-admin` | 访问日志/操作日志/代码生成/定时任务/监控/导出 |
+| `wu-service-file` | 📁 业务服务 | 9207 | `wu-admin` | 文件上传/下载/预览/回收站、本地存储；代码生成 API（引擎 `wu-cloud-starter-codegen`，网关 `/api/infra/codegen/**` 路由至此） |
+| `wu-service-infra` | 🛠️ 业务服务 | 9300 | `wu-admin` | 访问日志/操作日志/定时任务/监控/导出/Outbox 补偿/在线用户 |
 
 ### 📦 基础组件与库 (3 个)
 
@@ -143,7 +143,7 @@
 | Maven | 3.6+ | 后端构建 |
 | MySQL | 8.0 | 库名 **`wu-admin`** |
 | Redis | 7.x | **database 0**（gateway / auth / 业务服务必须共用，否则 Token 不互认） |
-| Nacos | 2.3.x | `:8848`，命名空间 `dev`，分组 `WU_CLOUD` |
+| Nacos | **3.x** | 控制台 **`http://127.0.0.1:8849`**（浏览器 / 发布脚本）；微服务 `server-addr` **`127.0.0.1:8848`**（注册与配置，勿改为 8849）；`nacos-client` **3.0.3**；命名空间 `dev`，分组 `WU_CLOUD` |
 | Node.js | 18+ | 前端 & uni-app |
 
 ### 1. 🗄️ 初始化数据库
@@ -165,7 +165,7 @@
 ```bash
 # 方式 A：按服务拆分脚本
 mysql -u root -p < sql/01_wu_system.sql   # ← wu-service-system
-mysql -u root -p < sql/02_wu_file.sql     # ← wu-service-file
+mysql -u root -p < sql/02_wu_file.sql     # ← wu-service-file（含 gen_table 代码生成表）
 mysql -u root -p < sql/03_wu_ticket.sql   # ← wu-service-ticket
 mysql -u root -p < sql/04_wu_ai.sql       # ← wu-service-ai
 mysql -u root -p < sql/05_wu_message.sql  # ← wu-service-message
@@ -181,7 +181,7 @@ mysql -u root -p < sql/admin_platform.sql
 
 ### 2. 📡 启动基础设施 (Nacos & Redis)
 
-1. **Nacos**：启动在 `8848` 端口，在控制台创建命名空间 `dev`
+1. **Nacos 3.x**：浏览器打开 **`http://127.0.0.1:8849`**，创建命名空间 `dev`（各微服务 `application.yml` 里 `server-addr` 保持 **`127.0.0.1:8848`**，不要改成 8849）
 2. **Redis**：启动在 `6379` 端口，使用 db `0`
 
 ### 3. ☕ 编译与启动微服务
@@ -191,7 +191,7 @@ mysql -u root -p < sql/admin_platform.sql
 mvn clean install -DskipTests
 
 # 2) 推荐：用 .vscode/launch.json 一键启动
-#    「一键启动后端全量微服务 (10大服务)」
+#    「一键启动后端全量微服务 (11个JVM服务)」
 #    或按 01 网关 → 02 auth → 03 system … 逐个启动
 
 # 3) 也可命令行启动（示例）
@@ -245,7 +245,7 @@ wu-admin-cloud/                       # 工程根目录
 ├── wu-admin/                        # [9100] 📊 BFF 聚合服务
 ├── wu-cloud-service/                # 业务微服务集合
 │   ├── wu-service-system/          # [9201] ⚙️ 系统 → sql/01
-│   ├── wu-service-file/            # [9207] 📁 文件 → sql/02
+│   ├── wu-service-file/            # [9207] 📁 文件+代码生成 → sql/02
 │   ├── wu-service-ticket/          # [9202] 📋 工单 → sql/03
 │   ├── wu-service-ai/              # [9204] 🤖 AI → sql/04
 │   ├── wu-service-message/         # [9203] 💬 消息IM → sql/05
@@ -272,18 +272,18 @@ wu-admin-cloud/                       # 工程根目录
 | JDBC 密码、支付/AI 密钥 | 环境变量或加密配置；**勿明文进 Git/Nacos 公共库** | — |
 | Gateway 路由表 | 本地 `wu-cloud-gateway/.../application.yml` | 暂不外置，防误改 |
 
-发布公共配置：`.\scripts\nacos-publish-common.ps1`（Nacos **3.x** 控制台默认 `:8849`，脚本会登录后写入；客户端仍连 `:8848` 经 gRPC 拉配置）或见 `docs/nacos/README.md`。
+发布公共配置：`.\scripts\nacos-publish-common.ps1`（登录 **`http://127.0.0.1:8849`** 控制台 API 并写入；各微服务仍通过 **`8848`** 拉配置）或见 `docs/nacos/README.md`。
 
 ### 📡 Nacos / 注册与配置中心
 
-各服务统一：
+多数服务建议统一（`wu-admin` BFF 等可按需省略 `ip`）：
 
 ```yaml
 spring.cloud.nacos.discovery:
   server-addr: 127.0.0.1:8848
   namespace: dev
   group: WU_CLOUD
-  ip: 127.0.0.1   # 本地避免注册到错误网卡 / 代理假 IP
+  ip: 127.0.0.1   # 本地建议设置，避免注册到错误网卡 / 代理假 IP
 
 spring.config.import:
   - optional:nacos:wu-cloud-common.yaml?group=WU_CLOUD&refreshEnabled=true
