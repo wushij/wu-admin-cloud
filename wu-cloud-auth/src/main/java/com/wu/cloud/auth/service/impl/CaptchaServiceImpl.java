@@ -46,6 +46,7 @@ public class CaptchaServiceImpl implements CaptchaService {
     private com.wu.cloud.auth.config.AuthConfigLoader authConfigLoader;
 
     private boolean isCaptchaEnabled() {
+        authConfigLoader.refreshLoginGroup();
         return authConfigLoader.isCaptchaEnabled();
     }
 

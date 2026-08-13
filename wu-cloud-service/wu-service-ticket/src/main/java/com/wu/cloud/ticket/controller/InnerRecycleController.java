@@ -26,7 +26,8 @@ public class InnerRecycleController {
     public R<Map<String, Long>> count() {
         Map<String, Long> result = new HashMap<>(4);
         result.put("ticket", countDeleted("sys_ticket"));
-        result.put("approval", countDeleted("sys_approval_form") + countDeleted("sys_approval_record"));
+        // 与回收列表一致：只统计审批单；审批记录不单独展示，计入会虚高
+        result.put("approval", countDeleted("sys_approval_form"));
         result.put("notice", countDeleted("sys_notice"));
         return R.ok(result);
     }

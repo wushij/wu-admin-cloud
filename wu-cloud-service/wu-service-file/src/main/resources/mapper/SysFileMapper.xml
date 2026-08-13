@@ -5,8 +5,8 @@
 
     <sql id="Base_Column_List">
         id, original_name, file_name, file_path, url, file_size, file_type,
-        file_suffix, storage_type, group_id, creator_user_id,
-        create_time, update_time, creator, updater, deleted
+        file_suffix, storage_type, bucket_name, group_id, remark, create_by,
+        create_time, update_time, deleted
     </sql>
 
     <select id="selectDeletedPage" resultType="com.wu.cloud.file.entity.SysFileDO">

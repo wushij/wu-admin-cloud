@@ -53,4 +53,13 @@ public class AuthProperties {
 
     /** 会话签名密钥有效期（秒），与单体默认 1800 一致 */
     private long sessionSignExpireSeconds = 1800;
+
+    /**
+     * 公开 /auth/config：缓存齐全且未过 TTL 时跳过全量 Feign 刷新。
+     * 设为 false 可回退为每次强制 refreshPublicGroups。
+     */
+    private boolean skipPublicRefreshWhenCached = true;
+
+    /** 公开配置内存缓存 TTL（秒），到期后下次 /auth/config 会并行刷新 */
+    private int publicConfigCacheTtlSeconds = 30;
 }

@@ -44,6 +44,7 @@ import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 
 /**
  * 认证中心服务实现：登录、注册、忘记密码与登录配置
@@ -207,38 +208,55 @@ public class AuthServiceImpl implements AuthService {
         Long userId = StpUtil.getLoginIdAsLong();
         String username = (String) StpUtil.getSession().get("username");
 
-        // 从 wu-service-system 获取最新用户信息（含角色权限）
-        LoginUserDTO user;
-        try {
-            R<LoginUserDTO> result = StringUtils.hasText(username)
-                    ? remoteUserService.getUserInfoByUsername(username)
-                    : null;
-            user = result == null ? null : result.getData();
-            if (user == null && userId != null) {
+        // username 缺失时先补齐，再与菜单并行 Feign
+        if (!StringUtils.hasText(username) && userId != null) {
+            try {
                 R<SysUserDTO> basic = remoteUserService.getUserById(userId);
                 if (basic != null && basic.getData() != null && StringUtils.hasText(basic.getData().getUsername())) {
-                    R<LoginUserDTO> retry = remoteUserService.getUserInfoByUsername(basic.getData().getUsername());
-                    user = retry == null ? null : retry.getData();
+                    username = basic.getData().getUsername();
                 }
+            } catch (Exception e) {
+                log.error("[认证] getUserInfo 按 userId 补用户名失败 userId={}", userId, e);
+                throw new BusinessException("用户服务暂不可用，请稍后重试");
             }
+        }
+        if (!StringUtils.hasText(username)) {
+            throw new BusinessException("用户信息不存在");
+        }
+
+        final String resolvedUsername = username;
+        CompletableFuture<LoginUserDTO> userFuture = CompletableFuture.supplyAsync(() -> {
+            try {
+                R<LoginUserDTO> result = remoteUserService.getUserInfoByUsername(resolvedUsername);
+                return result == null ? null : result.getData();
+            } catch (Exception e) {
+                throw new RuntimeException(e);
+            }
+        });
+        CompletableFuture<List<SysMenuDTO>> menusFuture = CompletableFuture.supplyAsync(() -> {
+            try {
+                R<List<SysMenuDTO>> menuResult = remoteUserService.getMenusByUserId(userId);
+                return (menuResult != null && menuResult.getData() != null)
+                        ? menuResult.getData() : Collections.emptyList();
+            } catch (Exception e) {
+                log.warn("[认证] getUserInfo 获取菜单失败 userId={}, 返回空菜单", userId);
+                return Collections.emptyList();
+            }
+        });
+
+        LoginUserDTO user;
+        try {
+            user = userFuture.join();
         } catch (Exception e) {
-            log.error("[认证] getUserInfo 查询用户失败 userId={}", userId, e);
+            Throwable cause = e.getCause() != null ? e.getCause() : e;
+            log.error("[认证] getUserInfo 查询用户失败 userId={}", userId, cause);
             throw new BusinessException("用户服务暂不可用，请稍后重试");
         }
         if (user == null) {
             throw new BusinessException("用户信息不存在");
         }
 
-        // 获取菜单列表
-        List<SysMenuDTO> menus;
-        try {
-            R<List<SysMenuDTO>> menuResult = remoteUserService.getMenusByUserId(userId);
-            menus = (menuResult != null && menuResult.getData() != null)
-                    ? menuResult.getData() : Collections.emptyList();
-        } catch (Exception e) {
-            log.warn("[认证] getUserInfo 获取菜单失败 userId={}, 返回空菜单", userId);
-            menus = Collections.emptyList();
-        }
+        List<SysMenuDTO> menus = menusFuture.join();
 
         UserInfoVO vo = new UserInfoVO();
         vo.setUserId(user.getUserId());
@@ -255,6 +273,8 @@ public class AuthServiceImpl implements AuthService {
      * 人机校验：滑块票据优先，其次图形验证码
      */
     private void verifyHumanChallenge(LoginQueryDTO query) {
+        // 登录写路径强一致：先刷 login 组，再读开关
+        authConfigLoader.refreshLoginGroup();
         if (!authConfigLoader.isCaptchaEnabled()) {
             return;
         }
@@ -298,8 +318,8 @@ public class AuthServiceImpl implements AuthService {
 
     @Override
     public LoginConfigVO getLoginConfig() {
-        // 与单体改配置后立即 refresh 对齐，避免登录页仍吃旧缓存
-        authConfigLoader.refreshPublicGroups();
+        // 缓存齐全且未过 TTL 时跳过全量 Feign；否则并行刷新（可配置回退）
+        authConfigLoader.ensurePublicGroupsForLoginConfig();
 
         LoginConfigVO vo = new LoginConfigVO();
 

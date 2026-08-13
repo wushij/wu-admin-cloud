@@ -141,11 +141,17 @@ async function retryRequestWithNewSignKey(cfg: RetryableRequestConfig): Promise<
 
 service.interceptors.request.use(
   async (config) => {
+    // Axios 会把 null body JSON 成字面量 "null"（typeof null === 'object'），
+    // 而签名按空串计算 → 网关验签失败（回收站 restore 等 put(url, null, { params })）。
+    if (config.data === null) {
+      config.data = undefined
+    }
+
     const customCfg = config as RetryableRequestConfig
     if (customCfg._rawBody === undefined) {
       customCfg._rawBody = config.data
     } else {
-      config.data = customCfg._rawBody
+      config.data = customCfg._rawBody === null ? undefined : customCfg._rawBody
     }
 
     // 自动植入时间戳、Nonce、ClientId 防重放 Request Headers
@@ -399,7 +405,7 @@ export const post = <T = unknown>(url: string, data?: unknown, config?: AxiosReq
 }
 
 export const put = <T = unknown>(url: string, data?: unknown, config?: AxiosRequestConfig) => {
-  return service.put(url, data, config) as Promise<ApiResult<T>>
+  return service.put(url, data === null ? undefined : data, config) as Promise<ApiResult<T>>
 }
 
 export const del = <T = unknown>(url: string, config?: AxiosRequestConfig) => {

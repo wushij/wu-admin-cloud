@@ -72,6 +72,20 @@ export const useUserStore = defineStore('user', () => {
     }
   }
 
+  /** 短时效 in-flight 去重：守卫 / Layout / Dashboard 共用同一轮刷新 */
+  let loadingPromise: Promise<void> | null = null
+  const ensureUserReady = async () => {
+    if (userInfo.value.userId != null && menus.value.length > 0) {
+      return
+    }
+    if (!loadingPromise) {
+      loadingPromise = refreshUserStore().finally(() => {
+        loadingPromise = null
+      })
+    }
+    return loadingPromise
+  }
+
   const logout = () => {
     // 登出时，清空签名密钥闭包配置！
     resetSecurityConfig()
@@ -113,6 +127,7 @@ export const useUserStore = defineStore('user', () => {
     loginAction,
     getUserInfo,
     refreshUserStore,
+    ensureUserReady,
     logout,
     logoutAction,
     patchUserInfo,

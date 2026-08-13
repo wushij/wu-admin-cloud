@@ -79,11 +79,16 @@ const http = new Request({
 
 http.interceptors.request.use(
   async (config) => {
+    // 与 PC 一致：null body 勿序列化为字面量 "null"，否则签名与网关验签不一致
+    if (config.data === null) {
+      config.data = undefined
+    }
+
     const customCfg = config as any
     if (customCfg._rawBody === undefined) {
       customCfg._rawBody = config.data
     } else {
-      config.data = customCfg._rawBody
+      config.data = customCfg._rawBody === null ? undefined : customCfg._rawBody
     }
     const token = getToken()
     const timestamp = getTimestamp()
@@ -292,7 +297,7 @@ export const put = <T = unknown>(
   data?: unknown,
   config?: { params?: Record<string, unknown> },
 ) =>
-  http.put(url, data as Record<string, unknown> | undefined, {
+  http.put(url, (data === null ? undefined : data) as Record<string, unknown> | undefined, {
     params: config?.params,
   }) as Promise<ApiResult<T>>
 

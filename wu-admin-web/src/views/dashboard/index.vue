@@ -69,10 +69,11 @@ const { currentTime, greetingMessage } = useDashboardClock()
 
 async function bootstrapDashboard() {
   if (inited.value) return
-  // 用户信息与工作台数据并行，避免串行等 refresh 再出卡片
-  const userTask = userStore.isLoggedIn
-    ? userStore.refreshUserStore().catch(() => {})
-    : Promise.resolve()
+  // 守卫已拉用户态；仅 menus 缺失时走 ensureUserReady（in-flight 去重），避免多打一轮 Auth
+  const userTask =
+    userStore.isLoggedIn && (!userStore.menus || userStore.menus.length === 0)
+      ? userStore.ensureUserReady().catch(() => {})
+      : Promise.resolve()
   await Promise.all([userTask, initDashboard()])
   inited.value = true
 }

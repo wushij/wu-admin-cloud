@@ -76,6 +76,9 @@ wu:
     login-lock-seconds: 600
     slider-tolerance: 5
     password-min-length: 6
+    # 公开配置：缓存命中跳过串行 Feign；false 回退每次全量刷新
+    skip-public-refresh-when-cached: true
+    public-config-cache-ttl-seconds: 30
   # 短信渠道，enabled=false 时仅打印日志不真实发送
   sms:
     enabled: false

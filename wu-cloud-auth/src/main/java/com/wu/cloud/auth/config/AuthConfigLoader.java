@@ -11,12 +11,14 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
+import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * 从 system 服务读取 sys_config_group 配置，缓存在本地内存。
- * 读取逻辑对齐单体 SystemConfigHelper；关键开关在读取前主动刷新，避免改配置后最多等 60 秒。
+ * 公开配置路径优先用缓存；未齐或 TTL 过期时并行刷新，避免串行 Feign 拖慢 FCP。
  */
 @Slf4j
 @Component
@@ -26,6 +28,15 @@ public class AuthConfigLoader {
     private static final String CAPTCHA_TYPE_SLIDER = "slider";
     private static final String CAPTCHA_TYPE_SMS = "sms";
 
+    /** 登录页公开配置依赖的配置组 */
+    private static final List<String> PUBLIC_GROUPS = List.of(
+            "login", "site", "register", "security", "ai", "sms", "email"
+    );
+
+    private static final List<String> ALL_SCHEDULED_GROUPS = List.of(
+            "login", "site", "register", "security", "session", "rateLimit", "ai", "sms", "email"
+    );
+
     @Resource
     private RemoteConfigService remoteConfigService;
 
@@ -34,6 +45,9 @@ public class AuthConfigLoader {
 
     private final Map<String, JSONObject> cache = new ConcurrentHashMap<>();
 
+    /** 最近一次公开组刷新完成时间（用于短 TTL 兜底，避免永久脏读） */
+    private volatile long lastPublicRefreshAtMs;
+
     @PostConstruct
     public void init() {
         refresh();
@@ -41,26 +55,58 @@ public class AuthConfigLoader {
 
     @Scheduled(fixedDelay = 60_000, initialDelay = 15_000)
     public void refresh() {
-        loadGroup("login");
-        loadGroup("site");
-        loadGroup("register");
-        loadGroup("security");
-        loadGroup("session");
-        loadGroup("rateLimit");
-        loadGroup("ai");
-        loadGroup("sms");
-        loadGroup("email");
+        loadGroupsParallel(ALL_SCHEDULED_GROUPS);
+        lastPublicRefreshAtMs = System.currentTimeMillis();
     }
 
-    /** 公开配置接口调用前刷新，保证后台改完立刻生效 */
+    /**
+     * 强制刷新公开配置组（并行）。管理端改配置后可主动调用，或作为回滚路径。
+     */
     public void refreshPublicGroups() {
-        loadGroup("login");
-        loadGroup("site");
-        loadGroup("register");
-        loadGroup("security");
-        loadGroup("ai");
-        loadGroup("sms");
-        loadGroup("email");
+        loadGroupsParallel(PUBLIC_GROUPS);
+        lastPublicRefreshAtMs = System.currentTimeMillis();
+    }
+
+    /**
+     * 公开 /auth/config 组装前调用：缓存齐全且未过 TTL 时跳过 Feign；否则并行刷新。
+     * 可通过 wu.auth.skip-public-refresh-when-cached=false 回退为每次强制刷新。
+     */
+    public void ensurePublicGroupsForLoginConfig() {
+        if (authProperties.isSkipPublicRefreshWhenCached()
+                && hasAllPublicGroupsCached()
+                && !isPublicCacheExpired()) {
+            return;
+        }
+        refreshPublicGroups();
+    }
+
+    public boolean hasAllPublicGroupsCached() {
+        for (String group : PUBLIC_GROUPS) {
+            if (!cache.containsKey(group)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private boolean isPublicCacheExpired() {
+        long ttlMs = Math.max(1, authProperties.getPublicConfigCacheTtlSeconds()) * 1000L;
+        long last = lastPublicRefreshAtMs;
+        if (last <= 0) {
+            return true;
+        }
+        return System.currentTimeMillis() - last >= ttlMs;
+    }
+
+    private void loadGroupsParallel(List<String> groups) {
+        CompletableFuture<?>[] futures = groups.stream()
+                .map(group -> CompletableFuture.runAsync(() -> loadGroup(group)))
+                .toArray(CompletableFuture[]::new);
+        try {
+            CompletableFuture.allOf(futures).join();
+        } catch (Exception e) {
+            log.warn("[AuthConfigLoader] 并行加载配置组异常: {}", e.getMessage());
+        }
     }
 
     public void loadGroup(String groupCode) {
@@ -172,14 +218,21 @@ public class AuthConfigLoader {
     }
 
     // ---------- 登录 / 注册 ----------
+    /**
+     * 读内存缓存中的验证码开关（不再每次 Feign）。
+     * 登录校验强一致请先 {@link #refreshLoginGroup()}。
+     */
     public boolean isCaptchaEnabled() {
-        // 登录开关改完要立刻生效，读取前刷新 login 组
-        loadGroup("login");
         JSONObject login = getGroup("login");
         if (login.containsKey("captchaEnabled")) {
             return login.getBool("captchaEnabled");
         }
         return authProperties.isCaptchaEnabled();
+    }
+
+    /** 登录/发码等写路径：主动刷新 login 组，保证开关改完立刻生效 */
+    public void refreshLoginGroup() {
+        loadGroup("login");
     }
 
     public String getCaptchaType() {
