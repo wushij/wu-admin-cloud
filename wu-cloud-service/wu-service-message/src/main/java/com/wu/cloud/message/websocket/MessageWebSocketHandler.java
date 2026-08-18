@@ -111,6 +111,12 @@ public class MessageWebSocketHandler extends TextWebSocketHandler {
     // ===== 供业务层调用的推送方法（签名不变，内部走 Redis 广播）=====
 
     public void sendToUser(Long userId, String json) {
+        // 本实例有会话则直接投递（对齐单体，避免 Redis 绕一圈）；跨实例才走 Pub/Sub
+        WebSocketSession local = localSessions.get(userId);
+        if (local != null && local.isOpen()) {
+            sendRaw(local, json);
+            return;
+        }
         broadcaster.sendToUser(userId, json);
     }
 
@@ -128,7 +134,7 @@ public class MessageWebSocketHandler extends TextWebSocketHandler {
             if (userId == null) {
                 broadcaster.broadcast(json);
             } else {
-                broadcaster.sendToUser(userId, json);
+                sendToUser(userId, json);
             }
         } catch (Exception e) {
             log.error("sendNotice failed", e);
@@ -139,7 +145,7 @@ public class MessageWebSocketHandler extends TextWebSocketHandler {
         try {
             payload.put("type", "chat");
             payload.put("time", System.currentTimeMillis());
-            broadcaster.sendToUser(receiverId, objectMapper.writeValueAsString(payload));
+            sendToUser(receiverId, objectMapper.writeValueAsString(payload));
         } catch (Exception e) {
             log.error("sendChatPayload failed", e);
         }
@@ -151,7 +157,7 @@ public class MessageWebSocketHandler extends TextWebSocketHandler {
                 payload.put("type", "groupChat");
             }
             payload.put("time", System.currentTimeMillis());
-            broadcaster.sendToUser(userId, objectMapper.writeValueAsString(payload));
+            sendToUser(userId, objectMapper.writeValueAsString(payload));
         } catch (Exception e) {
             log.error("sendGroupChatPayload failed", e);
         }
@@ -172,7 +178,7 @@ public class MessageWebSocketHandler extends TextWebSocketHandler {
             payload.put("fromUserId", fromUserId);
             payload.put("active", active);
             payload.put("time", System.currentTimeMillis());
-            broadcaster.sendToUser(toUserId, objectMapper.writeValueAsString(payload));
+            sendToUser(toUserId, objectMapper.writeValueAsString(payload));
         } catch (Exception e) {
             log.error("sendTypingPayload failed", e);
         }
@@ -206,10 +212,17 @@ public class MessageWebSocketHandler extends TextWebSocketHandler {
     }
 
     private void sendRaw(WebSocketSession session, String json) {
-        if (session != null && session.isOpen() && json != null) {
+        if (session == null || !session.isOpen() || json == null) {
+            return;
+        }
+        // WebSocketSession 非线程安全：HTTP 回调 / Redis 监听 / ping-pong 可能并发写
+        synchronized (session) {
+            if (!session.isOpen()) {
+                return;
+            }
             try {
                 session.sendMessage(new TextMessage(json));
-            } catch (IOException e) {
+            } catch (IOException | IllegalStateException e) {
                 log.warn("WS send failed", e);
             }
         }

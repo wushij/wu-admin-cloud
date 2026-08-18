@@ -28,10 +28,17 @@ public class WebSocketHandshakeInterceptor implements HandshakeInterceptor {
         }
         HttpServletRequest req = servletRequest.getServletRequest();
         
-        // 1. 尝试从 Header 或 Query 参数中获取 Sa-Token
+        // 1. Header / Cookie 优先；H5/小程序 WebSocket 无法自定义 Header 时回退 URL 查询参数
+        //    （对齐单体 AuthTokenResolver.resolve(request, true)，uniapp 传 Authorization=）
         String token = req.getHeader("Authorization");
         if (!StringUtils.hasText(token)) {
             token = req.getHeader("satoken");
+        }
+        if (!StringUtils.hasText(token)) {
+            token = req.getParameter("Authorization");
+        }
+        if (!StringUtils.hasText(token)) {
+            token = req.getParameter("satoken");
         }
         if (!StringUtils.hasText(token)) {
             token = req.getParameter("token");

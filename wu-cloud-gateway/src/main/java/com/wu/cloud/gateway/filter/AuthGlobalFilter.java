@@ -117,6 +117,11 @@ public class AuthGlobalFilter implements GlobalFilter, Ordered {
         if (cookie != null && StringUtils.hasText(cookie.getValue())) {
             return cookie.getValue().trim();
         }
+        // H5/小程序 WebSocket 握手无法自定义 Header，uniapp 把 Token 放在 ?Authorization=
+        String query = request.getQueryParams().getFirst(TOKEN_NAME);
+        if (StringUtils.hasText(query)) {
+            return query.trim();
+        }
         return null;
     }
 

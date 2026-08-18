@@ -118,6 +118,27 @@ class AuthGlobalFilterTest {
     }
 
     @Test
+    @DisplayName("WebSocket 握手：从 ?Authorization= 查询参数解析 Token 并注入用户头")
+    void queryToken_injectsUserHeadersForWebSocket() {
+        MockServerWebExchange exchange = MockServerWebExchange.from(
+                MockServerHttpRequest.get("/api/ws/message")
+                        .queryParam("Authorization", "token-ws")
+                        .build());
+        GatewayFilterChain chain = mock(GatewayFilterChain.class);
+        ArgumentCaptor<ServerWebExchange> captor = ArgumentCaptor.forClass(ServerWebExchange.class);
+        when(chain.filter(captor.capture())).thenReturn(Mono.empty());
+
+        try (MockedStatic<StpUtil> stp = mockStatic(StpUtil.class)) {
+            stp.when(() -> StpUtil.getLoginIdByToken("token-ws")).thenReturn(7L);
+            stp.when(() -> StpUtil.getSessionByLoginId(7L, false)).thenReturn(null);
+
+            StepVerifier.create(filter.filter(exchange, chain)).verifyComplete();
+        }
+
+        assertEquals("7", captor.getValue().getRequest().getHeaders().getFirst(HeaderConstants.USER_ID));
+    }
+
+    @Test
     @DisplayName("有昵称时 X-User-Name 注入昵称而非账号")
     void nicknamePreferredOverUsername() {
         MockServerWebExchange exchange = MockServerWebExchange.from(

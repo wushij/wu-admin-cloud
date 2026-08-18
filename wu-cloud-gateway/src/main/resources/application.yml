@@ -47,8 +47,9 @@ spring:
     # 参数与 wu-cloud-auth 的 application.yml 保持一致，确保 Sa-Token Token 互认
     gateway:
       # 下游连接失败 / 5xx：GET 自动重试，吸收热重启与 LB 短暂脏缓存
+      # WebSocket 升级也是 GET，HttpRetry 会跳过 Upgrade: websocket，避免超时后重试握手掐断后续帧
       default-filters:
-        - name: Retry
+        - name: HttpRetry
           args:
             retries: 2
             methods: GET
@@ -64,6 +65,8 @@ spring:
       httpclient:
         connect-timeout: 3000
         response-timeout: 15s
+        websocket:
+          max-frame-payload-length: 1048576
       routes:
         # ===== 业务路由（P1：已移除 monitor/AI/dict/codegen/config-log 的 compat Rewrite）=====
         # Knife4j 接口文档：/api/doc.html → system 服务 /doc.html
@@ -169,7 +172,16 @@ spring:
         - id: wu-service-message
           uri: lb://wu-service-message
           predicates:
-            - Path=/api/message/**, /ws/**, /api/ws/**
+            - Path=/api/message/**
+
+        # WebSocket 单独路由：全局 response-timeout=15s 会掐掉长连接，导致第二条消息收不到
+        - id: wu-service-message-ws
+          uri: lb://wu-service-message
+          predicates:
+            - Path=/ws/**, /api/ws/**
+          metadata:
+            response-timeout: 86400000
+            connect-timeout: 10000
 
         - id: wu-service-pay
           uri: lb://wu-service-pay

@@ -11,6 +11,7 @@ import org.springframework.data.redis.listener.ChannelTopic;
 import org.springframework.data.redis.listener.RedisMessageListenerContainer;
 import org.springframework.stereotype.Component;
 
+import java.nio.charset.StandardCharsets;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import java.util.function.BiConsumer;
@@ -121,7 +122,9 @@ public class WebSocketRedisBroadcaster implements MessageListener {
     @Override
     public void onMessage(Message message, byte[] pattern) {
         try {
-            String body = new String(message.getBody());
+            // 必须按 UTF-8 解码：StringRedisTemplate 发布的是 UTF-8 字节。
+            // Windows 默认 charset 常为 GBK，new String(bytes) 会把中文解成「鎬庝箞…」这类乱码。
+            String body = new String(message.getBody(), StandardCharsets.UTF_8);
             ChannelMsg msg = objectMapper.readValue(body, ChannelMsg.class);
             BiConsumer<Long, String> cb = this.deliveryCallback;
             if (cb != null) {
