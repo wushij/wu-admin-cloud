@@ -33,7 +33,7 @@ export default defineConfig({
     proxy: {
       // 微服务化：/api 代理到网关 wu-cloud-gateway(:8080)，由网关分发到各微服务
       '/api': {
-        target: 'http://localhost:8080',
+        target: 'http://127.0.0.1:8080',
         changeOrigin: true,
         ws: true,
       },

@@ -337,11 +337,13 @@ const handleCreate = async () => {
 
 const openTicketDetailById = async (ticketId: number) => {
   if (!ticketId) return
-  const detailRes = await getTicket(ticketId)
+  const [detailRes, commentRes, attachmentRes] = await Promise.all([
+    getTicket(ticketId),
+    getTicketComments(ticketId),
+    getTicketAttachments(ticketId),
+  ])
   currentTicket.value = detailRes.data || {}
-  const commentRes = await getTicketComments(ticketId)
   comments.value = commentRes.data || []
-  const attachmentRes = await getTicketAttachments(ticketId)
   attachments.value = attachmentRes.data || []
   commentText.value = ''
   detailVisible.value = true

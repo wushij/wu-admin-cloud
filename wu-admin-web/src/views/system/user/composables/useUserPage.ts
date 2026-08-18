@@ -299,17 +299,6 @@ export function useUserPage() {
   }
 
   onMounted(async () => {
-    await loadDeptTree()
-    loadPostOptions()
-    const deptIdFromRoute = route.query.deptId
-    if (deptIdFromRoute) {
-      const deptId = Number(deptIdFromRoute)
-      if (!Number.isNaN(deptId) && deptId > 0) {
-        queryParams.deptId = deptId
-        await nextTick()
-        deptTreeRef.value?.setCurrentKey(deptId)
-      }
-    }
     const statusFromRoute = route.query.status
     if (statusFromRoute !== undefined && statusFromRoute !== '') {
       const status = Number(statusFromRoute)
@@ -317,7 +306,26 @@ export function useUserPage() {
         statusFilter.value = status === 1 ? '1' : status === 0 ? '0' : ''
       }
     }
-    getList()
+
+    const deptIdFromRoute = route.query.deptId
+    if (deptIdFromRoute) {
+      const deptId = Number(deptIdFromRoute)
+      if (!Number.isNaN(deptId) && deptId > 0) {
+        queryParams.deptId = deptId
+      }
+    }
+
+    // 部门树、岗位列表、用户列表并行加载
+    await Promise.all([
+      loadDeptTree().then(async () => {
+        if (queryParams.deptId) {
+          await nextTick()
+          deptTreeRef.value?.setCurrentKey(queryParams.deptId)
+        }
+      }),
+      loadPostOptions(),
+      getList(),
+    ])
   })
 
   return {

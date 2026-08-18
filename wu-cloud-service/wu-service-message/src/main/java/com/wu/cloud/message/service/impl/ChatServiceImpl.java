@@ -552,6 +552,7 @@ public class ChatServiceImpl implements ChatService {
             vo.setTargetUserName(l.getTargetUserName());
             vo.setDetail(l.getDetail());
             vo.setCreateTime(l.getCreateTime());
+            vo.buildContent();
             res.add(vo);
         }
         return res;

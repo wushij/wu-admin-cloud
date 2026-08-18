@@ -157,8 +157,11 @@ public class DashboardServiceImpl implements DashboardService {
         vo.setApprovalPendingCount(ticketStats == null ? 0L : nullToZero(ticketStats.getApprovalPendingCount()));
 
         try {
+            // 在线用户降级为 0 时缩短缓存，避免 60 秒内持续展示错误数据
+            long cacheTtl = (vo.getOnlineCount() != null && vo.getOnlineCount() > 0)
+                    ? STATS_CACHE_SECONDS : 5L;
             stringRedisTemplate.opsForValue().set(cacheKey,
-                    cn.hutool.json.JSONUtil.toJsonStr(vo), STATS_CACHE_SECONDS, TimeUnit.SECONDS);
+                    cn.hutool.json.JSONUtil.toJsonStr(vo), cacheTtl, TimeUnit.SECONDS);
         } catch (Exception e) {
             log.debug("[工作台] 写缓存失败: {}", e.getMessage());
         }

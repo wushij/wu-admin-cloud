@@ -4,6 +4,7 @@ import router from '@/router'
 import type { ApiResult } from '@/types/api'
 import { isApiSuccessCode } from '@/utils/api-response'
 import { getErrorMessage, markErrorToastShown } from '@/utils/axiosError'
+import { getAccessToken } from '@/utils/auth-token'
 import { useUserStore } from '@/store/user'
 import { generateNonce, getTimestamp, encryptSm4, decryptSm4, signHmacSm3 } from '@/utils/crypto'
 import { getSecurityConfig, getClientId, requestSessionSignKey, clearSignKeys } from '@/utils/security-config'
@@ -178,6 +179,10 @@ service.interceptors.request.use(
     config.headers['X-Nonce'] = nonce
     // 【安全加固 P0】携带会话 clientId，服务端据此从 Redis 查找临时签名密钥
     config.headers['X-Client-Id'] = getClientId()
+    const accessToken = getAccessToken()
+    if (accessToken) {
+      config.headers.Authorization = accessToken
+    }
 
     // 读取运行时下发的安全策略（闭包保存，不挂 window，密钥未下发时不启用加密/签名）
     const secConfig = getSecurityConfig()

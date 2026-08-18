@@ -3,6 +3,7 @@ import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { getMyNoticeList, readAllNotice, readNotice } from '@/api/system/notice'
 import { getMyAnnounce, readAnnounce, readAllAnnounce } from '@/api/message/index'
+import { getTicket } from '@/api/system/ticket'
 import { useMessageStore, type InboxNoticeItem } from '@/store/message'
 import type { AnnounceMyVO } from '@/types/message'
 
@@ -40,7 +41,12 @@ export function useLayoutMessages() {
       messageStore.inboxCount = Math.max(0, messageStore.inboxCount - 1)
     }
     if (item.bizType === 'TICKET' && item.bizId) {
-      router.push({ path: '/system/ticket', query: { ticketId: item.bizId } })
+      try {
+        await getTicket(item.bizId)
+        router.push({ path: '/system/ticket', query: { ticketId: item.bizId } })
+      } catch {
+        ElMessage.warning('该工单已被删除，如需查看请前往回收站还原')
+      }
       return
     }
     if (item.bizType === 'APPROVAL' && item.bizId) {

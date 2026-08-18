@@ -8,6 +8,7 @@ import { useTagsViewStore } from '@/store/tagsView'
 import { resetMonitorBackground } from '@/composables/useMonitorBackground'
 import { resetSecurityConfig, requestSessionSignKey } from '@/utils/security-config'
 import http from '@/utils/request'
+import { clearAccessToken, syncAccessTokenFromLogin } from '@/utils/auth-token'
 
 /** 登录后内存中的用户信息（与 /auth/info 字段子集一致） */
 export type UserInfo = Partial<
@@ -43,13 +44,15 @@ export const useUserStore = defineStore('user', () => {
       username: res.data.username,
       nickname: res.data.nickname,
     }
+    // 显式将 token 写入本地，避免 Cookie 因跨域/CORS 未落地时导致 /auth/info 无鉴权信息
+    syncAccessTokenFromLogin(res.data.token)
     return res
   }
 
   const getUserInfo = async () => {
-    // 刷新页面或进入前，优先初始化签名密钥
-    await initSessionKey()
-    const res = await getInfo()
+    // 签名密钥初始化与用户信息并行发起：axios 拦截器已有竞态保护，
+    // getInfo 的实际 HTTP 请求会在密钥就绪后才真正发出
+    const [, res] = await Promise.all([initSessionKey(), getInfo()])
     userInfo.value = {
       userId: res.data.userId,
       username: res.data.username,
@@ -102,6 +105,8 @@ export const useUserStore = defineStore('user', () => {
     }
     userInfo.value = {}
     menus.value = []
+    // 清理本地 token，避免其它页面仍带旧 Authorization 访问导致“看似登录又出现”的竞态
+    clearAccessToken()
   }
 
   const logoutAction = async () => {

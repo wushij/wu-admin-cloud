@@ -191,6 +191,9 @@ public class TicketServiceImpl extends ServiceImpl<TicketMapper, TicketDO> imple
         // 级联清理：评论 + 附件（逻辑删除主表，物理清理关联数据避免孤儿记录）
         commentMapper.delete(new LambdaQueryWrapper<TicketCommentDO>().eq(TicketCommentDO::getTicketId, id));
         attachmentMapper.delete(new LambdaQueryWrapper<TicketAttachmentDO>().eq(TicketAttachmentDO::getTicketId, id));
+        noticeMapper.delete(new LambdaQueryWrapper<NoticeDO>()
+                .eq(NoticeDO::getBizType, "TICKET")
+                .eq(NoticeDO::getBizId, id));
         removeById(id);
     }
 
@@ -208,6 +211,18 @@ public class TicketServiceImpl extends ServiceImpl<TicketMapper, TicketDO> imple
         if (rows == 0) {
             throw new BusinessException(404, "回收站工单不存在");
         }
+        // 恢复后重新生成通知，让相关用户在通知列表中重新看到该工单
+        TicketDO ticket = getById(id);
+        if (ticket != null && ticket.getAssigneeUserId() != null) {
+            NoticeDO notice = new NoticeDO();
+            notice.setUserId(ticket.getAssigneeUserId());
+            notice.setTitle("工单恢复通知");
+            notice.setContent("工单「" + (ticket.getTitle() != null ? ticket.getTitle() : ticket.getTicketNo()) + "」已从回收站恢复");
+            notice.setBizType("TICKET");
+            notice.setBizId(id);
+            notice.setReadStatus(0);
+            noticeMapper.insert(notice);
+        }
     }
 
     @Override
@@ -218,6 +233,10 @@ public class TicketServiceImpl extends ServiceImpl<TicketMapper, TicketDO> imple
             throw new BusinessException(404, "回收站工单不存在");
         }
         commentMapper.delete(new LambdaQueryWrapper<TicketCommentDO>().eq(TicketCommentDO::getTicketId, id));
+        // 彻底删除时，同步物理删除相关通知，避免用户点击通知时提示「工单不存在」
+        noticeMapper.delete(new LambdaQueryWrapper<NoticeDO>()
+                .eq(NoticeDO::getBizType, "TICKET")
+                .eq(NoticeDO::getBizId, id));
     }
 
     @Override

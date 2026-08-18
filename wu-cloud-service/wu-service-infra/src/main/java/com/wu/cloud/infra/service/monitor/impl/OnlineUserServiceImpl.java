@@ -14,8 +14,8 @@ import com.wu.cloud.infra.util.UserAgentUtils;
 import jakarta.annotation.Resource;
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
+import org.redisson.api.options.KeysScanOptions;
 import org.redisson.api.RBucket;
-import org.redisson.api.RKeys;
 import org.redisson.api.RedissonClient;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
@@ -119,6 +119,16 @@ public class OnlineUserServiceImpl implements OnlineUserService {
 
     @Override
     public int countOnlineUsers() {
+        // 轻量级统计：直接计数 Redis 活跃标记键，避免全量会话遍历 + 逐个 isLogin 校验
+        // 超时导致 BFF 降级为 0 的根因就是 resolveActiveUserIds() 太重
+        try {
+            int count = countKeysByPattern(ONLINE_ACTIVE_PREFIX + "*");
+            if (count > 0) {
+                return count;
+            }
+        } catch (Exception e) {
+            log.debug("[在线用户] 快速计数失败，回退到会话遍历: {}", e.getMessage());
+        }
         return resolveActiveUserIds().size();
     }
 
@@ -190,16 +200,13 @@ public class OnlineUserServiceImpl implements OnlineUserService {
         return result;
     }
 
-    @SuppressWarnings("deprecation")
     private void collectUserIdsFromRedisSessions(Set<Long> ids) {
         try {
-            RKeys keys = redissonClient.getKeys();
             for (String pattern : new String[]{
                     "Authorization:login:session:*",
                     "Authorization:login:token:*"
             }) {
-                Iterable<String> found = keys.getKeysByPattern(pattern, 500);
-                for (String key : found) {
+                for (String key : scanKeysByPattern(pattern)) {
                     Long userId = parseLoginIdFromSaTokenKey(key);
                     if (userId != null && isUserActive(userId)) {
                         ids.add(userId);
@@ -341,5 +348,19 @@ public class OnlineUserServiceImpl implements OnlineUserService {
         } catch (Exception e) {
             return 0L;
         }
+    }
+
+    private int countKeysByPattern(String pattern) {
+        return (int) redissonClient.getKeys()
+                .getKeysStream(scanOptions(pattern))
+                .count();
+    }
+
+    private Iterable<String> scanKeysByPattern(String pattern) {
+        return redissonClient.getKeys().getKeys(scanOptions(pattern));
+    }
+
+    private KeysScanOptions scanOptions(String pattern) {
+        return KeysScanOptions.defaults().pattern(pattern).chunkSize(500);
     }
 }

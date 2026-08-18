@@ -31,4 +31,7 @@ public class SysMenuDO extends BaseEntity {
     /** 单体 sys_menu 表无此列，仅内存/DTO 使用 */
     @TableField(exist = false)
     private Boolean keepAlive;
+
+    @TableField(exist = false)
+    private java.util.List<SysMenuDO> children;
 }

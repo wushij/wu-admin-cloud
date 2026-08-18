@@ -225,7 +225,9 @@ function hasRoutePermission(userStore: ReturnType<typeof useUserStore>, required
 
 router.beforeEach(async (to, _from, next) => {
   const siteStore = useSiteStore()
-  await siteStore.ensureConfigLoaded()
+  // 不阻塞路由跳转：bootstrap() 已在 app.mount 前 await loadConfig()，
+  // 此处仅触发兜底加载（首次未完成的极端竞态），不 await
+  siteStore.ensureConfigLoaded()
 
   const userStore = useUserStore()
 

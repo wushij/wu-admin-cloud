@@ -3,6 +3,7 @@ package com.wu.cloud.system.controller;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.wu.cloud.api.log.Log;
 import com.wu.cloud.common.core.domain.PageQuery;
+import com.wu.cloud.common.core.domain.PageResult;
 import com.wu.cloud.common.core.domain.R;
 import com.wu.cloud.common.security.annotation.RequiresPermissions;
 import com.wu.cloud.system.entity.SysPostDO;
@@ -37,9 +38,10 @@ public class PostController {
 
     @RequiresPermissions("system:post:list")
     @GetMapping("/page")
-    public R<Page<SysPostDO>> page(PageQuery pageQuery,
+    public R<PageResult<SysPostDO>> page(PageQuery pageQuery,
                                    @RequestParam(value = "postName", required = false) String postName) {
-        return R.ok(postService.getPostPage(pageQuery, postName));
+        Page<SysPostDO> page = postService.getPostPage(pageQuery, postName);
+        return R.ok(PageResult.of(page.getRecords(), page.getTotal()));
     }
 
     @RequiresPermissions("system:post:query")
@@ -121,9 +123,10 @@ public class PostController {
 
     @RequiresPermissions("system:post:list")
     @GetMapping("/recycle/page")
-    public R<Page<SysPostDO>> recyclePage(PageQuery pageQuery,
+    public R<PageResult<SysPostDO>> recyclePage(PageQuery pageQuery,
                                           @RequestParam(value = "postName", required = false) String postName) {
-        return R.ok(postService.getRecyclePage(pageQuery, postName));
+        Page<SysPostDO> page = postService.getRecyclePage(pageQuery, postName);
+        return R.ok(PageResult.of(page.getRecords(), page.getTotal()));
     }
 
     @RequiresPermissions("system:post:edit")

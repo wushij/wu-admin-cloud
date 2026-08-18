@@ -9,7 +9,7 @@ import jakarta.annotation.Resource;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
-import java.util.List;
+import java.util.*;
 
 @Service
 public class MenuServiceImpl implements MenuService {
@@ -19,11 +19,18 @@ public class MenuServiceImpl implements MenuService {
 
     @Override
     public List<SysMenuDO> getMenuList() {
-        return getMenuList(null, null, null);
+        // 给认证中心 /auth/info 或工作台侧栏使用：需要“全量平铺菜单”，否则只拿到根节点会导致权限计算失败
+        return getMenuListFlat(null, null, null);
     }
 
     @Override
     public List<SysMenuDO> getMenuList(String name, Integer status, Integer type) {
+        // 给菜单管理页面使用：需要树形结构（children），以便前端根据 level 递归展示缩进
+        List<SysMenuDO> all = getMenuListFlat(name, status, type);
+        return buildTree(all);
+    }
+
+    private List<SysMenuDO> getMenuListFlat(String name, Integer status, Integer type) {
         LambdaQueryWrapper<SysMenuDO> wrapper = new LambdaQueryWrapper<>();
         if (StringUtils.hasText(name)) {
             wrapper.like(SysMenuDO::getName, name.trim());
@@ -36,6 +43,24 @@ public class MenuServiceImpl implements MenuService {
         }
         wrapper.orderByAsc(SysMenuDO::getSort).orderByAsc(SysMenuDO::getId);
         return menuMapper.selectList(wrapper);
+    }
+
+    private List<SysMenuDO> buildTree(List<SysMenuDO> all) {
+        Map<Long, SysMenuDO> map = new LinkedHashMap<>();
+        for (SysMenuDO m : all) {
+            m.setChildren(new ArrayList<>());
+            map.put(m.getId(), m);
+        }
+        List<SysMenuDO> roots = new ArrayList<>();
+        for (SysMenuDO m : all) {
+            Long pid = m.getParentId();
+            if (pid == null || pid == 0 || !map.containsKey(pid)) {
+                roots.add(m);
+            } else {
+                map.get(pid).getChildren().add(m);
+            }
+        }
+        return roots;
     }
 
     @Override

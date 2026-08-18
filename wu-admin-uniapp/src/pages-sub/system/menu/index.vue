@@ -60,7 +60,9 @@
           <view class="menu-node__status" :class="row.status === 1 ? 'menu-node__status--on' : 'menu-node__status--off'">
             {{ row.status === 1 ? '启用' : '停用' }}
           </view>
-          <text v-if="hasRowActions" class="menu-node__manage">管理</text>
+          <view v-if="hasRowActions" class="menu-node__manage">
+            <text>管理</text>
+          </view>
         </view>
       </view>
 
@@ -307,12 +309,13 @@ onPullDownRefresh(async () => {
   &:not(.menu-node--last)::after {
     content: '';
     position: absolute;
-    left: 0;
-    right: 0;
+    /* 从左侧“图标/层级缩进列”之后开始，保持与单体表格列的视觉对齐 */
+    left: 88rpx;
+    right: 20rpx; /* 对齐容器 padding-right，避免线压到右侧胶囊区 */
     bottom: 0;
     height: 1px;
     background: $color-border-light;
-    margin-left: 88rpx;
+    margin-left: 0;
   }
 }
 
@@ -420,6 +423,11 @@ onPullDownRefresh(async () => {
 
 .menu-node__status {
   flex-shrink: 0;
+  /* 固定宽度，避免“启用/停用”文字长度不同导致后续内容（管理按钮）水平偏移 */
+  min-width: 96rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   padding: 6rpx 14rpx;
   border-radius: $radius-full;
   font-size: 20rpx;
@@ -439,6 +447,11 @@ onPullDownRefresh(async () => {
 .menu-node__manage {
   flex-shrink: 0;
   margin-left: 12rpx;
+  /* 固定宽度，保证每行管理按钮位置一致 */
+  min-width: 96rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   padding: 8rpx 18rpx;
   border-radius: $radius-full;
   font-size: $font-size-xs;

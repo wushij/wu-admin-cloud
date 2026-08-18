@@ -49,6 +49,9 @@ sa-token:
   active-timeout: -1
   is-concurrent: true
   is-share: true
+  # 与单体/前端约定保持一致：认证态只认 Authorization Header，不使用浏览器共享 Cookie
+  is-read-cookie: false
+  is-read-header: true
   token-style: uuid
   is-log: false
 

@@ -27,7 +27,7 @@ spring:
       cache:
         enabled: true
         # 本地开发服务常热重启：过长缓存会把已挂实例继续打出偶发 503
-        ttl: 1s
+        ttl: 10s
         capacity: 256
     nacos:
       discovery:
@@ -202,8 +202,8 @@ sa-token:
   is-share: true
   token-style: uuid
   is-log: false
-  # 与 auth 及单体一致：Header + Cookie 双通道读 Token（登录后浏览器会写入 Authorization Cookie）
-  is-read-cookie: true
+  # 与 README/前端设计一致：仅从 Authorization Header 读 Token，避免同浏览器 PC/H5 共享 Cookie 串号
+  is-read-cookie: false
   is-read-header: true
   is-write-header: false
 

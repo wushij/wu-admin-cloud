@@ -3,6 +3,7 @@ package com.wu.cloud.system.controller;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.wu.cloud.api.log.Log;
 import com.wu.cloud.common.core.domain.PageQuery;
+import com.wu.cloud.common.core.domain.PageResult;
 import com.wu.cloud.common.core.domain.R;
 import com.wu.cloud.common.security.annotation.RequiresPermissions;
 import com.wu.cloud.system.entity.SysRoleDO;
@@ -36,10 +37,11 @@ public class RoleController {
 
     @RequiresPermissions("system:role:list")
     @GetMapping("/page")
-    public R<Page<SysRoleDO>> getRolePage(PageQuery pageQuery,
+    public R<PageResult<SysRoleDO>> getRolePage(PageQuery pageQuery,
                                           @RequestParam(value = "name", required = false) String name,
                                           @RequestParam(value = "status", required = false) Integer status) {
-        return R.ok(roleService.pageRoles(pageQuery, name, status));
+        Page<SysRoleDO> page = roleService.pageRoles(pageQuery, name, status);
+        return R.ok(PageResult.of(page.getRecords(), page.getTotal()));
     }
 
     @RequiresPermissions("system:role:query")
@@ -97,9 +99,10 @@ public class RoleController {
 
     @RequiresPermissions("system:role:list")
     @GetMapping("/recycle/page")
-    public R<Page<SysRoleDO>> recyclePage(PageQuery pageQuery,
+    public R<PageResult<SysRoleDO>> recyclePage(PageQuery pageQuery,
                                           @RequestParam(value = "keyword", required = false) String keyword) {
-        return R.ok(sysRecycleService.getRoleRecyclePage(pageQuery, keyword));
+        Page<SysRoleDO> page = sysRecycleService.getRoleRecyclePage(pageQuery, keyword);
+        return R.ok(PageResult.of(page.getRecords(), page.getTotal()));
     }
 
     @RequiresPermissions("system:role:edit")
