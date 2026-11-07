@@ -41,6 +41,11 @@ public class RemoteStatsServiceFallback implements FallbackFactory<RemoteStatsSe
             public R<Boolean> recordVisit() {
                 return R.fail("统计服务暂不可用");
             }
+
+            @Override
+            public R<Map<String, Long>> countLoginByStartTime(Integer days) {
+                return R.fail("统计服务暂不可用，登录统计获取失败");
+            }
         };
     }
 }

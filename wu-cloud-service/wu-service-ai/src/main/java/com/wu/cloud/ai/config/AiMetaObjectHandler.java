@@ -8,7 +8,7 @@ import org.springframework.stereotype.Component;
 import java.time.LocalDateTime;
 
 /**
- * AI 服务 MyBatis-Plus 自动填充（对齐单体 createTime/username）
+ * AI 服务 MyBatis-Plus 自动填充（与既有规范对齐 createTime/username）
  */
 @Component
 public class AiMetaObjectHandler implements MetaObjectHandler {

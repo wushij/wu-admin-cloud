@@ -34,6 +34,11 @@ public class RemoteTicketServiceFallback implements FallbackFactory<RemoteTicket
             public R<TicketDashboardDTO> getDashboardStats(Long userId) {
                 return R.fail("工单服务暂不可用");
             }
+
+            @Override
+            public R<Integer> purgeRecycleBin(Integer retentionDays) {
+                return R.fail("工单服务暂不可用，回收站清理失败");
+            }
         };
     }
 }

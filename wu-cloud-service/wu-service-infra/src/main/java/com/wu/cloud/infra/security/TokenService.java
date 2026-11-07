@@ -13,7 +13,7 @@ import java.util.List;
 import java.util.Set;
 
 /**
- * Sa-Token 会话查询（对齐单体 TokenService，供在线用户统计）
+ * Sa-Token 会话查询（与既有规范对齐 TokenService，供在线用户统计）
  */
 @Slf4j
 @Service

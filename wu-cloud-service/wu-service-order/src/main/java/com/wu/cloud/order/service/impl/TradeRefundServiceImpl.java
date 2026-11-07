@@ -2,7 +2,6 @@ package com.wu.cloud.order.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
-import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.wu.cloud.api.pay.dto.PayRefundDTO;
 import com.wu.cloud.api.pay.feign.RemotePayService;
 import com.wu.cloud.common.core.PageParam;
@@ -23,10 +22,13 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 
 /**
- * 退款单 Service 实现
+ * 退款单 Service 实现（MyBatis-Plus 3.5.18 已移除 extension.service.ServiceImpl，直接注入 Mapper）
  */
 @Service
-public class TradeRefundServiceImpl extends ServiceImpl<TradeRefundMapper, TradeRefundDO> implements TradeRefundService {
+public class TradeRefundServiceImpl implements TradeRefundService {
+
+    @Resource
+    private TradeRefundMapper tradeRefundMapper;
 
     @Resource
     private TradeOrderService tradeOrderService;
@@ -45,13 +47,13 @@ public class TradeRefundServiceImpl extends ServiceImpl<TradeRefundMapper, Trade
             wrapper.eq(TradeRefundDO::getStatus, status);
         }
         wrapper.orderByDesc(TradeRefundDO::getCreateTime);
-        Page<TradeRefundDO> result = page(page, wrapper);
+        Page<TradeRefundDO> result = tradeRefundMapper.selectPage(page, wrapper);
         return PageResult.of(result.getRecords(), result.getTotal());
     }
 
     @Override
     public TradeRefundDO detail(Long id) {
-        TradeRefundDO refund = getById(id);
+        TradeRefundDO refund = tradeRefundMapper.selectById(id);
         if (refund == null) {
             throw new BusinessException(404, "退款单不存在");
         }
@@ -75,14 +77,14 @@ public class TradeRefundServiceImpl extends ServiceImpl<TradeRefundMapper, Trade
         refund.setAmount(order.getPayAmount() != null ? order.getPayAmount() : order.getTotalAmount());
         refund.setReason(reason);
         refund.setStatus("PENDING");
-        save(refund);
+        tradeRefundMapper.insert(refund);
         return refund.getId();
     }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void audit(Long id, Boolean approved, String remark) {
-        TradeRefundDO refund = getById(id);
+        TradeRefundDO refund = tradeRefundMapper.selectById(id);
         if (refund == null) {
             throw new BusinessException(404, "退款单不存在");
         }
@@ -96,13 +98,13 @@ public class TradeRefundServiceImpl extends ServiceImpl<TradeRefundMapper, Trade
         if (approved == null || !approved) {
             // 审核驳回
             refund.setStatus("REJECTED");
-            updateById(refund);
+            tradeRefundMapper.updateById(refund);
             return;
         }
 
         // 审核通过，调用支付服务发起真实退款
         refund.setStatus("APPROVED");
-        updateById(refund);
+        tradeRefundMapper.updateById(refund);
         try {
             // 通过 Feign 调用支付服务发起退款（pay 服务创建退款单并联动第三方渠道）
             R<PayRefundDTO> payResult = remotePayService.applyRefund(
@@ -110,7 +112,7 @@ public class TradeRefundServiceImpl extends ServiceImpl<TradeRefundMapper, Trade
             if (payResult == null || !payResult.isSuccess() || payResult.getData() == null) {
                 refund.setStatus("FAILED");
                 refund.setAuditRemark(remark != null ? remark : "支付服务退款受理失败");
-                updateById(refund);
+                tradeRefundMapper.updateById(refund);
                 throw new BusinessException("调用支付服务退款失败：" + (payResult == null ? "支付服务不可用" : payResult.getMsg()));
             }
             PayRefundDTO payRefund = payResult.getData();
@@ -122,7 +124,7 @@ public class TradeRefundServiceImpl extends ServiceImpl<TradeRefundMapper, Trade
             } else {
                 refund.setStatus("PROCESSING");
             }
-            updateById(refund);
+            tradeRefundMapper.updateById(refund);
             // 更新订单状态为 REFUNDED（由订单状态机校验合法性）
             tradeOrderService.refund(refund.getOrderId());
         } catch (BusinessException e) {
@@ -130,7 +132,7 @@ public class TradeRefundServiceImpl extends ServiceImpl<TradeRefundMapper, Trade
         } catch (Exception e) {
             refund.setStatus("FAILED");
             refund.setAuditRemark(remark != null ? remark : "退款异常: " + e.getMessage());
-            updateById(refund);
+            tradeRefundMapper.updateById(refund);
             throw new BusinessException("调用支付服务退款异常: " + e.getMessage());
         }
     }

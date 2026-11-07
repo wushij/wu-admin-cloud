@@ -118,7 +118,7 @@ export async function openChatFile(content?: string) {
   if (file.fileId) {
     try {
       const { fetchFileBlob } = await import('@/api/system/file/index')
-      const blob = await fetchFileBlob(`/system/file/download/${file.fileId}`)
+      const blob = await fetchFileBlob(`/infra/file/download/${file.fileId}`)
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url; a.download = file.name || 'download'

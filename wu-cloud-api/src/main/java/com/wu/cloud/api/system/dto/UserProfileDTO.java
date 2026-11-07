@@ -7,7 +7,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 /**
- * 个人中心完整资料（对齐单体 buildProfileMap / 移动端 UserProfile）
+ * 个人中心完整资料（与既有规范对齐 buildProfileMap / 移动端 UserProfile）
  */
 @Data
 public class UserProfileDTO implements Serializable {

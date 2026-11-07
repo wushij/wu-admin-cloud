@@ -11,6 +11,8 @@ export const ICON_CN_LABELS: Record<string, string> = {
   Female: '女性',
   Key: '密钥',
   Lock: '安全',
+  Workflow: '工作流',
+  AiModel: 'AI模型',
   Unlock: '解锁',
   Document: '文档',
   DocumentCopy: '文档副本',

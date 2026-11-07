@@ -18,6 +18,8 @@
 .app-container,
 .page-container {
   min-height: 100%;
+  /* 作为 .main-content__body 的弹性子项，内容不足时撑满可用高度 */
+  flex: 1 0 auto;
 }
 
 /* 卡片：大圆角 + 细边框，去掉默认重阴影 */
@@ -45,13 +47,130 @@
   margin-bottom: var(--admin-page-gap);
 }
 
-/* 按钮 */
-.main-content .el-button {
+/* 按钮：圆角与全局交互规范 */
+.el-button {
   border-radius: var(--admin-radius-md) !important;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-.main-content .el-button.is-round {
+.el-button.is-round {
   border-radius: var(--el-border-radius-round) !important;
+}
+
+/* 统一全局 plain 朴素/幽灵按钮悬浮与激活交互：
+ * 禁止悬停时突变实心深色背景（如黑底/红底大色块）及反白文字，
+ * 保持统一柔和的浅色微调高亮与主题色彩文字。
+ */
+.el-button.is-plain {
+  &.el-button--primary {
+    --el-button-hover-text-color: var(--el-color-primary);
+    --el-button-hover-bg-color: var(--el-color-primary-light-8);
+    --el-button-hover-border-color: var(--el-color-primary-light-4);
+    --el-button-active-text-color: var(--el-color-primary);
+    --el-button-active-bg-color: var(--el-color-primary-light-7);
+    --el-button-active-border-color: var(--el-color-primary);
+
+    &:hover:not(.is-disabled),
+    &:focus:not(.is-disabled) {
+      color: var(--el-color-primary) !important;
+      background-color: var(--el-color-primary-light-8) !important;
+      border-color: var(--el-color-primary-light-4) !important;
+    }
+
+    &:active:not(.is-disabled) {
+      color: var(--el-color-primary) !important;
+      background-color: var(--el-color-primary-light-7) !important;
+      border-color: var(--el-color-primary) !important;
+    }
+  }
+
+  &.el-button--danger {
+    --el-button-hover-text-color: var(--el-color-danger);
+    --el-button-hover-bg-color: var(--el-color-danger-light-8);
+    --el-button-hover-border-color: var(--el-color-danger-light-4);
+    --el-button-active-text-color: var(--el-color-danger);
+    --el-button-active-bg-color: var(--el-color-danger-light-7);
+    --el-button-active-border-color: var(--el-color-danger);
+
+    &:hover:not(.is-disabled),
+    &:focus:not(.is-disabled) {
+      color: var(--el-color-danger) !important;
+      background-color: var(--el-color-danger-light-8) !important;
+      border-color: var(--el-color-danger-light-4) !important;
+    }
+
+    &:active:not(.is-disabled) {
+      color: var(--el-color-danger) !important;
+      background-color: var(--el-color-danger-light-7) !important;
+      border-color: var(--el-color-danger) !important;
+    }
+  }
+
+  &.el-button--success {
+    --el-button-hover-text-color: var(--el-color-success);
+    --el-button-hover-bg-color: var(--el-color-success-light-8);
+    --el-button-hover-border-color: var(--el-color-success-light-4);
+    --el-button-active-text-color: var(--el-color-success);
+    --el-button-active-bg-color: var(--el-color-success-light-7);
+    --el-button-active-border-color: var(--el-color-success);
+
+    &:hover:not(.is-disabled),
+    &:focus:not(.is-disabled) {
+      color: var(--el-color-success) !important;
+      background-color: var(--el-color-success-light-8) !important;
+      border-color: var(--el-color-success-light-4) !important;
+    }
+
+    &:active:not(.is-disabled) {
+      color: var(--el-color-success) !important;
+      background-color: var(--el-color-success-light-7) !important;
+      border-color: var(--el-color-success) !important;
+    }
+  }
+
+  &.el-button--warning {
+    --el-button-hover-text-color: var(--el-color-warning);
+    --el-button-hover-bg-color: var(--el-color-warning-light-8);
+    --el-button-hover-border-color: var(--el-color-warning-light-4);
+    --el-button-active-text-color: var(--el-color-warning);
+    --el-button-active-bg-color: var(--el-color-warning-light-7);
+    --el-button-active-border-color: var(--el-color-warning);
+
+    &:hover:not(.is-disabled),
+    &:focus:not(.is-disabled) {
+      color: var(--el-color-warning) !important;
+      background-color: var(--el-color-warning-light-8) !important;
+      border-color: var(--el-color-warning-light-4) !important;
+    }
+
+    &:active:not(.is-disabled) {
+      color: var(--el-color-warning) !important;
+      background-color: var(--el-color-warning-light-7) !important;
+      border-color: var(--el-color-warning) !important;
+    }
+  }
+
+  &.el-button--info {
+    --el-button-hover-text-color: var(--el-color-info);
+    --el-button-hover-bg-color: var(--el-color-info-light-8);
+    --el-button-hover-border-color: var(--el-color-info-light-4);
+    --el-button-active-text-color: var(--el-color-info);
+    --el-button-active-bg-color: var(--el-color-info-light-7);
+    --el-button-active-border-color: var(--el-color-info);
+
+    &:hover:not(.is-disabled),
+    &:focus:not(.is-disabled) {
+      color: var(--el-color-info) !important;
+      background-color: var(--el-color-info-light-8) !important;
+      border-color: var(--el-color-info-light-4) !important;
+    }
+
+    &:active:not(.is-disabled) {
+      color: var(--el-color-info) !important;
+      background-color: var(--el-color-info-light-7) !important;
+      border-color: var(--el-color-info) !important;
+    }
+  }
 }
 
 /* 输入框、选择器 */
@@ -80,6 +199,16 @@
 }
 
 /* 分页 */
+.main-content .el-pagination,
+.table-pagination {
+  justify-content: flex-start;
+}
+
+.table-pagination {
+  margin-top: auto;
+  padding-top: 16px;
+}
+
 .main-content .el-pagination .el-pager li,
 .main-content .el-pagination .btn-prev,
 .main-content .el-pagination .btn-next,
@@ -232,8 +361,9 @@
   }
 
   .table-pagination {
-    margin-top: 16px;
-    justify-content: flex-end;
+    margin-top: auto;
+    padding-top: 16px;
+    justify-content: flex-start;
   }
 }
 

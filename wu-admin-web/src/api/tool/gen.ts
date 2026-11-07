@@ -103,8 +103,7 @@ export function syncGenTable(id: number) {
 }
 
 export function downloadGenCodeUrl(ids: number[]) {
-  // 不带 /api 前缀，由 axios baseURL 统一拼接，避免重复拼接为 /api/api/...
-  return `/infra/codegen/download?ids=${ids.join(',')}`
+  return `/api/infra/codegen/download?ids=${ids.join(',')}`
 }
 
 export function getRecycleGenPage(params: GenPageQuery) {

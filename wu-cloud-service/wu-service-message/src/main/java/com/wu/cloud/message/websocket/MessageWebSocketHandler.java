@@ -111,7 +111,7 @@ public class MessageWebSocketHandler extends TextWebSocketHandler {
     // ===== 供业务层调用的推送方法（签名不变，内部走 Redis 广播）=====
 
     public void sendToUser(Long userId, String json) {
-        // 本实例有会话则直接投递（对齐单体，避免 Redis 绕一圈）；跨实例才走 Pub/Sub
+        // 本实例有会话则直接投递（与既有规范对齐，避免 Redis 绕一圈）；跨实例才走 Pub/Sub
         WebSocketSession local = localSessions.get(userId);
         if (local != null && local.isOpen()) {
             sendRaw(local, json);

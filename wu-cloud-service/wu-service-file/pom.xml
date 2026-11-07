@@ -25,11 +25,6 @@
             <groupId>com.wu.cloud</groupId>
             <artifactId>wu-cloud-starter-redis</artifactId>
         </dependency>
-        <!-- 代码生成器 starter（B 队 P0 修复：CodegenController 依赖 GenTableReader + CodegenService） -->
-        <dependency>
-            <groupId>com.wu.cloud</groupId>
-            <artifactId>wu-cloud-starter-codegen</artifactId>
-        </dependency>
         <!-- Sa-Token 整合 Redis（共享 token 存储），P0-1 修复 -->
         <dependency>
             <groupId>cn.dev33</groupId>
@@ -70,12 +65,25 @@
             <artifactId>lombok</artifactId>
             <scope>provided</scope>
         </dependency>
+        <!-- 对象存储驱动：MinIO SDK，同时兼容阿里云 OSS / 腾讯云 COS 的 S3 通道 -->
+        <dependency>
+            <groupId>io.minio</groupId>
+            <artifactId>minio</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>cn.hutool</groupId>
+            <artifactId>hutool-all</artifactId>
+        </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-test</artifactId>
             <scope>test</scope>
         </dependency>
-    </dependencies>
+            <dependency>
+            <groupId>org.springdoc</groupId>
+            <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
+        </dependency>
+</dependencies>
 
     <build>
         <plugins>

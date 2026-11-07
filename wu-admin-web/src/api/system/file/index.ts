@@ -29,10 +29,13 @@ export interface FileRecord {
   name?: string
   originalName?: string
   url?: string
+  filePath?: string
+  bucketName?: string
   fileType?: string
   size?: number
   fileSize?: number
   fileSuffix?: string
+  storageType?: string
   groupId?: number
   createTime?: string
 }
@@ -147,14 +150,11 @@ export function deleteFilePermanent(id: number) {
   return del('/infra/file/delete-permanent', { params: { id } })
 }
 
-export async function deleteFileBatch(ids: number[]) {
-  if (!ids?.length) return
-  for (const id of ids) {
-    await deleteFile(id)
-  }
+export function deleteFileBatch(ids: number[]) {
+  return del('/infra/file/batch', { data: ids })
 }
 
-export function moveFiles(fileIds: number[], groupId: number) {
+export function moveFiles(fileIds: number[], groupId: number | null) {
   return post('/infra/file/move', { fileIds, groupId })
 }
 
@@ -176,24 +176,24 @@ export function withTokenQuery(url: string): string {
 function normalizeFileApiUrl(url: string): string {
   if (!url) return ''
   if (url.startsWith('http')) return url
-  let normalized = url
-  // 兼容历史数据：/file/uploads/... 或 /file/... → /api/files/...
-  if (normalized.startsWith('/file/uploads/')) {
-    normalized = '/api/files/' + normalized.substring('/file/uploads/'.length)
-  } else if (normalized.startsWith('/file/')) {
-    normalized = '/api/files/' + normalized.substring('/file/'.length)
-  } else if (normalized.startsWith('file/uploads/')) {
-    normalized = '/api/files/' + normalized.substring('file/uploads/'.length)
-  } else if (normalized.startsWith('file/')) {
-    normalized = '/api/files/' + normalized.substring('file/'.length)
-  }
-  if (normalized.startsWith('/api')) return normalized
-  return normalized.startsWith('/') ? `/api${normalized}` : `/api/${normalized}`
+  if (url.startsWith('/api')) return url
+  return url.startsWith('/') ? `/api${url}` : `/api/${url}`
 }
 
-/** 流式预览 URL：优先 /api/files/ 静态直链（网关白名单），否则走鉴权预览接口 */
+/** 根据记录中的 bucket + objectKey 生成稳定的后端代理地址，兼容切换存储引擎前的旧记录 */
+function buildStorageProxyUrl(file: FileRecord): string {
+  if (!file.filePath || !file.bucketName) return ''
+  const key = file.filePath.replace(/^\/+/, '').split('/').map(encodeURIComponent).join('/')
+  return `/api/storage/files/${encodeURIComponent(file.bucketName)}/${key}`
+}
+
+/** 流式预览 URL（video/audio/img 直连，支持 Range，避免整文件 blob） */
 export function getStreamPreviewUrl(file?: FileRecord | null): string {
   if (!file) return ''
+  const proxy = buildStorageProxyUrl(file)
+  if (proxy) {
+    return withTokenQuery(proxy)
+  }
   const type = file.fileType || ''
   const direct = normalizeFileApiUrl(file.url || '')
   if (direct && (type.startsWith('video/') || type.startsWith('audio/') || type.startsWith('image/'))) {
@@ -203,14 +203,6 @@ export function getStreamPreviewUrl(file?: FileRecord | null): string {
     return getPreviewApiUrl(file.id)
   }
   return withTokenQuery(direct)
-}
-
-/** 是否应通过 blob 拉取预览（鉴权预览接口，video/audio 无法直连带 Header） */
-export function needsBlobPreview(file?: FileRecord | null): boolean {
-  if (!file?.id) return false
-  const url = getStreamPreviewUrl(file)
-  return url.includes('/api/infra/file/preview/')
-    && !!(file.fileType?.startsWith('video/') || file.fileType?.startsWith('audio/'))
 }
 
 /** 列表缩略图 / 视频封面（优先 /files/ 直链流式加载） */
@@ -228,8 +220,7 @@ export function getDownloadApiUrl(id: number) {
 
 /** 带鉴权下载/预览（blob，不走 JSON 拦截器） */
 export async function fetchFileBlob(path: string): Promise<Blob> {
-  const url = path.startsWith('/api/') ? path : `/api${path.startsWith('/') ? path : `/${path}`}`
-  const res = await axios.get(url, {
+  const res = await axios.get(`/api${path}`, {
     responseType: 'blob',
     withCredentials: true,
   })

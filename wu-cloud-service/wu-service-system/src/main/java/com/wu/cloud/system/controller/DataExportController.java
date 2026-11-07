@@ -1,5 +1,7 @@
 package com.wu.cloud.system.controller;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import com.alibaba.excel.EasyExcel;
 import com.alibaba.excel.annotation.ExcelProperty;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
@@ -29,6 +31,7 @@ import java.util.List;
 /**
  * 系统域数据导出（用户 / 登录日志 / 操作日志）
  */
+@Tag(name = "数据导出")
 @RestController
 @RequestMapping("/api/system/export")
 public class DataExportController {
@@ -43,6 +46,7 @@ public class DataExportController {
     private OperLogMapper operLogMapper;
 
     @RequiresPermissions("system:user:list")
+    @Operation(summary = "导出用户列表")
     @GetMapping("/user")
     public void exportUser(HttpServletResponse response,
                            @RequestParam(defaultValue = "xlsx") String format,
@@ -83,7 +87,8 @@ public class DataExportController {
         writeExcel(response, "用户列表", UserExportVO.class, rows);
     }
 
-    @RequiresPermissions("system:loginlog:list")
+    @RequiresPermissions("system:loginLog:list")
+    @Operation(summary = "导出登录日志")
     @GetMapping("/login-log")
     public void exportLoginLog(HttpServletResponse response,
                                @RequestParam(required = false) String username,
@@ -118,7 +123,8 @@ public class DataExportController {
         writeExcel(response, "登录日志", LoginLogExportVO.class, rows);
     }
 
-    @RequiresPermissions("system:operlog:list")
+    @RequiresPermissions("system:operLog:list")
+    @Operation(summary = "导出操作日志")
     @GetMapping("/oper-log")
     public void exportOperLog(HttpServletResponse response,
                               @RequestParam(required = false) String title,

@@ -32,6 +32,10 @@ public class GatewayConfigLoader {
     @Value("${gateway.config-source-url:lb://wu-service-system/inner/system/config/get-group}")
     private String configSourceUrl;
 
+    /** 内网令牌：启用 /inner/** 零信任后，网关读取配置同样需要携带 */
+    @Value("${wu.security.inner-token:}")
+    private String innerToken;
+
     private final Map<String, JSONObject> cache = new ConcurrentHashMap<>();
     private final WebClient webClient;
 
@@ -50,6 +54,11 @@ public class GatewayConfigLoader {
         try {
             webClient.get()
                     .uri(configSourceUrl + "?groupCode=" + groupCode)
+                    .headers(headers -> {
+                        if (innerToken != null && !innerToken.isBlank()) {
+                            headers.set("X-Inner-Token", innerToken.trim());
+                        }
+                    })
                     .retrieve()
                     .bodyToMono(String.class)
                     .timeout(Duration.ofSeconds(5))
@@ -84,8 +93,14 @@ public class GatewayConfigLoader {
         return getGroup(groupCode).getBool(key, defaultValue);
     }
 
+    /** 读取整数配置项（系统配置未配置或非法时返回默认值） */
+    public int getInt(String groupCode, String key, int defaultValue) {
+        Integer value = getGroup(groupCode).getInt(key);
+        return value == null ? defaultValue : value;
+    }
+
     /**
-     * 与单体一致：DB security 组开启 SM2 签名或 SM4 加密任一，即视为接口安全生效。
+     * 与旧版一致：DB security 组开启 SM2 签名或 SM4 加密任一，即视为接口安全生效。
      */
     public boolean isApiSecurityEnabled() {
         return getBool("security", "sm2SignEnabled", false)

@@ -2,21 +2,24 @@ package com.wu.cloud.order.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
-import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.wu.cloud.common.exception.BusinessException;
 import com.wu.cloud.order.entity.StockDO;
 import com.wu.cloud.order.mapper.StockMapper;
 import com.wu.cloud.order.service.StockService;
+import jakarta.annotation.Resource;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
 /**
- * 库存 Service 实现
+ * 库存 Service 实现（MyBatis-Plus 3.5.18 已移除 extension.service.ServiceImpl，直接注入 Mapper）
  */
 @Service
-public class StockServiceImpl extends ServiceImpl<StockMapper, StockDO> implements StockService {
+public class StockServiceImpl implements StockService {
+
+    @Resource
+    private StockMapper stockMapper;
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -37,7 +40,7 @@ public class StockServiceImpl extends ServiceImpl<StockMapper, StockDO> implemen
                 .ge(StockDO::getAvailableStock, quantity)
                 .setSql("locked_stock = locked_stock + " + quantity)
                 .setSql("available_stock = available_stock - " + quantity);
-        int rows = baseMapper.update(null, wrapper);
+        int rows = stockMapper.update(null, wrapper);
         if (rows <= 0) {
             throw new BusinessException("库存扣减失败，可能存在并发冲突: " + skuCode);
         }
@@ -61,7 +64,7 @@ public class StockServiceImpl extends ServiceImpl<StockMapper, StockDO> implemen
                 .ge(StockDO::getLockedStock, quantity)
                 .setSql("locked_stock = locked_stock - " + quantity)
                 .setSql("available_stock = available_stock + " + quantity);
-        int rows = baseMapper.update(null, wrapper);
+        int rows = stockMapper.update(null, wrapper);
         if (rows <= 0) {
             throw new BusinessException("库存归还失败，可能存在并发冲突: " + skuCode);
         }
@@ -69,11 +72,11 @@ public class StockServiceImpl extends ServiceImpl<StockMapper, StockDO> implemen
 
     @Override
     public StockDO getStock(String skuCode) {
-        return getOne(new LambdaQueryWrapper<StockDO>().eq(StockDO::getSkuCode, skuCode));
+        return stockMapper.selectOne(new LambdaQueryWrapper<StockDO>().eq(StockDO::getSkuCode, skuCode));
     }
 
     @Override
     public List<StockDO> listStock() {
-        return list(new LambdaQueryWrapper<StockDO>().orderByAsc(StockDO::getSkuCode));
+        return stockMapper.selectList(new LambdaQueryWrapper<StockDO>().orderByAsc(StockDO::getSkuCode));
     }
 }

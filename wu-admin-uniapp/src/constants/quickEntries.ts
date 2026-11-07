@@ -62,15 +62,6 @@ export const mobileQuickEntries: QuickEntry[] = [
     path: '/pages-sub/system/dict/index',
   },
   {
-    key: 'config',
-    name: '系统配置',
-    desc: '登录与会话',
-    permission: 'system:config:list',
-    icon: 'setting-o',
-    theme: 'config',
-    path: '/pages-sub/system/config/index',
-  },
-  {
     key: 'file',
     name: '文件列表',
     desc: '上传与预览',
@@ -125,6 +116,15 @@ export const mobileQuickEntries: QuickEntry[] = [
     path: '/pages-sub/system/recycle/index',
   },
   {
+    key: 'config',
+    name: '系统配置',
+    desc: '登录与会话',
+    permission: 'system:config:list',
+    icon: 'setting-o',
+    theme: 'config',
+    path: '/pages-sub/system/config/index',
+  },
+  {
     key: 'ai-model',
     name: 'AI 模型配置',
     desc: '供应商接入',
@@ -141,6 +141,15 @@ export const mobileQuickEntries: QuickEntry[] = [
     icon: 'records-o',
     theme: 'ai',
     path: '/pages-sub/ai/log/index',
+  },
+  {
+    key: 'ai-knowledge',
+    name: 'AI 知识库',
+    desc: '知识条目维护',
+    permission: 'system:ai-knowledge:list',
+    icon: 'notes-o',
+    theme: 'ai',
+    path: '/pages-sub/ai/knowledge/index',
   },
   {
     key: 'online',
@@ -205,16 +214,25 @@ export const mobileQuickEntries: QuickEntry[] = [
     theme: 'log',
     path: '/pages-sub/log/login-log',
   },
+  {
+    key: 'security',
+    name: '安全风控',
+    desc: '拦截与封禁',
+    permission: 'system:security:list',
+    icon: 'shield-o',
+    theme: 'log',
+    path: '/pages-sub/system/security/index',
+  },
 ]
 
 export const quickEntryGroups: QuickEntryGroup[] = [
-  { title: '系统管理', keys: ['user', 'role', 'menu', 'org', 'dict', 'config', 'recycle'] },
+  { title: '系统管理', keys: ['user', 'role', 'menu', 'org', 'dict', 'recycle', 'config'] },
   { title: '文件管理', keys: ['file'] },
   { title: '流程中心', keys: ['approval', 'ticket'] },
   { title: '消息协作', keys: ['chat', 'notice'] },
-  { title: 'AI 管理', keys: ['ai-model', 'ai-log'] },
+  { title: 'AI 管理', keys: ['ai-model', 'ai-knowledge', 'ai-log'] },
   { title: '监控运维', keys: ['online', 'server', 'cache', 'job', 'api-access'] },
-  { title: '日志审计', keys: ['oper-log', 'login-log'] },
+  { title: '日志审计', keys: ['security', 'oper-log', 'login-log'] },
 ]
 
 export const entryMap = Object.fromEntries(mobileQuickEntries.map((e) => [e.key, e])) as Record<

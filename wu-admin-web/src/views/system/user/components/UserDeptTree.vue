@@ -28,6 +28,7 @@
         :props="{ label: 'name', children: 'children' }"
         node-key="id"
         highlight-current
+        default-expand-all
         :indent="20"
         :filter-node-method="filterNode"
         @node-click="onNodeClick"
@@ -107,7 +108,7 @@ defineExpose({
   display: flex;
   flex-direction: column;
   width: 100%;
-  max-height: calc(100vh - 200px);
+  height: 100%;
   border-radius: 12px;
   border: 1px solid var(--el-border-color-lighter);
 

@@ -7,6 +7,7 @@ import com.wu.cloud.common.core.context.UserContextInterceptor;
 import feign.RequestInterceptor;
 import feign.RequestTemplate;
 import org.slf4j.MDC;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import java.net.URLEncoder;
@@ -17,14 +18,22 @@ import java.util.Collection;
  * Feign 服务间 RPC 上下文与 TraceId 自动透传拦截器 (底层基础设施级通信组件)
  * <p>
  * 将当前线程的用户身份、角色与权限透传给下游服务，使下游的
- * {@code @RequiresPermissions} 切面在 RPC 链路上依然可以正确判权。
+ * {@code @RequiresPermissions} 切面在 RPC 链路上依然可以正确判权；
+ * 同时携带内网令牌 {@code X-Inner-Token}，供下游 /inner/** 端点零信任校验。
  * </p>
  */
 @Component
 public class FeignAuthInterceptor implements RequestInterceptor {
 
+    /** 内网令牌；为空表示未启用零信任校验 */
+    @Value("${wu.security.inner-token:}")
+    private String innerToken;
+
     @Override
     public void apply(RequestTemplate template) {
+        if (innerToken != null && !innerToken.isBlank()) {
+            template.header(HeaderConstants.INNER_TOKEN, innerToken.trim());
+        }
         UserContext user = UserContextHolder.get();
         if (user != null) {
             if (user.getUserId() != null) {

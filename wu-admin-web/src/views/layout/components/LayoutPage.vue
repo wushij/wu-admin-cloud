@@ -41,13 +41,21 @@
       <LayoutTagsView />
 
       <div class="main-content">
-        <router-view v-slot="{ Component }">
-          <transition name="fade" mode="out-in">
-            <keep-alive :include="cachedViewNames">
-              <component :is="Component" :key="route.name" />
-            </keep-alive>
-          </transition>
-        </router-view>
+        <div class="main-content__body">
+          <router-view v-slot="{ Component }">
+            <transition name="fade" mode="out-in">
+              <component :is="Component" />
+            </transition>
+          </router-view>
+        </div>
+        <SiteFooter
+          :copyright="siteCopyright"
+          :icp-enabled="siteIcpEnabled"
+          :icp-number="siteIcpNumber"
+          :icp-url="siteIcpUrl"
+          theme="light"
+          inline
+        />
       </div>
     </div>
 
@@ -60,9 +68,9 @@
 import { ref, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useUserStore } from '@/store/user'
-import { useTagsViewStore } from '@/store/tagsView'
 import MessageNotification from '@/components/MessageNotification.vue'
 import AiWuFloatBtn from '@/components/AiWu/AiWuFloatBtn.vue'
+import SiteFooter from '@/components/SiteFooter.vue'
 import LayoutSidebar from './LayoutSidebar.vue'
 import LayoutHeader from './LayoutHeader.vue'
 import LayoutTagsView from './LayoutTagsView.vue'
@@ -75,18 +83,6 @@ import { useLayoutBootstrap } from '../composables/useLayoutBootstrap'
 const route = useRoute()
 const router = useRouter()
 const userStore = useUserStore()
-const tagsViewStore = useTagsViewStore()
-
-/** 与 tags 同步缓存：默认缓存工作台，减少反复点首页的整页重载感 */
-const cachedViewNames = computed(() => {
-  const names = tagsViewStore.visitedViews
-    .map((v) => v.name)
-    .filter((n): n is string => typeof n === 'string' && n.length > 0)
-  if (!names.includes('Dashboard')) {
-    names.unshift('Dashboard')
-  }
-  return names
-})
 
 const isCollapse = ref(false)
 const activeMenu = computed(() => route.path)
@@ -95,7 +91,15 @@ const currentPageTitle = computed(() => {
   return typeof title === 'string' ? title : ''
 })
 
-const { sitePlatformName, sitePlatformSubtitle, loadSiteConfig } = useLayoutSite()
+const {
+  sitePlatformName,
+  sitePlatformSubtitle,
+  siteCopyright,
+  siteIcpEnabled,
+  siteIcpNumber,
+  siteIcpUrl,
+  loadSiteConfig,
+} = useLayoutSite()
 const { currentColor, activePresetId, handlePresetSelect, handleColorChange, initTheme } = useLayoutTheme()
 const {
   SYSTEM_MENU_ID,

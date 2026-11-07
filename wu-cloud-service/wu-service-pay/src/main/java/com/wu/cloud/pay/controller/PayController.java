@@ -1,5 +1,7 @@
 package com.wu.cloud.pay.controller;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import com.wu.cloud.common.core.domain.R;
 import com.wu.cloud.pay.entity.PayOrderDO;
 import com.wu.cloud.pay.service.PayNotifyService;
@@ -13,6 +15,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+@Tag(name = "支付订单")
 @RestController
 @RequestMapping("/api/pay")
 public class PayController {
@@ -28,6 +31,7 @@ public class PayController {
      * <p>金额由调用方显式传入并透传给第三方渠道下单，不再使用固定 0.01 元的测试下单。
      * {@code orderNo} 用于关联上游业务订单，缺省时由支付服务生成。</p>
      */
+    @Operation(summary = "新增菜单")
     @PostMapping("/create")
     public R<Map<String, String>> create(@RequestParam String payType,
                                           @RequestParam BigDecimal amount,
@@ -40,6 +44,7 @@ public class PayController {
      * 微信支付回调（真实 V3 验签）
      * <p>微信以 JSON body + Wechatpay-* 请求头回调，返回 SUCCESS / FAIL。</p>
      */
+    @Operation(summary = "微信支付异步通知")
     @PostMapping("/notify/wechat")
     public String wechatNotify(HttpServletRequest request, @RequestBody String body) {
         return payNotifyService.handleWechatNotify(
@@ -54,6 +59,7 @@ public class PayController {
      * 支付宝回调（真实 RSA2 验签）
      * <p>支付宝以 form 参数回调，返回 success / failure。</p>
      */
+    @Operation(summary = "支付宝异步通知")
     @PostMapping("/notify/alipay")
     public String alipayNotify(HttpServletRequest request) {
         Map<String, String> params = new HashMap<>();
@@ -68,6 +74,7 @@ public class PayController {
     /**
      * 查询支付订单状态
      */
+    @Operation(summary = "修改状态")
     @GetMapping("/status")
     public R<PayOrderDO> status(@RequestParam String orderNo) {
         return R.ok(payOrderService.syncOrderStatus(orderNo));
@@ -78,16 +85,19 @@ public class PayController {
      * 兼容前端 wu-admin-web config/usePaymentTest.pollPayOrderStatus 的
      * getPayOrderStatus(orderNo) 调用（见 config/index.ts getPayOrderStatus）。
      */
+    @Operation(summary = "查询测试订单支付状态（含主动向支付平台查单）")
     @GetMapping("/order/{orderNo}")
     public R<PayOrderDO> getOrderStatus(@PathVariable String orderNo) {
         return R.ok(payOrderService.syncOrderStatus(orderNo));
     }
 
+    @Operation(summary = "在线用户列表")
     @GetMapping("/list")
     public R<List<PayOrderDO>> list(@RequestParam String orderNo) {
         return R.ok(payOrderService.listByOrderNo(orderNo));
     }
 
+    @Operation(summary = "获取详情")
     @GetMapping("/types")
     public R<List<String>> supportedTypes() {
         return R.ok(List.of("ALIPAY", "WECHAT", "BALANCE"));
@@ -96,6 +106,7 @@ public class PayController {
     /**
      * 支付记录对账：统计指定日期范围内的应支付 / 已支付 / 差额
      */
+    @Operation(summary = "获取详情")
     @GetMapping("/reconcile")
     public R<Map<String, Object>> reconcile(@RequestParam String startDate,
                                             @RequestParam String endDate) {

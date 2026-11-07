@@ -36,4 +36,11 @@ public interface SysStatsService {
      * 记录一次工作台访问，用于统计今日/昨日访问量
      */
     void recordVisit();
+
+    /**
+     * 统计近 N 天（滚动 24h×N）登录成功与失败次数
+     *
+     * @return successCount / failCount
+     */
+    Map<String, Long> countLoginSince(int days);
 }

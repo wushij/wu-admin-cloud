@@ -27,7 +27,11 @@
             :class="{ 'login-mode-switch__item--active': loginMode === 'account' }"
             @click="switchLoginMode('account')"
           >
-            账号登录
+            <svg viewBox="0 0 24 24" class="login-mode-switch__icon" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+              <circle cx="12" cy="7" r="4" />
+            </svg>
+            <text>账号登录</text>
           </view>
           <view
             v-if="smsLoginEnabled && smsEnabled"
@@ -35,7 +39,11 @@
             :class="{ 'login-mode-switch__item--active': loginMode === 'sms' }"
             @click="switchLoginMode('sms')"
           >
-            短信登录
+            <svg viewBox="0 0 24 24" class="login-mode-switch__icon" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="5" y="2" width="14" height="20" rx="2" ry="2" />
+              <line x1="12" y1="18" x2="12.01" y2="18" />
+            </svg>
+            <text>短信登录</text>
           </view>
           <view
             v-if="emailLoginEnabled && emailEnabled"
@@ -43,7 +51,11 @@
             :class="{ 'login-mode-switch__item--active': loginMode === 'email' }"
             @click="switchLoginMode('email')"
           >
-            邮箱登录
+            <svg viewBox="0 0 24 24" class="login-mode-switch__icon" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" />
+              <polyline points="22,6 12,13 2,6" />
+            </svg>
+            <text>邮箱登录</text>
           </view>
         </view>
 
@@ -63,7 +75,7 @@
           <view v-if="captchaEnabled && captchaType === 'image'" class="captcha-row auth-anim auth-anim--3">
             <AuthInput
               v-model="formData.code"
-              icon="key"
+              icon="lock"
               custom-class="captcha-input"
               placeholder="请输入验证码"
               :maxlength="6"
@@ -93,7 +105,7 @@
           <view class="sms-row auth-anim auth-anim--2">
             <AuthInput
               v-model="formData.code"
-              icon="key"
+              icon="lock"
               custom-class="sms-input"
               placeholder="请输入验证码"
               :maxlength="6"
@@ -120,7 +132,7 @@
           <view class="sms-row auth-anim auth-anim--2">
             <AuthInput
               v-model="formData.code"
-              icon="key"
+              icon="lock"
               custom-class="sms-input"
               placeholder="请输入验证码"
               :maxlength="6"
@@ -154,6 +166,25 @@
           @click="goRegister"
         />
       </AuthGlassForm>
+
+      <view v-if="appStore.copyright || (appStore.icpEnabled && appStore.icpNumber)" class="login-page__footer auth-anim auth-anim--5">
+        <text v-if="appStore.copyright" class="footer-text">{{ appStore.copyright }}</text>
+        <text v-if="appStore.copyright && appStore.icpEnabled && appStore.icpNumber" class="footer-divider">|</text>
+        <!-- #ifdef H5 -->
+        <a
+          v-if="appStore.icpEnabled && appStore.icpNumber"
+          class="footer-icp-link"
+          :href="appStore.icpUrl || 'https://beian.miit.gov.cn/'"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          {{ appStore.icpNumber }}
+        </a>
+        <!-- #endif -->
+        <!-- #ifndef H5 -->
+        <text v-if="appStore.icpEnabled && appStore.icpNumber" class="footer-text">{{ appStore.icpNumber }}</text>
+        <!-- #endif -->
+      </view>
     </view>
 
     <SliderCaptcha
@@ -167,17 +198,17 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
-import SliderCaptcha from '@/components/business/SliderCaptcha/index.vue'
+import SliderCaptcha from '@/components/business/shared/SliderCaptcha/index.vue'
 // #ifdef H5
-import AuthEarth from '@/components/business/AuthEarth/index.vue'
+import AuthEarth from '@/components/business/auth/AuthEarth/index.vue'
 // #endif
-import AuthParticleBackground from '@/components/business/AuthParticleBackground/index.vue'
-import AuthGlassForm from '@/components/business/AuthGlassForm/index.vue'
-import AuthInput from '@/components/business/AuthInput/index.vue'
-import AuthPasswordInput from '@/components/business/AuthPasswordInput/index.vue'
-import AuthFooterLink from '@/components/business/AuthFooterLink/index.vue'
-import { useLoginForm } from '@/composables/useLoginForm'
-import { useH5PageHead } from '@/composables/useH5PageHead'
+import AuthParticleBackground from '@/components/business/auth/AuthParticleBackground/index.vue'
+import AuthGlassForm from '@/components/business/auth/AuthGlassForm/index.vue'
+import AuthInput from '@/components/business/auth/AuthInput/index.vue'
+import AuthPasswordInput from '@/components/business/auth/AuthPasswordInput/index.vue'
+import AuthFooterLink from '@/components/business/auth/AuthFooterLink/index.vue'
+import { useLoginForm } from '@/composables/auth/useLoginForm'
+import { useH5PageHead } from '@/composables/base/useH5PageHead'
 
 const pageReady = ref(false)
 
@@ -324,12 +355,22 @@ onShow(() => {
 .login-mode-switch__item {
   flex: 1;
   height: 80rpx;
-  line-height: 80rpx;
-  text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12rpx;
   border-radius: 18rpx;
   color: rgba(255, 255, 255, 0.65);
   font-size: 28rpx;
+  font-weight: 500;
   transition: all 0.25s ease;
+}
+
+.login-mode-switch__icon {
+  width: 32rpx;
+  height: 32rpx;
+  flex-shrink: 0;
+  color: currentColor;
 }
 
 .login-mode-switch__item--active {
@@ -457,6 +498,39 @@ onShow(() => {
     opacity: 1;
     transform: translateY(0);
   }
+}
+
+.login-page__footer {
+  margin-top: auto;
+  padding: 40rpx 20rpx 16rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 12rpx;
+  text-align: center;
+  font-size: 24rpx;
+  color: #000000;
+}
+
+.footer-divider {
+  color: #000000;
+  opacity: 0.5;
+}
+
+.footer-text {
+  color: #000000;
+}
+
+.footer-icp-link {
+  color: #000000;
+  text-decoration: none !important;
+}
+
+.footer-icp-link:hover {
+  color: #000000;
+  text-decoration: none !important;
+  opacity: 0.75;
 }
 
 </style>

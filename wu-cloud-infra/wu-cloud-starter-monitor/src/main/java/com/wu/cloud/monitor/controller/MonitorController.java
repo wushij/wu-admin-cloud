@@ -1,5 +1,7 @@
 package com.wu.cloud.monitor.controller;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import com.wu.cloud.common.core.domain.R;
 import com.wu.cloud.common.security.annotation.RequiresPermissions;
 import com.wu.cloud.monitor.service.CacheMonitorService;
@@ -19,9 +21,10 @@ import org.springframework.web.bind.annotation.RestController;
 /**
  * 运维监控 API：服务器硬件指标与 Redis 缓存指标
  *
- * <p>B 队修复：网关 compat-monitor-server/cache 将前端 /system/monitor/server|cache/** 重写为
- * /api/monitor/server|cache/**，此处补齐前端实际调用的子路径（/server/info、/cache/stats 等）。</p>
+ * <p>路径说明：前端直接调用 {@code /api/monitor/server|cache/**}（网关路由 {@code Path=/api/monitor/**}），
+ * 不依赖任何网关重写规则。</p>
  */
+@Tag(name = "服务监控")
 @RestController
 @RequestMapping("/api/monitor")
 public class MonitorController {
@@ -41,6 +44,7 @@ public class MonitorController {
 
     /** 兼容旧端点：GET /api/monitor/server */
     @RequiresPermissions("monitor:server:list")
+    @Operation(summary = "获取详情")
     @GetMapping("/server")
     public R<ServerInfoVO> getServerInfo() {
         return R.ok(serverMonitorService.getServerInfo());
@@ -48,6 +52,7 @@ public class MonitorController {
 
     /** B 队修复：GET /api/monitor/server/info（前端 getServerInfo 调用） */
     @RequiresPermissions("monitor:server:list")
+    @Operation(summary = "Redis 服务信息")
     @GetMapping("/server/info")
     public R<ServerInfoVO> getServerInfoDetail() {
         return R.ok(serverMonitorService.getServerInfo());
@@ -61,6 +66,7 @@ public class MonitorController {
 
     /** 兼容旧端点：GET /api/monitor/cache（返回 CacheInfoVO） */
     @RequiresPermissions("monitor:cache:list")
+    @Operation(summary = "获取详情")
     @GetMapping("/cache")
     public R<CacheInfoVO> getCacheInfo() {
         CacheMonitorService service = cache();
@@ -75,6 +81,7 @@ public class MonitorController {
 
     /** B 队修复：GET /api/monitor/cache/info（前端 getCacheInfo 调用） */
     @RequiresPermissions("monitor:cache:list")
+    @Operation(summary = "Redis 服务信息")
     @GetMapping("/cache/info")
     public R<CacheInfoVO> getCacheInfoDetail() {
         CacheMonitorService service = cache();
@@ -89,6 +96,7 @@ public class MonitorController {
 
     /** B 队修复：GET /api/monitor/cache/stats（前端 getCacheStats 调用） */
     @RequiresPermissions("monitor:cache:list")
+    @Operation(summary = "Redis 实时统计（图表）")
     @GetMapping("/cache/stats")
     public R<CacheStatsVO> getCacheStats() {
         CacheMonitorService service = cache();
@@ -100,6 +108,7 @@ public class MonitorController {
 
     /** B 队修复：GET /api/monitor/cache/keys（前端 scanCacheKeys 调用） */
     @RequiresPermissions("monitor:cache:list")
+    @Operation(summary = "扫描缓存键（SCAN，上限 500）")
     @GetMapping("/cache/keys")
     public R<CacheKeysVO> scanCacheKeys(@RequestParam(value = "pattern", required = false, defaultValue = "*") String pattern,
                                         @RequestParam(value = "limit", required = false, defaultValue = "200") long limit) {
@@ -112,6 +121,7 @@ public class MonitorController {
 
     /** B 队修复：GET /api/monitor/cache/value（前端 getCacheValue 调用） */
     @RequiresPermissions("monitor:cache:list")
+    @Operation(summary = "查看缓存键详情")
     @GetMapping("/cache/value")
     public R<CacheValueVO> getCacheValue(@RequestParam("key") String key) {
         CacheMonitorService service = cache();
@@ -123,6 +133,7 @@ public class MonitorController {
 
     /** B 队修复：DELETE /api/monitor/cache（前端 deleteCacheKey 调用） */
     @RequiresPermissions("monitor:cache:delete")
+    @Operation(summary = "删除")
     @DeleteMapping("/cache")
     public R<Boolean> deleteCacheKey(@RequestParam("key") String key) {
         CacheMonitorService service = cache();

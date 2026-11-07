@@ -51,7 +51,7 @@ export interface CacheValueDetail {
 }
 
 export function getCacheStats() {
-  return get<CacheStats>('/monitor/cache/stats', undefined, { silent401: true })
+  return get<CacheStats>('/monitor/cache/stats')
 }
 
 export function getCacheInfo() {

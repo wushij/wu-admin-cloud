@@ -1,5 +1,7 @@
 package com.wu.cloud.message.controller;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import cn.dev33.satoken.stp.StpUtil;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.wu.cloud.api.file.dto.SysFileDTO;
@@ -30,6 +32,7 @@ import java.util.List;
 import java.util.Map;
 
 @Slf4j
+@Tag(name = "企业IM")
 @RestController
 @RequestMapping("/api/message/chat")
 public class ChatController {
@@ -40,6 +43,7 @@ public class ChatController {
     @Resource
     private RemoteFileService remoteFileService;
 
+    @Operation(summary = "上传工单附件")
     @PostMapping(value = "/upload/image", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public R<SysFileDTO> uploadImage(@RequestParam("file") MultipartFile file) {
         try {
@@ -53,6 +57,7 @@ public class ChatController {
         return R.fail(500, "文件服务不可用，图片上传失败，请稍后再试");
     }
 
+    @Operation(summary = "上传工单附件")
     @PostMapping(value = "/upload/file", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public R<SysFileDTO> uploadFile(@RequestParam("file") MultipartFile file) {
         try {
@@ -66,28 +71,33 @@ public class ChatController {
         return R.fail(500, "文件服务不可用，文件上传失败，请稍后再试");
     }
 
+    @Operation(summary = "新增")
     @GetMapping("/can-create-group")
     public R<Boolean> canCreateGroup() {
         return R.ok(chatService.canCreateGroup(StpUtil.getLoginIdAsLong()));
     }
 
+    @Operation(summary = "消息操作")
     @PostMapping("/recall/{messageId}")
     public R<ChatMessageDO> recallPrivate(@PathVariable("messageId") Long messageId) {
         return R.ok(chatService.recallPrivate(StpUtil.getLoginIdAsLong(), messageId));
     }
 
+    @Operation(summary = "获取详情")
     @PostMapping("/typing/{targetUserId}")
     public R<Boolean> typing(@PathVariable("targetUserId") Long targetUserId) {
         chatService.relayTyping(StpUtil.getLoginIdAsLong(), targetUserId);
         return R.ok(true);
     }
 
+    @Operation(summary = "新增")
     @PostMapping("/send")
     public R<ChatMessageDO> send(@Validated @RequestBody SendReq req) {
         return R.ok(chatService.sendPrivate(
                 StpUtil.getLoginIdAsLong(), req.getReceiverId(), req.getContent(), req.getMsgType()));
     }
 
+    @Operation(summary = "获取详情")
     @GetMapping("/history/{targetId}")
     public R<PageResult<ChatMessageDO>> history(@PathVariable("targetId") Long targetId,
                                                 @RequestParam(defaultValue = "1") int pageNo,
@@ -96,17 +106,20 @@ public class ChatController {
         return R.ok(new PageResult<>(page.getRecords(), page.getTotal()));
     }
 
+    @Operation(summary = "获取详情")
     @GetMapping("/users")
     public R<List<Map<String, Object>>> users() {
         return R.ok(chatService.listUsers(StpUtil.getLoginIdAsLong()));
     }
 
+    @Operation(summary = "标记已读")
     @PostMapping("/read/{senderId}")
     public R<Boolean> read(@PathVariable("senderId") Long senderId) {
         chatService.markRead(StpUtil.getLoginIdAsLong(), senderId);
         return R.ok(true);
     }
 
+    @Operation(summary = "我的未读数")
     @GetMapping("/unread-count")
     public R<Long> unreadCount() {
         return R.ok(chatService.unreadCount(StpUtil.getLoginIdAsLong()));
@@ -115,23 +128,27 @@ public class ChatController {
     @Resource
     private MessageWebSocketHandler webSocketHandler;
 
+    @Operation(summary = "获取详情")
     @GetMapping("/online/{userId}")
     public R<Boolean> online(@PathVariable("userId") Long userId) {
         return R.ok(webSocketHandler.isOnline(userId));
     }
 
+    @Operation(summary = "获取详情")
     @DeleteMapping("/clear/{targetId}")
     public R<Boolean> clear(@PathVariable("targetId") Long targetId) {
         chatService.clearHistory(StpUtil.getLoginIdAsLong(), targetId);
         return R.ok(true);
     }
 
+    @Operation(summary = "解锁")
     @PostMapping("/block/{targetId}")
     public R<Boolean> block(@PathVariable("targetId") Long targetId) {
         chatService.block(StpUtil.getLoginIdAsLong(), targetId);
         return R.ok(true);
     }
 
+    @Operation(summary = "解锁")
     @DeleteMapping("/block/{targetId}")
     public R<Boolean> unblock(@PathVariable("targetId") Long targetId) {
         chatService.unblock(StpUtil.getLoginIdAsLong(), targetId);
@@ -149,6 +166,7 @@ public class ChatController {
     }
 }
 
+@Tag(name = "群聊")
 @RestController
 @RequestMapping("/api/message/chat/group")
 class ChatGroupController {
@@ -156,17 +174,20 @@ class ChatGroupController {
     @Resource
     private ChatService chatService;
 
+    @Operation(summary = "获取详情")
     @GetMapping("/{groupId}")
     public R<Map<String, Object>> detail(@PathVariable("groupId") Long groupId) {
         return R.ok(chatService.getGroupContext(groupId, StpUtil.getLoginIdAsLong()));
     }
 
+    @Operation(summary = "标记已读")
     @PostMapping("/{groupId}/announcement/read")
     public R<Boolean> readAnnouncement(@PathVariable("groupId") Long groupId) {
         chatService.markAnnouncementRead(groupId, StpUtil.getLoginIdAsLong());
         return R.ok(true);
     }
 
+    @Operation(summary = "群组操作")
     @PostMapping("/{groupId}/notify-muted")
     public R<Boolean> setNotifyMuted(@PathVariable("groupId") Long groupId,
                                       @RequestParam(defaultValue = "true") boolean muted) {
@@ -174,29 +195,34 @@ class ChatGroupController {
         return R.ok(true);
     }
 
+    @Operation(summary = "修改菜单")
     @PutMapping("/update")
     public R<Boolean> update(@Validated @RequestBody UpdateGroupReq req) {
         chatService.updateGroup(req.getId(), StpUtil.getLoginIdAsLong(), req.getName(), req.getAnnouncement());
         return R.ok(true);
     }
 
+    @Operation(summary = "新增菜单")
     @PostMapping("/create")
     public R<ChatGroupDO> create(@Validated @RequestBody CreateGroupReq req) {
         return R.ok(chatService.createGroup(
                 StpUtil.getLoginIdAsLong(), req.getName(), req.getMemberIds()));
     }
 
+    @Operation(summary = "在线用户列表")
     @GetMapping("/list")
     public R<List<Map<String, Object>>> list() {
         return R.ok(chatService.myGroups(StpUtil.getLoginIdAsLong()));
     }
 
+    @Operation(summary = "消息操作")
     @PostMapping("/{groupId}/message")
     public R<ChatGroupMessageDO> send(@PathVariable("groupId") Long groupId, @Validated @RequestBody GroupSendReq req) {
         return R.ok(chatService.sendGroupMessage(
                 groupId, StpUtil.getLoginIdAsLong(), req.getContent(), req.getMsgType(), req.getMentionIds()));
     }
 
+    @Operation(summary = "消息操作")
     @PostMapping("/{groupId}/message/{messageId}/recall")
     public R<ChatGroupMessageDO> recallGroupMessage(@PathVariable("groupId") Long groupId,
                                                      @PathVariable("messageId") Long messageId) {
@@ -204,6 +230,7 @@ class ChatGroupController {
                 groupId, StpUtil.getLoginIdAsLong(), messageId));
     }
 
+    @Operation(summary = "消息操作")
     @GetMapping("/{groupId}/messages")
     public R<PageResult<ChatGroupMessageDO>> messages(@PathVariable("groupId") Long groupId,
                                                        @RequestParam(defaultValue = "1") int pageNo,
@@ -212,28 +239,33 @@ class ChatGroupController {
         return R.ok(new PageResult<>(page.getRecords(), page.getTotal()));
     }
 
+    @Operation(summary = "群组操作")
     @GetMapping("/{groupId}/members")
     public R<List<Map<String, Object>>> members(@PathVariable("groupId") Long groupId) {
         return R.ok(chatService.groupMembers(groupId));
     }
 
+    @Operation(summary = "群组操作")
     @GetMapping("/{groupId}/logs")
     public R<List<ChatGroupLogVO>> logs(@PathVariable("groupId") Long groupId) {
         return R.ok(chatService.groupLogs(groupId, StpUtil.getLoginIdAsLong()));
     }
 
+    @Operation(summary = "新增")
     @PostMapping("/{groupId}/members")
     public R<Boolean> addMembers(@PathVariable("groupId") Long groupId, @Validated @RequestBody MemberIdsReq req) {
         chatService.addMembers(groupId, req.getUserIds(), StpUtil.getLoginIdAsLong());
         return R.ok(true);
     }
 
+    @Operation(summary = "移动")
     @DeleteMapping("/{groupId}/members/{memberUserId}")
     public R<Boolean> removeMember(@PathVariable("groupId") Long groupId, @PathVariable("memberUserId") Long memberUserId) {
         chatService.removeMember(groupId, memberUserId, StpUtil.getLoginIdAsLong());
         return R.ok(true);
     }
 
+    @Operation(summary = "群组操作")
     @PostMapping("/{groupId}/admin/{memberUserId}")
     public R<Boolean> setAdmin(@PathVariable("groupId") Long groupId, @PathVariable("memberUserId") Long memberUserId,
                                 @RequestParam(defaultValue = "true") boolean admin) {
@@ -241,6 +273,7 @@ class ChatGroupController {
         return R.ok(true);
     }
 
+    @Operation(summary = "群组操作")
     @PostMapping("/{groupId}/mute/{memberUserId}")
     public R<Boolean> setMuted(@PathVariable("groupId") Long groupId, @PathVariable("memberUserId") Long memberUserId,
                                 @RequestParam(defaultValue = "true") boolean muted) {
@@ -248,18 +281,21 @@ class ChatGroupController {
         return R.ok(true);
     }
 
+    @Operation(summary = "群组操作")
     @PostMapping("/{groupId}/transfer/{newOwnerId}")
     public R<Boolean> transferOwner(@PathVariable("groupId") Long groupId, @PathVariable("newOwnerId") Long newOwnerId) {
         chatService.transferOwner(groupId, newOwnerId, StpUtil.getLoginIdAsLong());
         return R.ok(true);
     }
 
+    @Operation(summary = "群组操作")
     @PostMapping("/{groupId}/quit")
     public R<Boolean> quit(@PathVariable("groupId") Long groupId) {
         chatService.quitGroup(groupId, StpUtil.getLoginIdAsLong());
         return R.ok(true);
     }
 
+    @Operation(summary = "群组操作")
     @DeleteMapping("/{groupId}")
     public R<Boolean> dissolve(@PathVariable("groupId") Long groupId) {
         chatService.dissolveGroup(groupId, StpUtil.getLoginIdAsLong());
@@ -299,6 +335,7 @@ class ChatGroupController {
     }
 }
 
+@Tag(name = "消息汇总")
 @RestController
 @RequestMapping("/api/message")
 class MessageCenterController {
@@ -311,6 +348,7 @@ class MessageCenterController {
     @Resource
     private com.wu.cloud.api.ticket.feign.RemoteTicketService remoteTicketService;
 
+    @Operation(summary = "回收站汇总统计")
     @GetMapping("/summary")
     public R<Map<String, Long>> summary() {
         Long userId = StpUtil.getLoginIdAsLong();

@@ -1,5 +1,7 @@
 package com.wu.cloud.system.controller;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.wu.cloud.api.log.Log;
@@ -25,6 +27,7 @@ import java.util.Map;
 /**
  * 字典类型（规范路径 /api/system/dict/type；P1 已去掉 /dict-type 兼容映射）
  */
+@Tag(name = "字典类型")
 @RestController
 @RequestMapping("/api/system/dict/type")
 public class DictTypeController {
@@ -37,6 +40,7 @@ public class DictTypeController {
     private SysRecycleService sysRecycleService;
 
     @RequiresPermissions("system:dict:list")
+    @Operation(summary = "分页查询 API 访问日志")
     @GetMapping("/page")
     public R<PageResult<SysDictTypeDO>> page(
             @RequestParam(defaultValue = "1") Integer pageNo,
@@ -65,6 +69,7 @@ public class DictTypeController {
     }
 
     @RequiresPermissions("system:dict:list")
+    @Operation(summary = "在线用户列表")
     @GetMapping("/list")
     public R<List<SysDictTypeDO>> list() {
         return R.ok(dictTypeMapper.selectList(new LambdaQueryWrapper<SysDictTypeDO>()
@@ -73,6 +78,7 @@ public class DictTypeController {
     }
 
     @RequiresPermissions("system:dict:list")
+    @Operation(summary = "下载工单附件")
     @GetMapping("/{id}")
     public R<SysDictTypeDO> detail(@PathVariable("id") Long id) {
         SysDictTypeDO type = dictTypeMapper.selectById(id);
@@ -83,6 +89,7 @@ public class DictTypeController {
     }
 
     @RequiresPermissions("system:dict:list")
+    @Operation(summary = "导出 API 访问日志")
     @GetMapping("/{id}/export")
     public R<Map<String, Object>> export(@PathVariable("id") Long id) {
         SysDictTypeDO type = dictTypeMapper.selectById(id);
@@ -98,8 +105,9 @@ public class DictTypeController {
         return R.ok(body);
     }
 
-    @RequiresPermissions("system:dict:add")
+    @RequiresPermissions("system:dict:create")
     @Log(title = "字典类型", businessType = Log.BusinessType.INSERT)
+    @Operation(summary = "上传工单附件")
     @PostMapping
     public R<Boolean> create(@RequestBody SysDictTypeDO dictTypeDO) {
         validateType(dictTypeDO);
@@ -112,15 +120,17 @@ public class DictTypeController {
     }
 
     /** 兼容旧路径 */
-    @RequiresPermissions("system:dict:add")
+    @RequiresPermissions("system:dict:create")
     @Log(title = "字典类型", businessType = Log.BusinessType.INSERT)
+    @Operation(summary = "新增菜单")
     @PostMapping("/create")
     public R<Boolean> createCompat(@RequestBody SysDictTypeDO dictTypeDO) {
         return create(dictTypeDO);
     }
 
-    @RequiresPermissions("system:dict:edit")
+    @RequiresPermissions("system:dict:update")
     @Log(title = "字典类型", businessType = Log.BusinessType.UPDATE)
+    @Operation(summary = "更新当前用户资料")
     @PutMapping
     public R<Boolean> update(@RequestBody SysDictTypeDO dictTypeDO) {
         if (dictTypeDO.getId() == null) {
@@ -142,15 +152,17 @@ public class DictTypeController {
         return R.ok(true);
     }
 
-    @RequiresPermissions("system:dict:edit")
+    @RequiresPermissions("system:dict:update")
     @Log(title = "字典类型", businessType = Log.BusinessType.UPDATE)
+    @Operation(summary = "修改菜单")
     @PutMapping("/update")
     public R<Boolean> updateCompat(@RequestBody SysDictTypeDO dictTypeDO) {
         return update(dictTypeDO);
     }
 
-    @RequiresPermissions("system:dict:remove")
+    @RequiresPermissions("system:dict:delete")
     @Log(title = "字典类型", businessType = Log.BusinessType.DELETE)
+    @Operation(summary = "删除短信发送记录")
     @DeleteMapping("/{id}")
     @Transactional(rollbackFor = Exception.class)
     public R<Boolean> delete(@PathVariable("id") Long id) {
@@ -164,15 +176,17 @@ public class DictTypeController {
         return R.ok(true);
     }
 
-    @RequiresPermissions("system:dict:remove")
+    @RequiresPermissions("system:dict:delete")
     @Log(title = "字典类型", businessType = Log.BusinessType.DELETE)
+    @Operation(summary = "删除菜单")
     @DeleteMapping("/delete")
     public R<Boolean> deleteCompat(@RequestParam("id") Long id) {
         return delete(id);
     }
 
-    @RequiresPermissions("system:dict:add")
+    @RequiresPermissions("system:dict:create")
     @Log(title = "字典类型", businessType = Log.BusinessType.INSERT)
+    @Operation(summary = "复制")
     @PostMapping("/{id}/copy")
     @Transactional(rollbackFor = Exception.class)
     public R<Boolean> copy(@PathVariable("id") Long id) {
@@ -213,6 +227,7 @@ public class DictTypeController {
     }
 
     @RequiresPermissions("system:dict:list")
+    @Operation(summary = "分页查询 API 访问日志")
     @GetMapping("/recycle/page")
     public R<PageResult<SysDictTypeDO>> recyclePage(PageQuery pageQuery,
                                                     @RequestParam(required = false) String dictName,
@@ -223,8 +238,9 @@ public class DictTypeController {
         return R.ok(PageResult.of(page.getRecords(), page.getTotal()));
     }
 
-    @RequiresPermissions("system:dict:edit")
+    @RequiresPermissions("system:dict:update")
     @Log(title = "字典类型", businessType = Log.BusinessType.UPDATE)
+    @Operation(summary = "恢复菜单")
     @PutMapping("/restore")
     public R<Boolean> restore(@RequestParam("id") Long id) {
         if (!sysRecycleService.restoreDictType(id)) {
@@ -233,8 +249,9 @@ public class DictTypeController {
         return R.ok(true);
     }
 
-    @RequiresPermissions("system:dict:remove")
+    @RequiresPermissions("system:dict:delete")
     @Log(title = "字典类型", businessType = Log.BusinessType.DELETE)
+    @Operation(summary = "彻底删除菜单")
     @DeleteMapping("/delete-permanent")
     public R<Boolean> deletePermanent(@RequestParam("id") Long id) {
         if (!sysRecycleService.purgeDictType(id)) {

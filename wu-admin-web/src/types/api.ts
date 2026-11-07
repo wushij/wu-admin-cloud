@@ -1,4 +1,4 @@
-/** 统一 API 响应结构（与后端 R<T> 一致） */
+/** 统一 API 响应结构（与后端 CommonResult 一致） */
 export interface ApiResult<T = unknown> {
   code: number
   msg?: string
@@ -43,7 +43,6 @@ export interface LoginForm {
   emailCode?: string
   uuid?: string
   code?: string
-  captcha?: string
   rememberMe?: boolean
 }
 
@@ -57,13 +56,15 @@ export interface RegisterForm {
   code?: string
 }
 
-/** 登录响应（Token 写入内存并随 Authorization 头发送；微服务网关不读 Cookie） */
+/** 登录响应 */
 export interface LoginResult {
-  token?: string
-  tokenName?: string
   userId: number
   username: string
   nickname?: string
+  token?: string
+  tokenName?: string
+  sm3SignKey?: string
+  sm4Key?: string
 }
 
 /** 用户信息（/auth/info） */

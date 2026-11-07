@@ -3,9 +3,11 @@ package com.wu.cloud.ticket.service.impl;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
-import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.wu.cloud.api.system.dto.SysUserDTO;
+import com.wu.cloud.api.system.feign.RemoteUserService;
 import com.wu.cloud.common.core.PageParam;
 import com.wu.cloud.common.core.domain.PageResult;
+import com.wu.cloud.common.core.domain.R;
 import com.wu.cloud.common.core.context.UserContextHolder;
 import com.wu.cloud.common.exception.BusinessException;
 import com.wu.cloud.common.security.PermissionChecker;
@@ -28,20 +30,24 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
 /**
- * 审批单 Service 实现
+ * 审批单 Service 实现（MyBatis-Plus 3.5.18 已移除 extension.service.ServiceImpl，
+ * 与最新业务规范保持一致：直接注入 Mapper 承载数据访问）
  */
 @Service
-public class ApprovalFormServiceImpl extends ServiceImpl<ApprovalFormMapper, ApprovalFormDO> implements ApprovalFormService {
+public class ApprovalFormServiceImpl implements ApprovalFormService {
 
     @Resource
+    private ApprovalFormMapper approvalFormMapper;
+    @Resource
     private UserNameResolver userNameResolver;
+    @Resource
+    private RemoteUserService remoteUserService;
     @Resource
     private ApprovalRecordMapper recordMapper;
     @Resource
@@ -72,7 +78,7 @@ public class ApprovalFormServiceImpl extends ServiceImpl<ApprovalFormMapper, App
             wrapper.eq(ApprovalFormDO::getApplicantUserId, applicantUserId);
         }
         wrapper.orderByDesc(ApprovalFormDO::getUpdateTime);
-        Page<ApprovalFormDO> result = page(page, wrapper);
+        Page<ApprovalFormDO> result = approvalFormMapper.selectPage(page, wrapper);
         userNameResolver.fillNames(result.getRecords(), ApprovalFormDO::getApplicantUserId, ApprovalFormDO::setApplicantName);
         userNameResolver.fillNames(result.getRecords(), ApprovalFormDO::getApproverUserId, ApprovalFormDO::setApproverName);
         return PageResult.of(result.getRecords(), result.getTotal());
@@ -80,7 +86,7 @@ public class ApprovalFormServiceImpl extends ServiceImpl<ApprovalFormMapper, App
 
     @Override
     public ApprovalFormDO getDetail(Long id) {
-        ApprovalFormDO form = getById(id);
+        ApprovalFormDO form = approvalFormMapper.selectById(id);
         if (form == null) {
             throw new BusinessException(404, "审批单不存在");
         }
@@ -99,7 +105,7 @@ public class ApprovalFormServiceImpl extends ServiceImpl<ApprovalFormMapper, App
         if (form.getStatus() == null || form.getStatus().isBlank()) {
             form.setStatus("SUBMITTED");
         }
-        save(form);
+        approvalFormMapper.insert(form);
         return form.getId();
     }
 
@@ -108,7 +114,7 @@ public class ApprovalFormServiceImpl extends ServiceImpl<ApprovalFormMapper, App
     public void update(ApprovalFormDO form) {
         form.setApplicantUserId(null);
         form.setCreator(null);
-        updateById(form);
+        approvalFormMapper.updateById(form);
     }
 
     private void record(Long formId, String action, String remark) {
@@ -125,7 +131,7 @@ public class ApprovalFormServiceImpl extends ServiceImpl<ApprovalFormMapper, App
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void approve(Long id, String remark) {
-        ApprovalFormDO form = getById(id);
+        ApprovalFormDO form = approvalFormMapper.selectById(id);
         if (form == null) {
             throw new BusinessException(404, "审批单不存在");
         }
@@ -139,7 +145,7 @@ public class ApprovalFormServiceImpl extends ServiceImpl<ApprovalFormMapper, App
             throw new BusinessException(403, "不可审批本人提交的审批单");
         }
         Long approver = UserContextHolder.getUserId();
-        update(null, new LambdaUpdateWrapper<ApprovalFormDO>()
+        approvalFormMapper.update(null, new LambdaUpdateWrapper<ApprovalFormDO>()
                 .eq(ApprovalFormDO::getId, id)
                 .set(ApprovalFormDO::getStatus, "APPROVED")
                 .set(ApprovalFormDO::getApproverUserId, approver));
@@ -157,11 +163,11 @@ public class ApprovalFormServiceImpl extends ServiceImpl<ApprovalFormMapper, App
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void reject(Long id, String remark) {
-        ApprovalFormDO form = getById(id);
+        ApprovalFormDO form = approvalFormMapper.selectById(id);
         if (form == null) {
             throw new BusinessException(404, "审批单不存在");
         }
-        update(null, new LambdaUpdateWrapper<ApprovalFormDO>()
+        approvalFormMapper.update(null, new LambdaUpdateWrapper<ApprovalFormDO>()
                 .eq(ApprovalFormDO::getId, id).set(ApprovalFormDO::getStatus, "REJECTED"));
         record(id, "REJECT", remark);
         NoticeDO notice = new NoticeDO();
@@ -177,7 +183,7 @@ public class ApprovalFormServiceImpl extends ServiceImpl<ApprovalFormMapper, App
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void archive(Long id) {
-        update(null, new LambdaUpdateWrapper<ApprovalFormDO>()
+        approvalFormMapper.update(null, new LambdaUpdateWrapper<ApprovalFormDO>()
                 .eq(ApprovalFormDO::getId, id).set(ApprovalFormDO::getStatus, "ARCHIVED"));
         record(id, "ARCHIVE", null);
     }
@@ -185,7 +191,7 @@ public class ApprovalFormServiceImpl extends ServiceImpl<ApprovalFormMapper, App
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void delete(Long id) {
-        ApprovalFormDO form = getById(id);
+        ApprovalFormDO form = approvalFormMapper.selectById(id);
         if (form == null) {
             return;
         }
@@ -204,13 +210,13 @@ public class ApprovalFormServiceImpl extends ServiceImpl<ApprovalFormMapper, App
         }
         nodeMapper.delete(new LambdaQueryWrapper<ApprovalNodeDO>().eq(ApprovalNodeDO::getFormId, id));
         recordMapper.delete(new LambdaQueryWrapper<ApprovalRecordDO>().eq(ApprovalRecordDO::getFormId, id));
-        removeById(id);
+        approvalFormMapper.deleteById(id);
     }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void restore(Long id) {
-        int rows = baseMapper.restoreById(id);
+        int rows = approvalFormMapper.restoreById(id);
         if (rows == 0) {
             throw new BusinessException(404, "回收站审批单不存在");
         }
@@ -219,7 +225,7 @@ public class ApprovalFormServiceImpl extends ServiceImpl<ApprovalFormMapper, App
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void deletePermanent(Long id) {
-        int rows = baseMapper.deletePhysicalById(id);
+        int rows = approvalFormMapper.deletePhysicalById(id);
         if (rows == 0) {
             throw new BusinessException(404, "回收站审批单不存在");
         }
@@ -229,7 +235,7 @@ public class ApprovalFormServiceImpl extends ServiceImpl<ApprovalFormMapper, App
     @Override
     public PageResult<ApprovalFormDO> recyclePage(PageParam pageParam, String title, String formType, String status) {
         Page<ApprovalFormDO> page = new Page<>(pageParam.getPageNo(), pageParam.getPageSize());
-        Page<ApprovalFormDO> result = (Page<ApprovalFormDO>) baseMapper.selectDeletedPage(page, title, formType, status != null ? status : "");
+        Page<ApprovalFormDO> result = (Page<ApprovalFormDO>) approvalFormMapper.selectDeletedPage(page, title, formType, status != null ? status : "");
         return PageResult.of(result.getRecords(), result.getTotal());
     }
 
@@ -237,7 +243,7 @@ public class ApprovalFormServiceImpl extends ServiceImpl<ApprovalFormMapper, App
     @Transactional(rollbackFor = Exception.class)
     public void purgeExpiredRecycleBin() {
         LocalDateTime cutoff = LocalDateTime.now().minusDays(30);
-        baseMapper.selectDeletedPage(new Page<>(1, 500), null, null, null).getRecords().stream()
+        approvalFormMapper.selectDeletedPage(new Page<>(1, 500), null, null, null).getRecords().stream()
                 .filter(f -> f.getUpdateTime() != null && f.getUpdateTime().isBefore(cutoff))
                 .forEach(f -> deletePermanent(f.getId()));
     }
@@ -254,30 +260,30 @@ public class ApprovalFormServiceImpl extends ServiceImpl<ApprovalFormMapper, App
 
     @Override
     public List<Map<String, Object>> listApproverOptions() {
-        // 微服务简化：从最近审批记录提取 operator 列表去重，名称通过 UserNameResolver 解析
-        List<ApprovalRecordDO> recent = recordMapper.selectList(
-                new LambdaQueryWrapper<ApprovalRecordDO>()
-                        .isNotNull(ApprovalRecordDO::getOperatorUserId)
-                        .orderByDesc(ApprovalRecordDO::getCreateTime)
-                        .last("LIMIT 200"));
-        Map<Long, Map<String, Object>> dedup = new LinkedHashMap<>();
-        for (ApprovalRecordDO r : recent) {
-            Long uid = r.getOperatorUserId();
-            if (uid == null || dedup.containsKey(uid)) {
+        // 启用状态用户全量候选（经用户服务 RPC），排除当前登录用户；名称直接取自用户档案
+        Long currentUserId = UserContextHolder.getUserId();
+        R<List<SysUserDTO>> resp = remoteUserService.listActiveUsers(currentUserId);
+        if (resp == null || !resp.isSuccess() || resp.getData() == null) {
+            throw new BusinessException("用户服务暂不可用，审批人候选列表获取失败，请稍后重试");
+        }
+        List<Map<String, Object>> options = new ArrayList<>(resp.getData().size());
+        for (SysUserDTO user : resp.getData()) {
+            if (user == null || user.getUserId() == null) {
                 continue;
             }
-            Map<String, Object> opt = new HashMap<>();
-            opt.put("userId", uid);
-            opt.put("nickname", userNameResolver.resolve(uid));
-            dedup.put(uid, opt);
+            Map<String, Object> opt = new LinkedHashMap<>();
+            opt.put("userId", user.getUserId());
+            opt.put("username", user.getUsername());
+            opt.put("nickname", user.getNickname());
+            options.add(opt);
         }
-        return new ArrayList<>(dedup.values());
+        return options;
     }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void withdraw(Long id) {
-        ApprovalFormDO form = getById(id);
+        ApprovalFormDO form = approvalFormMapper.selectById(id);
         if (form == null) {
             throw new BusinessException(404, "审批单不存在");
         }
@@ -288,7 +294,7 @@ public class ApprovalFormServiceImpl extends ServiceImpl<ApprovalFormMapper, App
         if (!"SUBMITTED".equals(form.getStatus())) {
             throw new BusinessException("仅待审批状态可撤回");
         }
-        update(null, new LambdaUpdateWrapper<ApprovalFormDO>()
+        approvalFormMapper.update(null, new LambdaUpdateWrapper<ApprovalFormDO>()
                 .eq(ApprovalFormDO::getId, id)
                 .set(ApprovalFormDO::getStatus, "WITHDRAWN"));
         record(id, "WITHDRAW", null);
@@ -297,7 +303,7 @@ public class ApprovalFormServiceImpl extends ServiceImpl<ApprovalFormMapper, App
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void submitWithNodes(Long formId, List<Long> approverIds, List<String> nodeNames) {
-        ApprovalFormDO form = getById(formId);
+        ApprovalFormDO form = approvalFormMapper.selectById(formId);
         if (form == null) {
             throw new BusinessException(404, "审批单不存在");
         }
@@ -340,7 +346,7 @@ public class ApprovalFormServiceImpl extends ServiceImpl<ApprovalFormMapper, App
             order++;
         }
         // 审批单状态置为审批中
-        update(null, new LambdaUpdateWrapper<ApprovalFormDO>()
+        approvalFormMapper.update(null, new LambdaUpdateWrapper<ApprovalFormDO>()
                 .eq(ApprovalFormDO::getId, formId)
                 .set(ApprovalFormDO::getStatus, "SUBMITTED"));
         record(formId, "SUBMIT", "提交多节点审批");
@@ -349,7 +355,7 @@ public class ApprovalFormServiceImpl extends ServiceImpl<ApprovalFormMapper, App
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void approveNode(Long formId, Long nodeId, String remark) {
-        ApprovalFormDO form = getById(formId);
+        ApprovalFormDO form = approvalFormMapper.selectById(formId);
         if (form == null) {
             throw new BusinessException(404, "审批单不存在");
         }
@@ -415,7 +421,7 @@ public class ApprovalFormServiceImpl extends ServiceImpl<ApprovalFormMapper, App
                         .last("LIMIT 1"));
         if (nextNode == null) {
             // 全部节点通过，审批单 APPROVED
-            update(null, new LambdaUpdateWrapper<ApprovalFormDO>()
+            approvalFormMapper.update(null, new LambdaUpdateWrapper<ApprovalFormDO>()
                     .eq(ApprovalFormDO::getId, formId)
                     .set(ApprovalFormDO::getStatus, "APPROVED"));
         }

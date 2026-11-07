@@ -28,6 +28,7 @@ import com.wu.cloud.system.mapper.SysLoginLogMapper;
 import com.wu.cloud.system.mapper.SysUserMapper;
 import com.wu.cloud.system.mapper.SysUserPostMapper;
 import com.wu.cloud.system.mapper.SysUserRoleMapper;
+import com.wu.cloud.system.service.DataScopeService;
 import com.wu.cloud.system.service.DeptService;
 import com.wu.cloud.system.service.SysConfigGroupService;
 import com.wu.cloud.system.service.SysRecycleService;
@@ -79,6 +80,8 @@ public class SysUserServiceImpl implements SysUserService {
     private SysRecycleService sysRecycleService;
     @Resource
     private LoginLockSupport loginLockSupport;
+    @Resource
+    private DataScopeService dataScopeService;
 
     @Override
     public List<SysUserDO> listAll() {
@@ -111,7 +114,7 @@ public class SysUserServiceImpl implements SysUserService {
         if (pageDTO.getStatus() != null) {
             wrapper.eq(SysUserDO::getStatus, pageDTO.getStatus());
         } else {
-            // 管理列表默认隐藏待审核/驳回，与单体一致
+            // 管理列表默认隐藏待审核/驳回，与旧版一致
             wrapper.in(SysUserDO::getStatus, STATUS_DISABLED, STATUS_ENABLED);
         }
         if (pageDTO.getDeptId() != null) {
@@ -128,6 +131,16 @@ public class SysUserServiceImpl implements SysUserService {
                 wrapper.eq(SysUserDO::getId, -1L);
             } else {
                 wrapper.in(SysUserDO::getId, userIds);
+            }
+        }
+        // 部门级数据权限：按角色 data_scope 收窄可见范围（本人始终可见）
+        DataScopeService.UserDataScope dataScope = dataScopeService.resolveCurrent();
+        if (!dataScope.all()) {
+            if (dataScope.selfOnly()) {
+                wrapper.eq(SysUserDO::getId, dataScope.userId());
+            } else {
+                wrapper.and(w -> w.in(SysUserDO::getDeptId, dataScope.deptIds())
+                        .or().eq(SysUserDO::getId, dataScope.userId()));
             }
         }
         wrapper.orderByDesc(SysUserDO::getCreateTime);

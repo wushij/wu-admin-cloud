@@ -28,6 +28,7 @@
           />
         </view>
         <text class="list-card__sub">编码：{{ item.code }}</text>
+        <text class="list-card__sub">数据范围：{{ dataScopeLabel(item.dataScope) }}</text>
         <text v-if="item.remark" class="list-card__sub">{{ item.remark }}</text>
       </ListCard>
       <EmptyState v-if="empty" title="暂无角色" icon="shield-o" />
@@ -42,20 +43,20 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { onPullDownRefresh } from '@dcloudio/uni-app'
-import { useListPageShowRefresh } from '@/composables/useListPageShowRefresh'
-import ModuleDarkHero from '@/components/common/ModuleDarkHero/index.vue'
-import SearchBar from '@/components/common/SearchBar/index.vue'
-import ListFooter from '@/components/common/ListFooter/index.vue'
-import ListLoading from '@/components/common/ListLoading/index.vue'
-import EmptyState from '@/components/common/EmptyState/index.vue'
-import DictTag from '@/components/common/DictTag/index.vue'
-import FabButton from '@/components/common/FabButton/index.vue'
-import ListCard from '@/components/common/ListCard/index.vue'
-import PermissionBlock from '@/components/common/PermissionBlock/index.vue'
-import AppDialogHost from '@/components/common/AppDialogHost/index.vue'
+import { useListPageShowRefresh } from '@/composables/base/useListPageShowRefresh'
+import ModuleDarkHero from '@/components/layout/ModuleDarkHero/index.vue'
+import SearchBar from '@/components/base/SearchBar/index.vue'
+import ListFooter from '@/components/base/ListFooter/index.vue'
+import ListLoading from '@/components/base/ListLoading/index.vue'
+import EmptyState from '@/components/base/EmptyState/index.vue'
+import DictTag from '@/components/base/DictTag/index.vue'
+import FabButton from '@/components/base/FabButton/index.vue'
+import ListCard from '@/components/base/ListCard/index.vue'
+import PermissionBlock from '@/components/base/PermissionBlock/index.vue'
+import AppDialogHost from '@/components/base/AppDialogHost/index.vue'
 import { showConfirm, showActionSheet, type ActionSheetItem } from '@/utils/app-dialog'
-import { usePageList } from '@/composables/usePageList'
-import { useModulePermission } from '@/composables/useModulePermission'
+import { usePageList } from '@/composables/base/usePageList'
+import { useModulePermission } from '@/composables/base/useModulePermission'
 import { getRolePage, deleteRole } from '@/api/system/role'
 import type { RoleVO } from '@/types/system'
 
@@ -65,6 +66,19 @@ const canUpdate = computed(() => hasPerm('system:role:update'))
 const canDelete = computed(() => hasPerm('system:role:delete'))
 const keyword = ref('')
 const total = ref(0)
+
+/** 与 PC 端角色列表的数据范围文案保持一致 */
+const DATA_SCOPE_LABELS: Record<number, string> = {
+  1: '全部数据',
+  2: '自定义部门',
+  3: '本部门',
+  4: '本部门及以下',
+  5: '仅本人',
+}
+
+function dataScopeLabel(scope?: number) {
+  return DATA_SCOPE_LABELS[scope ?? 1] || '全部数据'
+}
 
 const { list, loading, finished, empty, refresh, loadMore, refreshing } = usePageList<RoleVO>(
   async (pageNo, pageSize) => {

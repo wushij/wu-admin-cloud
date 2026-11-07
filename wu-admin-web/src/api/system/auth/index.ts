@@ -1,6 +1,7 @@
 import { get, post } from '@/utils/request'
 import type { AuthInfo, LoginForm, LoginResult, RegisterForm } from '@/types/api'
 import type { AuthPublicConfig } from '@/types/config'
+import type { SliderTrackEvent } from '@/types/slider-captcha'
 
 export type AuthConfig = AuthPublicConfig
 
@@ -10,11 +11,26 @@ export interface CaptchaResult {
   image?: string
 }
 
+/**
+ * 滑块挑战：服务端已把答案（缺口 X）渲染进背景图，响应中不再包含 targetX。
+ */
 export interface SliderChallengeResult {
   token: string
-  bgIndex: number
+  /** 已挖出缺口的背景图（data:image/jpeg;base64） */
+  background: string
+  /** 缺口位置的拼图块（data:image/png;base64） */
+  piece: string
+  width: number
+  height: number
+  pieceSize: number
   pieceTop: number
-  targetX: number
+  expireAt?: number
+}
+
+export interface SliderVerifyResult {
+  /** 一次性验证票据，业务接口以 uuid 字段提交 */
+  ticket: string
+  expireAt?: number
 }
 
 /** 会话签名密钥初始化返回结果 */
@@ -32,6 +48,19 @@ export interface SessionSignResult {
 
 export function getSliderChallenge(scene: string = 'login') {
   return get<SliderChallengeResult>('/auth/slider-challenge', { scene })
+}
+
+/**
+ * 提交拖动结果，服务端校验轨迹与缺口位置后签发一次性票据。
+ * 票据仅在 2 分钟内有效且只能消费一次。
+ */
+export function verifySlider(data: {
+  token: string
+  offsetX: number
+  durationMs: number
+  events: SliderTrackEvent[]
+}) {
+  return post<SliderVerifyResult>('/auth/slider-verify', data)
 }
 
 export function login(data: LoginForm) {

@@ -367,4 +367,16 @@ public class AuthConfigLoader {
     public boolean isAiAssistantEnabled() {
         return getBool("ai", "assistantEnabled", true);
     }
+
+    // ---------- SM2 口令传输密钥 ----------
+
+    /** 系统配置中显式托管的 SM2 公钥（未配置返回空串，由运行时密钥对兜底） */
+    public String getSm2PublicKey() {
+        return getStr("security", "sm2PublicKey", "");
+    }
+
+    /** 系统配置中显式托管的 SM2 私钥（仅服务端使用，绝不外发） */
+    public String getSm2PrivateKey() {
+        return getStr("security", "sm2PrivateKey", "");
+    }
 }

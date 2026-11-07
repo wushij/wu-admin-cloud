@@ -1,5 +1,7 @@
 package com.wu.cloud.message.controller;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import cn.dev33.satoken.stp.StpUtil;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.fasterxml.jackson.core.type.TypeReference;
@@ -22,6 +24,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 @Slf4j
+@Tag(name = "系统通知")
 @RestController
 @RequestMapping("/api/message/announce")
 public class AnnounceController {
@@ -31,6 +34,7 @@ public class AnnounceController {
     @Resource
     private ObjectMapper objectMapper;
 
+    @Operation(summary = "分页查询 API 访问日志")
     @GetMapping("/page")
     public R<PageResult<AnnounceDO>> page(@RequestParam(defaultValue = "1") int pageNo,
                                            @RequestParam(defaultValue = "10") int pageSize,
@@ -41,6 +45,7 @@ public class AnnounceController {
         return R.ok(new PageResult<>(page.getRecords(), page.getTotal()));
     }
 
+    @Operation(summary = "获取详情")
     @GetMapping("/my")
     public R<PageResult<AnnounceMyVO>> my(@RequestParam(defaultValue = "1") int pageNo,
                                            @RequestParam(defaultValue = "10") int pageSize,
@@ -50,6 +55,7 @@ public class AnnounceController {
         return R.ok(new PageResult<>(page.getRecords(), page.getTotal()));
     }
 
+    @Operation(summary = "下载工单附件")
     @GetMapping("/{id}")
     public R<AnnounceRequest> detail(@PathVariable("id") Long id) {
         AnnounceDO entity = announceService.getById(id);
@@ -64,6 +70,7 @@ public class AnnounceController {
     }
 
     @Log(title = "通知公告", businessType = Log.BusinessType.INSERT)
+    @Operation(summary = "上传工单附件")
     @PostMapping
     public R<Boolean> create(@RequestBody AnnounceRequest req) {
         announceService.create(req.toEntity(objectMapper));
@@ -71,6 +78,7 @@ public class AnnounceController {
     }
 
     @Log(title = "通知公告", businessType = Log.BusinessType.UPDATE)
+    @Operation(summary = "更新当前用户资料")
     @PutMapping
     public R<Boolean> update(@RequestBody AnnounceRequest req) {
         announceService.update(req.toEntity(objectMapper));
@@ -78,6 +86,7 @@ public class AnnounceController {
     }
 
     @Log(title = "通知公告", businessType = Log.BusinessType.DELETE)
+    @Operation(summary = "删除短信发送记录")
     @DeleteMapping("/{id}")
     public R<Boolean> delete(@PathVariable("id") Long id) {
         announceService.delete(id);
@@ -85,34 +94,40 @@ public class AnnounceController {
     }
 
     @Log(title = "通知公告", businessType = Log.BusinessType.OTHER)
+    @Operation(summary = "发布")
     @PostMapping("/{id}/publish")
     public R<Boolean> publish(@PathVariable("id") Long id) {
         announceService.publish(id);
         return R.ok(true, "发布成功");
     }
 
+    @Operation(summary = "标记已读")
     @PostMapping("/{id}/read")
     public R<Boolean> read(@PathVariable("id") Long id) {
         announceService.markRead(StpUtil.getLoginIdAsLong(), id);
         return R.ok(true, "已标记为已读");
     }
 
+    @Operation(summary = "标记已读")
     @PostMapping("/read-all")
     public R<Boolean> readAll() {
         announceService.markAllRead(StpUtil.getLoginIdAsLong());
         return R.ok(true, "全部已读成功");
     }
 
+    @Operation(summary = "我的未读数")
     @GetMapping("/unread-count")
     public R<Long> unreadCount() {
         return R.ok(announceService.unreadCount(StpUtil.getLoginIdAsLong()));
     }
 
+    @Operation(summary = "获取详情")
     @GetMapping("/{id}/send-logs")
     public R<List<AnnounceSendLogDO>> sendLogs(@PathVariable("id") Long id) {
         return R.ok(announceService.sendLogs(id));
     }
 
+    @Operation(summary = "分页查询 API 访问日志")
     @GetMapping("/recycle/page")
     public R<PageResult<AnnounceDO>> recyclePage(@RequestParam(defaultValue = "1") int pageNo,
                                                   @RequestParam(defaultValue = "10") int pageSize,
@@ -121,6 +136,7 @@ public class AnnounceController {
     }
 
     @Log(title = "通知公告", businessType = Log.BusinessType.OTHER)
+    @Operation(summary = "恢复菜单")
     @PutMapping("/restore")
     public R<Boolean> restore(@RequestParam("id") Long id) {
         announceService.restore(id);
@@ -128,6 +144,7 @@ public class AnnounceController {
     }
 
     @Log(title = "通知公告", businessType = Log.BusinessType.DELETE)
+    @Operation(summary = "彻底删除菜单")
     @DeleteMapping("/delete-permanent")
     public R<Boolean> deletePermanent(@RequestParam("id") Long id) {
         announceService.deletePermanent(id);

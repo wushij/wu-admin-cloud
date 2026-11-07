@@ -1,7 +1,7 @@
 import { createRouter, createWebHistory, RouteRecordRaw } from 'vue-router'
 import { useUserStore } from '@/store/user'
 import { useSiteStore } from '@/store/site'
-import { hasMenuPermission } from '@/directives/permission'
+import { hasMenuPermission } from '@/utils/permission'
 
 const routes: RouteRecordRaw[] = [
   {
@@ -104,6 +104,12 @@ const routes: RouteRecordRaw[] = [
         meta: { title: '登录日志', icon: 'Promotion', permission: 'system:loginLog:list' }
       },
       {
+        path: 'system/security-log',
+        name: 'SystemSecurityLog',
+        component: () => import('@/views/system/security-log/index.vue'),
+        meta: { title: '安全风控', icon: 'Lock', permission: 'system:security:list' }
+      },
+      {
         path: 'system/file',
         name: 'SystemFile',
         component: () => import('@/views/system/file/index.vue'),
@@ -125,7 +131,7 @@ const routes: RouteRecordRaw[] = [
         path: 'ai/model',
         name: 'AiModel',
         component: () => import('@/views/ai/model/index.vue'),
-        meta: { title: 'AI 模型配置', icon: 'MagicStick', permission: 'system:ai-model:list' }
+        meta: { title: 'AI 模型配置', icon: 'AiModel', permission: 'system:ai-model:list' }
       },
       {
         path: 'ai/log',
@@ -137,7 +143,7 @@ const routes: RouteRecordRaw[] = [
         path: 'ai/knowledge',
         name: 'AiKnowledge',
         component: () => import('@/views/ai/knowledge/index.vue'),
-        meta: { title: 'AI 知识库', icon: 'Notebook', permission: 'system:ai-knowledge:list' }
+        meta: { title: 'AI 知识库', icon: 'Reading', permission: 'system:ai-knowledge:list' }
       },
       {
         path: 'system/ai-model',
@@ -223,40 +229,32 @@ function hasRoutePermission(userStore: ReturnType<typeof useUserStore>, required
   return hasMenuPermission(userStore.menus || [], requiredPerm)
 }
 
-router.beforeEach(async (to, _from, next) => {
+router.beforeEach(async (to) => {
   const siteStore = useSiteStore()
-  // 不阻塞路由跳转：bootstrap() 已在 app.mount 前 await loadConfig()，
-  // 此处仅触发兜底加载（首次未完成的极端竞态），不 await
-  siteStore.ensureConfigLoaded()
+  await siteStore.ensureConfigLoaded()
 
   const userStore = useUserStore()
 
-  const siteTitle = siteStore.platformName?.trim() || 'Admin Platform'
-  document.title = to.meta.title ? `${to.meta.title} - ${siteTitle}` : siteTitle
+  document.title = to.meta.title ? `${to.meta.title} - Admin Platform` : 'Admin Platform'
 
   if (to.meta.requiresAuth === false) {
     if (to.path === '/login' && userStore.isLoggedIn) {
-      next('/')
-    } else {
-      next()
+      return '/'
     }
     return
   }
 
-  // 与单体一致：以会话是否有效（/auth/info）为准；Token 可走 Header 或 Cookie
   if (!userStore.isLoggedIn || !userStore.menus?.length) {
     try {
-      await userStore.ensureUserReady()
+      await userStore.refreshUserStore()
     } catch (error) {
       console.error('获取用户信息失败:', error)
-      next('/login')
-      return
+      return '/login'
     }
   }
 
   if (!userStore.isLoggedIn) {
-    next('/login')
-    return
+    return '/login'
   }
 
   const required = to.matched
@@ -265,11 +263,8 @@ router.beforeEach(async (to, _from, next) => {
     .find((record) => record.meta.permission)?.meta.permission
 
   if (required && !hasRoutePermission(userStore, required)) {
-    next('/403')
-    return
+    return '/403'
   }
-
-  next()
 })
 
 export default router

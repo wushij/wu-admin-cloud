@@ -1,5 +1,12 @@
 package com.wu.cloud.system.controller;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import com.wu.cloud.api.infra.feign.recycle.RecycleCountEndpoint;
+import com.wu.cloud.api.infra.feign.recycle.RemoteFileRecycleClient;
+import com.wu.cloud.api.infra.feign.recycle.RemoteInfraRecycleClient;
+import com.wu.cloud.api.infra.feign.recycle.RemoteMessageRecycleClient;
+import com.wu.cloud.api.infra.feign.recycle.RemoteTicketRecycleClient;
 import com.wu.cloud.common.core.domain.R;
 import com.wu.cloud.common.security.annotation.RequiresPermissions;
 import com.wu.cloud.system.mapper.SysRecycleMapper;
@@ -8,19 +15,19 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
-import org.springframework.web.client.RestTemplate;
 
 import java.util.HashMap;
 import java.util.Map;
 
 /**
- * 回收站汇总统计 REST 控制器（B 队 P1 修复：跨服务回收站计数）
+ * 回收站汇总统计 REST 控制器（全站唯一聚合口径，前端 /system/recycle/summary）
  *
- * <p>聚合 system 库内表的回收站计数 + 通过 @LoadBalanced RestTemplate 调用
- * ticket/infra/file/message 服务的 /inner/recycle/count 端点获取跨服务计数。
+ * <p>本地统计 system 库内表的回收站计数；ticket/message/infra/file 维度
+ * 通过类型化 OpenFeign 契约调用各服务自己的 /inner/recycle/count 端点。
  * 某服务不可用或超时时返回 0，不影响整体响应。</p>
  */
 @Slf4j
+@Tag(name = "回收中心")
 @RestController
 @RequestMapping("/api/system/recycle")
 public class RecycleController {
@@ -28,9 +35,16 @@ public class RecycleController {
     @Resource
     private SysRecycleMapper sysRecycleMapper;
     @Resource
-    private RestTemplate restTemplate;
+    private RemoteTicketRecycleClient ticketRecycleClient;
+    @Resource
+    private RemoteMessageRecycleClient messageRecycleClient;
+    @Resource
+    private RemoteInfraRecycleClient infraRecycleClient;
+    @Resource
+    private RemoteFileRecycleClient fileRecycleClient;
 
     @RequiresPermissions("system:recycle:query")
+    @Operation(summary = "回收站汇总统计")
     @GetMapping("/summary")
     public R<Map<String, Object>> summary() {
         // ===== 本地（system 库）回收站计数 =====
@@ -42,15 +56,20 @@ public class RecycleController {
         long dict = sysRecycleMapper.countDeletedDictTypes(null);
         long dictData = sysRecycleMapper.countDeletedDictData(null, null);
 
-        // ===== 跨服务回收站计数（RestTemplate 调用，失败返回 0）=====
-        long ticket = fetchCount("wu-service-ticket", "ticket");
-        long approval = fetchCount("wu-service-ticket", "approval");
-        long notice = fetchCount("wu-service-ticket", "notice");
-        long announce = fetchCount("wu-service-message", "announce");
-        long job = fetchCount("wu-service-infra", "job");
-        long jobLog = fetchCount("wu-service-infra", "jobLog");
-        long file = fetchCount("wu-service-file", "file");
-        long gen = fetchCount("wu-service-file", "gen");
+        // ===== 跨服务回收站计数（OpenFeign 契约调用，失败返回 0）=====
+        Map<String, Object> ticketCounts = fetch(ticketRecycleClient);
+        Map<String, Object> messageCounts = fetch(messageRecycleClient);
+        Map<String, Object> infraCounts = fetch(infraRecycleClient);
+        Map<String, Object> fileCounts = fetch(fileRecycleClient);
+
+        long ticket = toLong(ticketCounts.get("ticket"));
+        long approval = toLong(ticketCounts.get("approval"));
+        long notice = toLong(ticketCounts.get("notice"));
+        long announce = toLong(messageCounts.get("announce"));
+        long job = toLong(infraCounts.get("job"));
+        long jobLog = toLong(infraCounts.get("jobLog"));
+        long file = toLong(fileCounts.get("file"));
+        long gen = toLong(infraCounts.get("gen"));
 
         long total = user + role + menu + dept + post + dict + dictData
                 + ticket + approval + notice + announce + job + jobLog + file + gen;
@@ -75,24 +94,20 @@ public class RecycleController {
         return R.ok(result);
     }
 
-    /**
-     * 通过 @LoadBalanced RestTemplate 调用目标服务的 /inner/recycle/count 端点
-     * 返回的 R.data 是 Map<String, Long>，从中提取指定 key 的值
-     */
-    @SuppressWarnings("unchecked")
-    private long fetchCount(String serviceName, String key) {
+    private Map<String, Object> fetch(RecycleCountEndpoint client) {
         try {
-            String url = "http://" + serviceName + "/inner/recycle/count";
-            R<Map<String, Object>> resp = restTemplate.getForObject(url, R.class);
-            if (resp != null && resp.getCode() == 200 && resp.getData() != null) {
-                Object val = resp.getData().get(key);
-                if (val instanceof Number number) {
-                    return number.longValue();
-                }
+            R<Map<String, Object>> resp = client.count();
+            if (resp != null && resp.isSuccess() && resp.getData() != null) {
+                return resp.getData();
             }
         } catch (Exception e) {
-            log.warn("[Recycle] 跨服务回收站计数失败 service={} key={} err={}", serviceName, key, e.getMessage());
+            log.warn("[Recycle] 跨服务回收站计数失败 client={} err={}",
+                    client.getClass().getSimpleName(), e.getMessage());
         }
-        return 0L;
+        return Map.of();
+    }
+
+    private long toLong(Object value) {
+        return value instanceof Number number ? number.longValue() : 0L;
     }
 }

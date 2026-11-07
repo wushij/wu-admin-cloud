@@ -9,6 +9,7 @@ export interface RoleVO {
   sort?: number
   remark?: string
   dataScope?: number
+  dataScopeDeptIds?: string
   createTime?: string
   updateTime?: string
 }
@@ -27,6 +28,8 @@ export interface RoleSaveDTO {
   sort?: number
   status?: number
   remark?: string
+  dataScope?: number
+  dataScopeDeptIds?: string
 }
 
 export function getRoleList(params?: RoleListQuery) {

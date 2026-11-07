@@ -1,9 +1,11 @@
 package com.wu.cloud.auth;
 
+import com.wu.cloud.common.banner.StartupBanner;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.cloud.client.discovery.EnableDiscoveryClient;
 import org.springframework.cloud.openfeign.EnableFeignClients;
+import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.scheduling.annotation.EnableScheduling;
 
 /**
@@ -18,6 +20,7 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 public class AuthApplication {
 
     public static void main(String[] args) {
-        SpringApplication.run(AuthApplication.class, args);
+        ConfigurableApplicationContext context = SpringApplication.run(AuthApplication.class, args);
+        StartupBanner.print(context);
     }
 }

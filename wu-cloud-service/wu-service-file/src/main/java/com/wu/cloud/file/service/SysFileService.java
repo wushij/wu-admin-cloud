@@ -22,7 +22,7 @@ public interface SysFileService {
 
     SysFileDO uploadFile(MultipartFile file, Long groupId);
 
-    /** 按业务类型上传（如 avatar），路径与 URL 与单体对齐 */
+    /** 按业务类型上传（如 avatar），路径与 URL 与旧版对齐 */
     SysFileDO uploadFile(MultipartFile file, String type);
 
     void deleteFile(Long id);

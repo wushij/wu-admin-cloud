@@ -1,8 +1,9 @@
 ﻿<#
  .SYNOPSIS
-    Init wu-admin-cloud MySQL (shared DB mode)
+    Init wu-admin-cloud MySQL (Database-per-Service mode)
  .DESCRIPTION
-    Import sql/01-08 into wu-admin by default, or admin_platform.sql with -UseBaseline.
+    Import sql/01-08 into 8 independent service databases (wu_system / wu_file / wu_ticket /
+    wu_ai / wu_message / wu_infra / wu_pay / wu_order), or admin_platform.sql with -UseBaseline.
  .EXAMPLE
     .\scripts\init-databases.ps1
     .\scripts\init-databases.ps1 -UseBaseline
@@ -50,25 +51,25 @@ function Invoke-MysqlFile {
     }
 }
 
-Write-Host "==== init database ($Database @ ${HostName}:$Port) ====" -ForegroundColor Cyan
+Write-Host "==== init databases @ ${HostName}:$Port ====" -ForegroundColor Cyan
 if ($UseBaseline) {
-    Write-Host "mode: baseline admin_platform.sql"
+    Write-Host "mode: baseline admin_platform.sql (legacy shared db: $Database)"
+    $createSql = "CREATE DATABASE IF NOT EXISTS ``$Database`` DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
+    $mysqlArgs = Get-MysqlArgs
+    & $Mysql @mysqlArgs -e $createSql
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host "[ERROR] cannot connect MySQL or create database" -ForegroundColor Red
+        exit 1
+    }
 } else {
-    Write-Host "mode: scripts sql/01-08"
-}
-
-$createSql = "CREATE DATABASE IF NOT EXISTS ``$Database`` DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
-$mysqlArgs = Get-MysqlArgs
-& $Mysql @mysqlArgs -e $createSql
-if ($LASTEXITCODE -ne 0) {
-    Write-Host "[ERROR] cannot connect MySQL or create database" -ForegroundColor Red
-    exit 1
+    Write-Host "mode: Database-per-Service (8 independent databases)"
 }
 
 try {
     if ($UseBaseline) {
         Invoke-MysqlFile (Join-Path $sqlDir "admin_platform.sql")
     } else {
+        # 每个 SQL 脚本自带 CREATE DATABASE / USE，各自初始化独立库
         $scripts = @(
             "01_wu_system.sql",
             "02_wu_file.sql",
@@ -90,6 +91,10 @@ try {
 
 Write-Host ""
 Write-Host "==== database init done ====" -ForegroundColor Cyan
-Write-Host "database: $Database (shared-db mode)"
+if ($UseBaseline) {
+    Write-Host "database: $Database (legacy baseline mode)"
+} else {
+    Write-Host "databases: wu_system / wu_file / wu_ticket / wu_ai / wu_message / wu_infra / wu_pay / wu_order"
+}
 Write-Host "next: .\scripts\start-services.ps1 or .vscode/launch.json"
 exit 0

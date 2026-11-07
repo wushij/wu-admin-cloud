@@ -1,4 +1,4 @@
-﻿<#
+<#
  .SYNOPSIS
     wu-admin-cloud one-click start (PowerShell / Windows)
  .DESCRIPTION
@@ -22,7 +22,7 @@ param(
 
 $ErrorActionPreference = "Stop"
 $root = Split-Path -Parent $PSScriptRoot
-$fileUploadDir = Join-Path $root "wu-cloud-service\wu-service-file\data\file-upload"
+$fileUploadDir = Join-Path $root "wu-cloud-service\wu-service-file\data\uploads"
 
 function Start-ServiceWindow($name, $modulePath, $extraEnv = @{}) {
     $pomDir = Join-Path $root $modulePath

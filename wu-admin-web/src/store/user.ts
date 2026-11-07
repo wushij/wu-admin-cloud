@@ -6,9 +6,9 @@ import type { LoginForm, AuthInfo } from '@/types/api'
 import { useMessageStore } from '@/store/message'
 import { useTagsViewStore } from '@/store/tagsView'
 import { resetMonitorBackground } from '@/composables/useMonitorBackground'
-import { resetSecurityConfig, requestSessionSignKey } from '@/utils/security-config'
+import { resetSecurityConfig, requestSessionSignKey, setSecurityConfig } from '@/utils/security-config'
 import http from '@/utils/request'
-import { clearAccessToken, syncAccessTokenFromLogin } from '@/utils/auth-token'
+import { syncAccessTokenFromLogin, clearAccessToken } from '@/core/http/auth-token'
 
 /** 登录后内存中的用户信息（与 /auth/info 字段子集一致） */
 export type UserInfo = Partial<
@@ -33,26 +33,36 @@ export const useUserStore = defineStore('user', () => {
 
   const loginAction = async (loginForm: LoginForm) => {
     const res = await login(loginForm)
-    // 登录成功后，立刻尝试初始化签名密钥。即使获取失败也绝不打断登录主流程（由后续拦截器自愈机制兜底）
-    try {
-      await initSessionKey()
-    } catch (e) {
-      console.warn('初始化会话密钥失败，由后续拦截器自愈机制兜底:', e)
+    // 优先使用服务端随登录响应原子下发的会话临时密钥（零时延、零网络竞态）
+    const signKey = (res.data as any)?.sm3SignKey
+    const sm4Key = (res.data as any)?.sm4Key
+    if (signKey || sm4Key) {
+      setSecurityConfig({
+        sm3SignKey: signKey,
+        sm4Key: sm4Key,
+      })
+    } else {
+      // 兼容兜底：若未返回则再异步尝试协商拉取
+      try {
+        await initSessionKey()
+      } catch (e) {
+        console.warn('初始化会话密钥失败，由后续拦截器自愈机制兜底:', e)
+      }
     }
     userInfo.value = {
       userId: res.data.userId,
       username: res.data.username,
       nickname: res.data.nickname,
     }
-    // 显式将 token 写入本地，避免 Cookie 因跨域/CORS 未落地时导致 /auth/info 无鉴权信息
+    // 显式将 token 写入本地，支持微服务网关鉴权
     syncAccessTokenFromLogin(res.data.token)
     return res
   }
 
   const getUserInfo = async () => {
-    // 签名密钥初始化与用户信息并行发起：axios 拦截器已有竞态保护，
-    // getInfo 的实际 HTTP 请求会在密钥就绪后才真正发出
-    const [, res] = await Promise.all([initSessionKey(), getInfo()])
+    // 刷新页面或进入前，优先初始化签名密钥
+    await initSessionKey()
+    const res = await getInfo()
     userInfo.value = {
       userId: res.data.userId,
       username: res.data.username,
@@ -75,22 +85,8 @@ export const useUserStore = defineStore('user', () => {
     }
   }
 
-  /** 短时效 in-flight 去重：守卫 / Layout / Dashboard 共用同一轮刷新 */
-  let loadingPromise: Promise<void> | null = null
-  const ensureUserReady = async () => {
-    if (userInfo.value.userId != null && menus.value.length > 0) {
-      return
-    }
-    if (!loadingPromise) {
-      loadingPromise = refreshUserStore().finally(() => {
-        loadingPromise = null
-      })
-    }
-    return loadingPromise
-  }
-
   const logout = () => {
-    // 登出时，清空签名密钥闭包配置！
+    // 登出时，清空签名密钥闭包配置
     resetSecurityConfig()
     try {
       useMessageStore().destroyWebSocket()
@@ -105,8 +101,21 @@ export const useUserStore = defineStore('user', () => {
     }
     userInfo.value = {}
     menus.value = []
-    // 清理本地 token，避免其它页面仍带旧 Authorization 访问导致“看似登录又出现”的竞态
     clearAccessToken()
+  }
+
+  /** 短时效 in-flight 去重：守卫 / Layout / Dashboard 共用同一轮刷新 */
+  let loadingPromise: Promise<void> | null = null
+  const ensureUserReady = async () => {
+    if (userInfo.value.userId != null && menus.value.length > 0) {
+      return
+    }
+    if (!loadingPromise) {
+      loadingPromise = refreshUserStore().finally(() => {
+        loadingPromise = null
+      })
+    }
+    return loadingPromise
   }
 
   const logoutAction = async () => {

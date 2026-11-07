@@ -6,7 +6,7 @@ import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import static org.mockito.ArgumentMatchers.any;
 
 /**
- * MyBatis-Plus Wrapper 的 Mockito 泛型匹配（对齐单体 MybatisMockMatchers）。
+ * MyBatis-Plus Wrapper 的 Mockito 泛型匹配（与既有规范对齐 MybatisMockMatchers）。
  */
 public final class MybatisMockMatchers {
 

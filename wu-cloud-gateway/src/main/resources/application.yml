@@ -68,9 +68,9 @@ spring:
         websocket:
           max-frame-payload-length: 1048576
       routes:
-        # ===== 业务路由（P1：已移除 monitor/AI/dict/codegen/config-log 的 compat Rewrite）=====
+        # ===== 业务路由 =====
         # Knife4j 接口文档：/api/doc.html → system 服务 /doc.html
-        - id: compat-api-doc
+        - id: api-doc
           uri: lb://wu-service-system
           predicates:
             - Path=/api/doc.html,/api/v3/api-docs,/api/v3/api-docs/**,/api/swagger-ui,/api/swagger-ui/**,/api/webjars/**
@@ -82,47 +82,23 @@ spring:
           predicates:
             - Path=/api/auth/**
 
-        # wu-admin BFF（含规范仪表盘 /api/admin/dashboard/**）
+        # wu-admin BFF（仪表盘 /api/admin/dashboard/**）
         - id: wu-admin
           uri: lb://wu-admin
           predicates:
             - Path=/api/admin/**
 
-        # 双轨：旧 /api/system/dashboard → /api/admin/dashboard
-        - id: compat-dashboard-legacy
-          uri: lb://wu-admin
-          predicates:
-            - Path=/api/system/dashboard,/api/system/dashboard/**
-          filters:
-            - RewritePath=/api/system/dashboard(?<seg>/?.*), /api/admin/dashboard$\{seg}
-
-        # 导出工单/审批（规范路径）
+        # 导出工单/审批
         - id: wu-service-ticket-export
           uri: lb://wu-service-ticket
           predicates:
             - Path=/api/export/ticket,/api/export/approval
 
-        # 工单/审批/通知（P1.5 规范路径）
+        # 工单/审批/通知
         - id: wu-service-ticket-biz
           uri: lb://wu-service-ticket
           predicates:
             - Path=/api/ticket,/api/ticket/**,/api/approval,/api/approval/**,/api/notice,/api/notice/**
-
-        # P1.5 双轨：旧 /api/system/export/* → /api/export/*
-        - id: compat-ticket-export-legacy
-          uri: lb://wu-service-ticket
-          predicates:
-            - Path=/api/system/export/ticket,/api/system/export/approval
-          filters:
-            - RewritePath=/api/system/export/(?<seg>.*), /api/export/$\{seg}
-
-        # P1.5 双轨：旧 /api/system/ticket|approval|notice → /api/ticket|approval|notice
-        - id: compat-ticket-legacy
-          uri: lb://wu-service-ticket
-          predicates:
-            - Path=/api/system/ticket,/api/system/ticket/**,/api/system/approval,/api/system/approval/**,/api/system/notice,/api/system/notice/**
-          filters:
-            - RewritePath=/api/system/(?<seg>.*), /api/$\{seg}
 
         - id: wu-service-system
           uri: lb://wu-service-system
@@ -135,18 +111,16 @@ spring:
           predicates:
             - Path=/api/infra/file-group,/api/infra/file-group/**
 
-        # codegen 部署在 file；规范路径 /api/infra/codegen 须在 infra 通配前直达 file
-        - id: wu-service-file-codegen
-          uri: lb://wu-service-file
-          predicates:
-            - Path=/api/infra/codegen,/api/infra/codegen/**
-
         - id: wu-service-file
           uri: lb://wu-service-file
           predicates:
             - Path=/api/infra/file,/api/infra/file/**
+        - id: wu-service-file-storage
+          uri: lb://wu-service-file
+          predicates:
+            - Path=/api/storage/files/**, /storage/files/**
 
-        # 存量静态 URL 一期兼容：DB/前端历史 /api/files/** → /files/**
+        # 静态资源历史 URL 映射：DB 中存量 /api/files/** → /files/**
         - id: wu-service-file-api-static
           uri: lb://wu-service-file
           predicates:
@@ -220,6 +194,8 @@ gateway:
     timestamp-window-seconds: 300
     exclude-paths:
       - /api/pay/notify
+      - /api/storage/files/
+      - /storage/files/
       - /api/file/
       - /api/files/
       - /file/
@@ -255,6 +231,8 @@ gateway:
       - /api/auth/slider-challenge
       - /api/auth/slider-verify
       - /api/pay/notify
+      - /api/storage/files/
+      - /storage/files/
       - /api/file/
       - /api/files/
       - /file/
@@ -295,3 +273,22 @@ gateway:
       - /file/**
       - /files/**
       - /api/files/**
+      - /api/storage/files/**
+      - /storage/files/**
+
+# 内网端点零信任令牌(X-Inner-Token)
+wu:
+  security:
+    inner-token: ${INNER_API_TOKEN:}
+
+# ===== Unified file logging: output to <repo>/logs/ (logs/ is git-ignored) =====
+# Console output is kept for mvn spring-boot:run; the file is for post-mortem review.
+# Override the output root with the LOG_DIR environment variable.
+logging:
+  file:
+    name: ${LOG_DIR:E:/wu-admin-cloud/logs}/gateway.log
+  logback:
+    rollingpolicy:
+      max-file-size: 20MB
+      max-history: 7
+      total-size-cap: 200MB

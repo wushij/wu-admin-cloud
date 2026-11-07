@@ -4,7 +4,7 @@ import java.math.BigDecimal;
 import java.util.Map;
 
 /**
- * 支付服务接口（替代单体 framework.pay.PayService）
+ * 支付服务接口（替代旧版 framework.pay.PayService）
  */
 public interface PayService {
 

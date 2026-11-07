@@ -1,9 +1,11 @@
 package com.wu.cloud.infra.controller;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import com.alibaba.excel.EasyExcel;
-import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
-import com.wu.cloud.infra.entity.OperLogDO;
-import com.wu.cloud.infra.mapper.OperLogMapper;
+import com.wu.cloud.api.system.dto.OperLogDTO;
+import com.wu.cloud.api.system.feign.RemoteLogService;
+import com.wu.cloud.common.core.domain.R;
 import jakarta.annotation.Resource;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -18,13 +20,15 @@ import java.util.List;
 
 /**
  * 数据导出 REST 控制器 (基于 EasyExcel)
+ * <p>操作日志数据由属主服务 wu-service-system 经 RPC 提供。</p>
  */
+@Tag(name = "数据导出")
 @RestController
 @RequestMapping("/api/infra/export")
 public class DataExportController {
 
     @Resource
-    private OperLogMapper operLogMapper;
+    private RemoteLogService remoteLogService;
 
     @GetMapping("/demo")
     public void exportDemo(HttpServletResponse response) throws IOException {
@@ -38,6 +42,7 @@ public class DataExportController {
         EasyExcel.write(response.getOutputStream(), DemoExportVO.class).sheet("示例").doWrite(data);
     }
 
+    @Operation(summary = "导出操作日志")
     @GetMapping("/operlog")
     public void exportOperLog(HttpServletResponse response) throws IOException {
         response.setContentType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
@@ -45,13 +50,15 @@ public class DataExportController {
         String fileName = URLEncoder.encode("操作日志", StandardCharsets.UTF_8).replaceAll("\\+", "%20");
         response.setHeader("Content-disposition", "attachment;filename*=utf-8''" + fileName + ".xlsx");
 
-        List<OperLogDO> list = operLogMapper.selectList(
-                new LambdaQueryWrapper<OperLogDO>().orderByDesc(OperLogDO::getOperTime).last("LIMIT 1000"));
         List<OperLogExportVO> data = new ArrayList<>();
-        for (OperLogDO log : list) {
-            data.add(new OperLogExportVO(String.valueOf(log.getId()), log.getTitle(), log.getBusinessType(),
-                    log.getMethod(), log.getRequestMethod(), log.getOperUrl(), log.getOperIp(),
-                    log.getOperName(), log.getStatus(), log.getCostTime(), log.getOperTime()));
+        R<List<OperLogDTO>> resp = remoteLogService.listRecentOperLogs(1000);
+        if (resp != null && resp.isSuccess() && resp.getData() != null) {
+            for (OperLogDTO log : resp.getData()) {
+                data.add(new OperLogExportVO(String.valueOf(log.getId()), log.getTitle(),
+                        log.getBusinessType() == null ? "" : String.valueOf(log.getBusinessType()),
+                        log.getMethod(), log.getRequestMethod(), log.getOperUrl(), log.getOperIp(),
+                        log.getOperName(), log.getStatus(), log.getCostTime(), log.getOperTime()));
+            }
         }
         EasyExcel.write(response.getOutputStream(), OperLogExportVO.class).sheet("操作日志").doWrite(data);
     }
@@ -117,4 +124,3 @@ public class DataExportController {
         }
     }
 }
-

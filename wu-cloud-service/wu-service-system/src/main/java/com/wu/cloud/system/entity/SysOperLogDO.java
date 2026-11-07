@@ -8,7 +8,7 @@ import lombok.Data;
 import java.time.LocalDateTime;
 
 /**
- * 操作日志 DO（对齐单体 sys_oper_log 表结构）
+ * 操作日志 DO（与既有规范对齐 sys_oper_log 表结构）
  */
 @Data
 @TableName("sys_oper_log")

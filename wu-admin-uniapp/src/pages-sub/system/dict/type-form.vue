@@ -54,13 +54,13 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
-import ModuleDarkHero from '@/components/common/ModuleDarkHero/index.vue'
-import ModuleIcon from '@/components/common/ModuleIcon/index.vue'
-import ListLoading from '@/components/common/ListLoading/index.vue'
-import FormCell from '@/components/common/FormCell/index.vue'
-import PageFooter from '@/components/common/PageFooter/index.vue'
-import { useDictTypeForm } from '@/composables/useDictTypeForm'
-import { useEditPageGuard } from '@/composables/useEditPageGuard'
+import ModuleDarkHero from '@/components/layout/ModuleDarkHero/index.vue'
+import ModuleIcon from '@/components/base/ModuleIcon/index.vue'
+import ListLoading from '@/components/base/ListLoading/index.vue'
+import FormCell from '@/components/base/FormCell/index.vue'
+import PageFooter from '@/components/base/PageFooter/index.vue'
+import { useDictTypeForm } from '@/composables/system/useDictTypeForm'
+import { useEditPageGuard } from '@/composables/base/useEditPageGuard'
 
 const typeId = ref(0)
 const { loading, saving, isCreate, form, statusOptions, statusIndex, initCreate, load, onStatusChange, save } =
@@ -90,7 +90,7 @@ onLoad((options) => {
 </script>
 
 <style lang="scss" scoped>
-@import '@/styles/variables.scss';
-@import '@/styles/common.scss';
-@import '@/styles/module-form-page.scss';
+@use '@/styles/variables.scss' as *;
+@use '@/styles/common.scss' as *;
+@use '@/styles/module-form-page.scss' as *;
 </style>

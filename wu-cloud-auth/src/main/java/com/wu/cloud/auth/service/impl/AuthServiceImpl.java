@@ -93,6 +93,9 @@ public class AuthServiceImpl implements AuthService {
     @Resource
     private com.wu.cloud.auth.config.AuthConfigLoader authConfigLoader;
 
+    @Resource
+    private com.wu.cloud.auth.support.PasswordCipherService passwordCipherService;
+
     @Resource(name = "stringRedisTemplate")
     private StringRedisTemplate redisTemplate;
 
@@ -130,7 +133,7 @@ public class AuthServiceImpl implements AuthService {
             throw new BusinessException(buildFailMessage("账号或密码错误", remain));
         }
 
-        if (!AuthUtils.matchPassword(query.getPassword(), user.getPassword())) {
+        if (!AuthUtils.matchPassword(passwordCipherService.resolve(query.getPassword()), user.getPassword())) {
             int remain = loginLockService.recordFailure(username);
             recordLoginLog(user.getUserId(), username, LOG_FAIL, "密码错误");
             throw new BusinessException(buildFailMessage("账号或密码错误", remain));
@@ -170,7 +173,7 @@ public class AuthServiceImpl implements AuthService {
     }
 
     /**
-     * 执行登录并组装返回结果（与单体 completeLogin 平铺格式对齐）
+     * 执行登录并组装返回结果（与旧版 completeLogin 平铺格式对齐）
      */
     private LoginVO doLogin(LoginUserDTO user) {
         boolean concurrent = authConfigLoader.isConcurrentLogin();
@@ -187,7 +190,7 @@ public class AuthServiceImpl implements AuthService {
         recordLoginLog(user.getUserId(), user.getUsername(), LOG_SUCCESS, "登录成功");
         recordOnlineSession(user);
 
-        // 平铺字段，与单体 completeLogin 返回结构一致（前端读 res.data.userId / res.data.token）
+        // 平铺字段，与旧版 completeLogin 返回结构一致（前端读 res.data.userId / res.data.token）
         LoginVO vo = new LoginVO();
         vo.setToken(StpUtil.getTokenValue());
         vo.setTokenName(StpUtil.getTokenName());
@@ -362,6 +365,8 @@ public class AuthServiceImpl implements AuthService {
         security.setSm3SignEnabled(sm3SignActive);
         security.setSm2SignEnabled(sm3SignActive);
         security.setSm4EncryptEnabled(sm4Active);
+        // 口令传输公钥：即使接口安全开关未开启也下发，前端可据此选择加密提交
+        security.setSm2PublicKey(passwordCipherService.getPublicKey());
         vo.setSecurity(security);
 
         LoginConfigVO.AiSection ai = new LoginConfigVO.AiSection();
@@ -373,7 +378,7 @@ public class AuthServiceImpl implements AuthService {
 
     @Override
     public SessionSignInitVO initSessionSign(String clientId) {
-        // 校验 clientId 与单体保持一致：8-128 位，否则拒绝
+        // 校验 clientId 与旧版保持一致：8-128 位，否则拒绝
         if (!StringUtils.hasText(clientId) || clientId.length() < 8 || clientId.length() > 128) {
             throw new BusinessException("客户端标识不合法");
         }
@@ -412,8 +417,11 @@ public class AuthServiceImpl implements AuthService {
         }
 
         AuthUtils.validateUsername(registerDTO.getUsername());
-        AuthUtils.validatePassword(registerDTO.getPassword(),
-                registerDTO.getConfirmPassword(), authConfigLoader.getRegisterMinPasswordLength());
+        // SM2 口令传输：先解密再校验与加密，密文随机性决定的差异不能影响两次输入一致性判断
+        String plainPassword = passwordCipherService.resolve(registerDTO.getPassword());
+        String plainConfirmPassword = passwordCipherService.resolve(registerDTO.getConfirmPassword());
+        AuthUtils.validatePassword(plainPassword,
+                plainConfirmPassword, authConfigLoader.getRegisterMinPasswordLength());
 
         if (authConfigLoader.isRegisterCaptchaEnabled()) {
             captchaService.verifyImageCaptcha(registerDTO.getUuid(), registerDTO.getCaptcha());
@@ -438,7 +446,7 @@ public class AuthServiceImpl implements AuthService {
 
         UserRegisterDTO dto = new UserRegisterDTO();
         dto.setUsername(registerDTO.getUsername());
-        dto.setPassword(AuthUtils.encryptPassword(registerDTO.getPassword()));
+        dto.setPassword(AuthUtils.encryptPassword(plainPassword));
         dto.setNickname(StringUtils.hasText(registerDTO.getNickname())
                 ? registerDTO.getNickname() : registerDTO.getUsername());
         dto.setMobile(registerDTO.getMobile());
@@ -491,8 +499,10 @@ public class AuthServiceImpl implements AuthService {
         if (resetDTO == null || !StringUtils.hasText(resetDTO.getUsername())) {
             throw new BusinessException("请输入账号");
         }
-        AuthUtils.validatePassword(resetDTO.getNewPassword(),
-                resetDTO.getConfirmPassword(), authConfigLoader.getRegisterMinPasswordLength());
+        String plainNewPassword = passwordCipherService.resolve(resetDTO.getNewPassword());
+        String plainConfirmPassword = passwordCipherService.resolve(resetDTO.getConfirmPassword());
+        AuthUtils.validatePassword(plainNewPassword,
+                plainConfirmPassword, authConfigLoader.getRegisterMinPasswordLength());
 
         LoginUserDTO user = findUserByUsername(resetDTO.getUsername());
         if (user == null) {
@@ -506,7 +516,7 @@ public class AuthServiceImpl implements AuthService {
                 user.getMobile(), resetDTO.getCode());
 
         R<Boolean> result = remoteUserService.resetPassword(user.getUserId(),
-                AuthUtils.encryptPassword(resetDTO.getNewPassword()));
+                AuthUtils.encryptPassword(plainNewPassword));
         if (result == null || !result.isSuccess()) {
             throw new BusinessException(result == null ? "密码重置失败" : result.getMsg());
         }

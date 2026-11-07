@@ -13,7 +13,7 @@ import com.wu.cloud.system.vo.*;
 import java.util.List;
 
 /**
- * 用户服务接口（对外契约对齐单体 + wu-admin-web）
+ * 用户服务接口（对外契约与既有规范对齐 + wu-admin-web）
  */
 public interface SysUserService {
 

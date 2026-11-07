@@ -6,7 +6,7 @@ import com.wu.cloud.api.infra.dto.RecordLoginSessionDTO;
 import java.util.List;
 
 /**
- * 在线用户服务（对齐单体 OnlineUserService）
+ * 在线用户服务（与既有规范对齐 OnlineUserService）
  */
 public interface OnlineUserService {
 

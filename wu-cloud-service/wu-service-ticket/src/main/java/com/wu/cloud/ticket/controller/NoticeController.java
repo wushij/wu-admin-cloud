@@ -1,5 +1,7 @@
 package com.wu.cloud.ticket.controller;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import cn.dev33.satoken.stp.StpUtil;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
@@ -16,6 +18,7 @@ import java.util.List;
 /**
  * 工单/审批通知 REST 控制器（规范路径 /api/notice/**）
  */
+@Tag(name = "站内消息")
 @RestController
 @RequestMapping("/api/notice")
 public class NoticeController {
@@ -23,6 +26,7 @@ public class NoticeController {
     @Resource
     private NoticeMapper noticeMapper;
 
+    @Operation(summary = "我的未读数")
     @GetMapping("/unread-count")
     public R<Long> unreadCount() {
         Long userId = StpUtil.getLoginIdAsLong();
@@ -32,6 +36,7 @@ public class NoticeController {
         return R.ok(count != null ? count : 0L);
     }
 
+    @Operation(summary = "我的消息列表")
     @GetMapping("/my-list")
     public R<List<NoticeDO>> myList() {
         Long userId = StpUtil.getLoginIdAsLong();
@@ -60,6 +65,7 @@ public class NoticeController {
                 .orderByDesc(NoticeDO::getCreateTime)));
     }
 
+    @Operation(summary = "标记消息已读")
     @PutMapping("/read")
     public R<Boolean> readPut(@RequestBody NoticeDO noticeDO) {
         Long id = noticeDO != null ? noticeDO.getId() : null;
@@ -88,6 +94,7 @@ public class NoticeController {
                 .set(NoticeDO::getReadStatus, 1)) > 0;
     }
 
+    @Operation(summary = "全部标记已读")
     @PutMapping("/read-all")
     public R<Boolean> readAllPut() {
         return readAllPost();
@@ -110,6 +117,7 @@ public class NoticeController {
      *
      * <p>同样限定 user_id，避免越权删除他人消息。</p>
      */
+    @Operation(summary = "删除单条消息")
     @DeleteMapping("/{id}")
     public R<Boolean> delete(@PathVariable Long id) {
         Long userId = StpUtil.getLoginIdAsLong();

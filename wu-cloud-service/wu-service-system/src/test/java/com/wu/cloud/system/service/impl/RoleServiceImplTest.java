@@ -1,7 +1,9 @@
 package com.wu.cloud.system.service.impl;
 
 import com.wu.cloud.common.exception.BusinessException;
+import com.wu.cloud.system.entity.SysMenuDO;
 import com.wu.cloud.system.entity.SysRoleDO;
+import com.wu.cloud.system.mapper.MenuMapper;
 import com.wu.cloud.system.mapper.RoleMapper;
 import com.wu.cloud.system.mapper.SysRoleMenuMapper;
 import org.junit.jupiter.api.DisplayName;
@@ -15,6 +17,7 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
@@ -26,6 +29,9 @@ class RoleServiceImplTest {
     private RoleMapper roleMapper;
     @Mock
     private SysRoleMenuMapper sysRoleMenuMapper;
+    /** assignMenu 会读菜单表做父级补齐与叶子过滤，需提供菜单数据源 */
+    @Mock
+    private MenuMapper menuMapper;
 
     @InjectMocks
     private RoleServiceImpl roleService;
@@ -54,6 +60,10 @@ class RoleServiceImplTest {
     @Test
     @DisplayName("assignMenu：清空旧关联后批量写入")
     void assignMenu_replacesBindings() {
+        // 11/12 为叶子按钮且无子节点：assignMenu 只补父级，不额外增加条目
+        when(menuMapper.selectList(any())).thenReturn(List.of(
+                menu(11L, 0L), menu(12L, 0L)));
+
         roleService.assignMenu(3L, List.of(11L, 12L));
 
         verify(sysRoleMenuMapper).deleteByRoleId(3L);
@@ -61,7 +71,32 @@ class RoleServiceImplTest {
                 list.size() == 2
                         && list.get(0).getRoleId().equals(3L)
                         && list.get(0).getMenuId().equals(11L)
+                        && list.get(1).getRoleId().equals(3L)
                         && list.get(1).getMenuId().equals(12L)));
+    }
+
+    @Test
+    @DisplayName("assignMenu：勾选按钮时自动补齐父级菜单")
+    void assignMenu_expandsParentMenus() {
+        // 11 是 5 的子按钮，5 是 1 的子目录：应一并写入 5 与 1
+        when(menuMapper.selectList(any())).thenReturn(List.of(
+                menu(11L, 5L), menu(5L, 1L), menu(1L, 0L)));
+
+        roleService.assignMenu(3L, List.of(11L));
+
+        verify(sysRoleMenuMapper).insertBatch(argThat(list ->
+                list.size() == 3
+                        && list.stream().allMatch(r -> r.getRoleId().equals(3L))
+                        && list.stream().anyMatch(r -> r.getMenuId().equals(11L))
+                        && list.stream().anyMatch(r -> r.getMenuId().equals(5L))
+                        && list.stream().anyMatch(r -> r.getMenuId().equals(1L))));
+    }
+
+    private SysMenuDO menu(Long id, Long parentId) {
+        SysMenuDO m = new SysMenuDO();
+        m.setId(id);
+        m.setParentId(parentId);
+        return m;
     }
 
     @Test

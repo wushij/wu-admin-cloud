@@ -4,7 +4,6 @@ import com.wu.cloud.common.exception.BusinessException;
 import com.wu.cloud.order.entity.StockDO;
 import com.wu.cloud.order.mapper.StockMapper;
 import com.wu.cloud.order.testsupport.MybatisLambdaTestBase;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -13,12 +12,10 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
-import org.springframework.test.util.ReflectionTestUtils;
 
 import static com.wu.cloud.order.testsupport.MybatisMockMatchers.anyLambdaQueryWrapper;
 import static com.wu.cloud.order.testsupport.MybatisMockMatchers.anyLambdaUpdateWrapper;
 import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.*;
 
@@ -33,11 +30,6 @@ class StockServiceImplTest extends MybatisLambdaTestBase {
     @InjectMocks
     private StockServiceImpl stockService;
 
-    @BeforeEach
-    void setUp() {
-        ReflectionTestUtils.setField(stockService, "baseMapper", stockMapper);
-    }
-
     @Test
     @DisplayName("deduct：参数非法拒绝")
     void deduct_illegalArgs_throws() {
@@ -49,7 +41,7 @@ class StockServiceImplTest extends MybatisLambdaTestBase {
     @Test
     @DisplayName("deduct：库存不存在拒绝")
     void deduct_missing_throws() {
-        when(stockMapper.selectOne(anyLambdaQueryWrapper(), anyBoolean())).thenReturn(null);
+        when(stockMapper.selectOne(anyLambdaQueryWrapper())).thenReturn(null);
         BusinessException ex = assertThrows(BusinessException.class, () -> stockService.deduct("SKU1", 1));
         assertEquals(404, ex.getCode());
     }
@@ -58,7 +50,7 @@ class StockServiceImplTest extends MybatisLambdaTestBase {
     @DisplayName("deduct：可用库存不足拒绝")
     void deduct_insufficient_throws() {
         StockDO stock = stock("SKU1", 2, 0);
-        when(stockMapper.selectOne(anyLambdaQueryWrapper(), anyBoolean())).thenReturn(stock);
+        when(stockMapper.selectOne(anyLambdaQueryWrapper())).thenReturn(stock);
 
         BusinessException ex = assertThrows(BusinessException.class, () -> stockService.deduct("SKU1", 5));
         assertTrue(ex.getMessage().contains("可用库存不足"));
@@ -69,7 +61,7 @@ class StockServiceImplTest extends MybatisLambdaTestBase {
     @DisplayName("deduct：乐观锁更新成功")
     void deduct_success() {
         StockDO stock = stock("SKU1", 10, 0);
-        when(stockMapper.selectOne(anyLambdaQueryWrapper(), anyBoolean())).thenReturn(stock);
+        when(stockMapper.selectOne(anyLambdaQueryWrapper())).thenReturn(stock);
         when(stockMapper.update(isNull(), anyLambdaUpdateWrapper())).thenReturn(1);
 
         assertDoesNotThrow(() -> stockService.deduct("SKU1", 3));
@@ -80,7 +72,7 @@ class StockServiceImplTest extends MybatisLambdaTestBase {
     @DisplayName("deduct：并发冲突拒绝")
     void deduct_concurrentConflict_throws() {
         StockDO stock = stock("SKU1", 10, 0);
-        when(stockMapper.selectOne(anyLambdaQueryWrapper(), anyBoolean())).thenReturn(stock);
+        when(stockMapper.selectOne(anyLambdaQueryWrapper())).thenReturn(stock);
         when(stockMapper.update(isNull(), anyLambdaUpdateWrapper())).thenReturn(0);
 
         BusinessException ex = assertThrows(BusinessException.class, () -> stockService.deduct("SKU1", 3));
@@ -91,7 +83,7 @@ class StockServiceImplTest extends MybatisLambdaTestBase {
     @DisplayName("returnStock：锁定库存不足拒绝")
     void returnStock_insufficientLocked_throws() {
         StockDO stock = stock("SKU1", 8, 1);
-        when(stockMapper.selectOne(anyLambdaQueryWrapper(), anyBoolean())).thenReturn(stock);
+        when(stockMapper.selectOne(anyLambdaQueryWrapper())).thenReturn(stock);
 
         BusinessException ex = assertThrows(BusinessException.class, () -> stockService.returnStock("SKU1", 3));
         assertTrue(ex.getMessage().contains("锁定库存不足"));
@@ -101,7 +93,7 @@ class StockServiceImplTest extends MybatisLambdaTestBase {
     @DisplayName("returnStock：归还成功")
     void returnStock_success() {
         StockDO stock = stock("SKU1", 7, 3);
-        when(stockMapper.selectOne(anyLambdaQueryWrapper(), anyBoolean())).thenReturn(stock);
+        when(stockMapper.selectOne(anyLambdaQueryWrapper())).thenReturn(stock);
         when(stockMapper.update(isNull(), anyLambdaUpdateWrapper())).thenReturn(1);
 
         assertDoesNotThrow(() -> stockService.returnStock("SKU1", 2));

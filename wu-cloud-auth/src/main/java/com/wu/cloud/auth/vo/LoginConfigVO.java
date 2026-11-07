@@ -5,7 +5,7 @@ import lombok.Data;
 import java.io.Serializable;
 
 /**
- * 公开认证配置（对齐单体 SystemConfigHelper#buildPublicConfig / 前端 AuthPublicConfig）
+ * 公开认证配置（与既有规范对齐 SystemConfigHelper#buildPublicConfig / 前端 AuthPublicConfig）
  */
 @Data
 public class LoginConfigVO implements Serializable {
@@ -63,6 +63,8 @@ public class LoginConfigVO implements Serializable {
         private Boolean sm3SignEnabled;
         private Boolean sm2SignEnabled;
         private Boolean sm4EncryptEnabled;
+        /** SM2 口令传输公钥：前端登录/注册/改密时加密密码使用，私钥永不下发 */
+        private String sm2PublicKey;
     }
 
     @Data

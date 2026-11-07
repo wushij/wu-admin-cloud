@@ -1,5 +1,7 @@
 package com.wu.cloud.infra.controller;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import com.alibaba.excel.EasyExcel;
 import com.alibaba.excel.annotation.ExcelProperty;
 import com.wu.cloud.api.infra.dto.OnlineUserVO;
@@ -22,8 +24,9 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * 在线用户（对齐单体 /monitor/online，网关映射为 /api/infra/online）
+ * 在线用户（与既有规范对齐 /monitor/online，网关映射为 /api/infra/online）
  */
+@Tag(name = "在线用户")
 @RestController
 @RequestMapping("/api/infra/online")
 public class OnlineUserController {
@@ -32,12 +35,14 @@ public class OnlineUserController {
     private OnlineUserService onlineUserService;
 
     @RequiresPermissions("monitor:online:list")
+    @Operation(summary = "在线用户列表")
     @GetMapping("/list")
     public R<List<OnlineUserVO>> list() {
         return R.ok(onlineUserService.listOnlineUsers());
     }
 
     @RequiresPermissions("monitor:online:list")
+    @Operation(summary = "导出在线用户")
     @GetMapping("/export")
     public void export(HttpServletResponse response) throws IOException {
         List<OnlineUserVO> users = onlineUserService.listOnlineUsers();
@@ -60,6 +65,7 @@ public class OnlineUserController {
     }
 
     @RequiresPermissions("monitor:online:forceLogout")
+    @Operation(summary = "强退用户")
     @DeleteMapping("/{userId}")
     public R<Boolean> forceLogout(@PathVariable Long userId) {
         onlineUserService.forceLogout(userId);

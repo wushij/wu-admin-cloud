@@ -5,6 +5,7 @@ import cn.hutool.crypto.Mode;
 import cn.hutool.crypto.Padding;
 import cn.hutool.crypto.SmUtil;
 import cn.hutool.crypto.symmetric.SM4;
+import com.wu.cloud.common.utils.crypto.Sm4GcmUtil;
 import com.wu.cloud.common.utils.crypto.SmCryptoUtils;
 import com.wu.cloud.gateway.config.ApiSecurityProperties;
 import com.wu.cloud.gateway.config.GatewayConfigLoader;
@@ -35,19 +36,19 @@ import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 
 /**
- * 接口安全过滤器（网关侧 GlobalFilter 实现），与单体 {@code ApiSecurityFilter} 行为逐行对齐：
+ * 接口安全过滤器（网关侧 GlobalFilter 实现），与旧版 {@code ApiSecurityFilter} 行为逐行对齐：
  * <ol>
  *     <li>OPTIONS 预检、multipart 文件上传、排除路径（含公开鉴权接口）直接放行</li>
- *     <li>时间戳窗口校验（默认 5 分钟，对齐单体 MAX_TIMESTAMP_DIFF_MS）</li>
- *     <li>Nonce 防重放（Redis 原子 setIfAbsent，过期=时间窗口；与单体同序，验签前先查重）</li>
+ *     <li>时间戳窗口校验（默认 5 分钟，与既有规范对齐 MAX_TIMESTAMP_DIFF_MS）</li>
+ *     <li>Nonce 防重放（Redis 原子 setIfAbsent，过期=时间窗口；与旧版同序，验签前先查重）</li>
  *     <li>HMAC-SM3 请求签名校验（内容 = METHOD\nPATH\nTIMESTAMP\nNONCE\nBODY）</li>
- *     <li>SM4-CBC 解密请求体（前端格式为 ivHex(32) + cipherHex，ECB 降级兼容）</li>
- *     <li>SM4-CBC 加密响应体（动态随机 IV，返回 ivHex + cipherHex；流式端点除外）</li>
+ *     <li>SM4-GCM 认证解密请求体（标准 Base64(IV[12] + Ciphertext + Tag[16])，兼容旧 CBC 密文）</li>
+ *     <li>SM4-GCM 认证加密响应体（随机 IV + 128 位 GMAC Tag；流式端点除外）</li>
  * </ol>
  *
- * <p>当 {@code gateway.api-security.enabled=true} 时（对应单体「系统安全开关已生效」），所有
+ * <p>当 {@code gateway.api-security.enabled=true} 时（对应旧版「系统安全开关已生效」），所有
  * 非公开、非排除接口必须携带 {@code X-Client-Id}/{@code X-Timestamp}/{@code X-Nonce}/
- * {@code X-Signature} 并通过验签，否则 403，与单体严格模式完全一致。会话密钥由认证中心
+ * {@code X-Signature} 并通过验签，否则 403，与旧版严格模式完全一致。会话密钥由认证中心
  * {@code /api/auth/session-sign-init} 按 clientId 下发并写入 Redis
  * （{@code security:session-sign:{clientId}} / {@code security:session-sm4:{clientId}}）。</p>
  */
@@ -60,6 +61,9 @@ public class ApiSecurityFilter implements GlobalFilter, Ordered {
     private static final String HEADER_SIGNATURE = "X-Signature";
     private static final String HEADER_ENCRYPTED = "X-Encrypted";
     private static final String HEADER_ACCEPT_ENCRYPTED = "X-Accept-Encrypted";
+    /** 声明本次加密载荷的算法，供前端区分 GCM 与历史 CBC 格式 */
+    private static final String HEADER_ENCRYPTED_PAYLOAD = "X-Encrypted-Payload";
+    private static final String PAYLOAD_SM4_GCM = "SM4-GCM";
 
     /** HMAC-SM3 验签密钥前缀 */
     private static final String SESSION_SIGN_KEY_PREFIX = "security:session-sign:";
@@ -84,7 +88,7 @@ public class ApiSecurityFilter implements GlobalFilter, Ordered {
         ServerHttpRequest request = exchange.getRequest();
         String path = request.getURI().getPath();
 
-        // 0. OPTIONS 预检、文件上传、排除路径直接放行（与单体 shouldNotFilter 一致）
+        // 0. OPTIONS 预检、文件上传、排除路径直接放行（与旧版 shouldNotFilter 一致）
         if (HttpMethod.OPTIONS.equals(request.getMethod())
                 || isMultipart(request.getHeaders())
                 || isExcluded(path)) {
@@ -100,7 +104,7 @@ public class ApiSecurityFilter implements GlobalFilter, Ordered {
         }
 
         // 全局安全未生效，但客户端已声明 SM4 密文：必须解密后再转发
-        // （否则下游 Jackson 把密文当 JSON 解析 → 500「系统繁忙」；与单体「有密文必解密」一致）
+        // （否则下游 Jackson 把密文当 JSON 解析 → 500「系统繁忙」；与旧版「有密文必解密」一致）
         if (!securityOn) {
             return decryptOnlyAndForward(exchange, chain, request, path);
         }
@@ -125,12 +129,12 @@ public class ApiSecurityFilter implements GlobalFilter, Ordered {
             return reject(exchange, "请求已被拒绝：时间戳无效或已过期");
         }
 
-        // 2. Nonce 校验（缺失即 403，与单体一致）
+        // 2. Nonce 校验（缺失即 403，与旧版一致）
         if (!StringUtils.hasText(nonce)) {
             return reject(exchange, "请求已被拒绝：缺失 X-Nonce 请求头");
         }
 
-        // 3. 公开鉴权接口：免签名校验，但时间戳/Nonce 仍需（与单体 isPublicAuthUri 一致）
+        // 3. 公开鉴权接口：免签名校验，但时间戳/Nonce 仍需（与旧版 isPublicAuthUri 一致）
         boolean isPublicAuth = isPublicAuthUri(path);
 
         // 4. 取会话密钥
@@ -142,7 +146,7 @@ public class ApiSecurityFilter implements GlobalFilter, Ordered {
                     String signKey = keys.getT1();
                     String sm4Key = keys.getT2();
 
-                    // 5. Nonce 防重放：验签前先查重（与单体同序），失败即 403
+                    // 5. Nonce 防重放：验签前先查重（与旧版同序），失败即 403
                     return redisTemplate.opsForValue()
                             .setIfAbsent(NONCE_KEY_PREFIX + nonce, "1",
                                     Duration.ofSeconds(properties.getTimestampWindowSeconds()))
@@ -168,7 +172,7 @@ public class ApiSecurityFilter implements GlobalFilter, Ordered {
                                     return verifyAndMutate(exchange, chain, request, signature, nonce,
                                             timestampStr, signKey, sm4Key, path, isPublicAuth);
                                 }
-                                // 公开接口 + 明文 body：与单体「无签名/无密文则原样转发」等价；
+                                // 公开接口 + 明文 body：与旧版「无签名/无密文则原样转发」等价；
                                 // WebFlux 下无必要读 body 再重写（易触发 503），登录/注册等 POST 直接放行
                                 if (!requestEncrypted) {
                                     return chain.filter(exchange);
@@ -246,7 +250,7 @@ public class ApiSecurityFilter implements GlobalFilter, Ordered {
                 .defaultIfEmpty(new byte[0])
                 .flatMap(rawBody -> {
                     String rawBodyString = new String(rawBody, StandardCharsets.UTF_8);
-                    // 与单体一致：Axios 可能把密文字符串再 JSON 包一层引号，验签/解密前先剥掉
+                    // 与旧版一致：Axios 可能把密文字符串再 JSON 包一层引号，验签/解密前先剥掉
                     String effectiveBodyStr = rawBodyString.trim();
                     if (effectiveBodyStr.startsWith("\"") && effectiveBodyStr.endsWith("\"")
                             && effectiveBodyStr.length() > 2) {
@@ -296,12 +300,12 @@ public class ApiSecurityFilter implements GlobalFilter, Ordered {
     }
 
     /**
-     * 计算 HMAC-SM3 签名，与单体 {@code ApiSecurityFilter.calcSignature} 完全一致：
-     * 内容 = METHOD\nPATH\nTIMESTAMP\nNONCE\nBODY（body 取原始字符串，与前端一致，对应单体 inputBody）。
-     * <p>路径与查询串做 URLDecoder.decode，与单体严格对齐（前端以解码后路径计算签名）。
+     * 计算 HMAC-SM3 签名，与旧版 {@code ApiSecurityFilter.calcSignature} 完全一致：
+     * 内容 = METHOD\nPATH\nTIMESTAMP\nNONCE\nBODY（body 取原始字符串，与前端一致，对应旧版 inputBody）。
+     * <p>路径与查询串做 URLDecoder.decode，与旧版严格对齐（前端以解码后路径计算签名）。
      */
     private String computeSignature(String method, URI uri, String timestamp, String nonce, String body, String signKey) {
-        // 与单体一致：单体 context-path=/api，签名用 servletPath（不含 /api）；
+        // 与旧版一致：旧版 context-path=/api，签名用 servletPath（不含 /api）；
         // 前端 request.ts 也会去掉 /api 前缀后再签名。
         String path = uri.getPath();
         if (path != null && path.startsWith("/api/")) {
@@ -317,14 +321,27 @@ public class ApiSecurityFilter implements GlobalFilter, Ordered {
     }
 
     /**
-     * SM4-CBC 解密请求体：前端格式为 ivHex(32) + cipherHex，ECB 降级兼容。与单体 decryptBody 一致。
+     * SM4 解密请求体。
+     * <p>优先按满血标准 SM4-GCM 认证解密（Base64(IV[12] + Ciphertext + Tag[16])，与前端及旧版一致）；
+     * 认证失败时回退旧版 CBC 格式（ivHex(32) + cipherHex）与 ECB 降级，保证历史客户端可用。</p>
      */
     private String decryptBody(String cipherText, String sm4Key) {
         if (cipherText.startsWith("\"") && cipherText.endsWith("\"") && cipherText.length() > 2) {
             cipherText = cipherText.substring(1, cipherText.length() - 1);
         }
-        // 与单体 toSm4KeyBytes 对齐：32位Hex→16字节，其余按 UTF-8 字节处理
+        // 与旧版 toSm4KeyBytes 对齐：32位Hex→16字节，其余按 UTF-8 字节处理
         byte[] keyBytes = toSm4KeyBytes(sm4Key);
+
+        // 1. 满血标准 SM4-GCM（认证失败绝不静默降级为其他模式，直接抛出交由上层拒绝）
+        if (Sm4GcmUtil.isSm4GcmBase64Payload(cipherText)) {
+            try {
+                return Sm4GcmUtil.decryptFromBase64(keyBytes, cipherText);
+            } catch (Exception gcmError) {
+                // 可能是历史 CBC 密文恰好符合 Base64 字符集，继续走兼容分支
+            }
+        }
+
+        // 2. 历史 SM4-CBC：ivHex(32) + cipherHex，ECB 降级兼容
         String decrypted = null;
         if (cipherText.length() > 32 && HexUtil.isHexNumber(cipherText.substring(0, 32))) {
             try {
@@ -344,7 +361,7 @@ public class ApiSecurityFilter implements GlobalFilter, Ordered {
     }
 
     /**
-     * SM4 密钥字符串转 16 字节密钥，与单体 ApiSecurityFilter#toSm4KeyBytes 严格对齐。
+     * SM4 密钥字符串转 16 字节密钥，与旧版 ApiSecurityFilter#toSm4KeyBytes 严格对齐。
      * <p>会话临时密钥为 32 位 Hex（session-sign-init 下发），按 Hex 解码为 16 字节；
      * 其余情况（DB 静态 16 字符密钥）按 UTF-8 文本取字节。
      */
@@ -386,12 +403,14 @@ public class ApiSecurityFilter implements GlobalFilter, Ordered {
     }
 
     /**
-     * 包装响应，SM4-CBC 加密响应体（动态随机 IV，返回 ivHex + cipherHex）。与单体 encryptResponse 一致。
+     * 包装响应，使用满血标准 SM4-GCM 认证加密响应体（Base64(IV[12] + Ciphertext + Tag[16])）。
+     * <p>与旧版 {@code ApiSecurityFilter#encryptResponse} 一致，并通过
+     * {@code X-Encrypted-Payload: SM4-GCM} 声明载荷算法。</p>
      */
     private ServerHttpResponse mutateResponse(ServerWebExchange exchange, String sm4Key) {
         ServerHttpResponse originalResponse = exchange.getResponse();
         DataBufferFactory bufferFactory = originalResponse.bufferFactory();
-        // 与单体 toSm4KeyBytes 对齐：32位Hex→16字节，其余按 UTF-8 字节处理
+        // 与旧版 toSm4KeyBytes 对齐：32位Hex→16字节，其余按 UTF-8 字节处理
         final byte[] keyBytes = toSm4KeyBytes(sm4Key);
 
         return new ServerHttpResponseDecorator(originalResponse) {
@@ -404,13 +423,9 @@ public class ApiSecurityFilter implements GlobalFilter, Ordered {
                         DataBufferUtils.release(dataBuffer);
                         try {
                             String plain = new String(content, StandardCharsets.UTF_8);
-                            byte[] ivBytes = new byte[16];
-                            java.security.SecureRandom random = new java.security.SecureRandom();
-                            random.nextBytes(ivBytes);
-                            SM4 sm4Cbc = new SM4(Mode.CBC, Padding.PKCS5Padding, keyBytes, ivBytes);
-                            String cipherHex = sm4Cbc.encryptHex(plain);
-                            String encrypted = HexUtil.encodeHexStr(ivBytes) + cipherHex;
+                            String encrypted = Sm4GcmUtil.encryptToBase64(keyBytes, plain);
                             getHeaders().set(HEADER_ENCRYPTED, "1");
+                            getHeaders().set(HEADER_ENCRYPTED_PAYLOAD, PAYLOAD_SM4_GCM);
                             getHeaders().setContentType(MediaType.APPLICATION_JSON);
                             DataBuffer buffer = bufferFactory.wrap(encrypted.getBytes(StandardCharsets.UTF_8));
                             return super.writeWith(Mono.just(buffer));
@@ -474,7 +489,15 @@ public class ApiSecurityFilter implements GlobalFilter, Ordered {
     private Mono<Void> reject(ServerWebExchange exchange, String message) {
         ServerHttpResponse response = exchange.getResponse();
         response.setStatusCode(HttpStatus.FORBIDDEN);
-        response.getHeaders().setContentType(MediaType.APPLICATION_JSON);
+        // 响应一旦提交，getHeaders() 返回只读视图，再写会抛 UnsupportedOperationException，
+        // 导致 403 变成连接中断（前端拿不到 JSON 错误码），此处仅在可写时设置 Content-Type。
+        if (!response.isCommitted()) {
+            try {
+                response.getHeaders().setContentType(MediaType.APPLICATION_JSON);
+            } catch (UnsupportedOperationException ignored) {
+                // 响应头已只读，保持原样
+            }
+        }
         String body = "{\"code\":403,\"msg\":\"" + message + "\",\"data\":null}";
         DataBuffer buffer = response.bufferFactory().wrap(body.getBytes(StandardCharsets.UTF_8));
         return response.writeWith(Mono.just(buffer));

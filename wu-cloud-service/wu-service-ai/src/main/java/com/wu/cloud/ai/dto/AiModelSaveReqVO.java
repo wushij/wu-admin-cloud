@@ -10,10 +10,17 @@ import lombok.Data;
 public class AiModelSaveReqVO {
     private Long id;
     private String name;
+    /** 供应商标识，仅用于展示与筛选，允许任意取值 */
     private String provider;
+    /** 接入协议: openai / anthropic，留空默认 openai */
+    private String protocol;
     private String modelName;
     private String baseUrl;
-    /** 明文 API Key，服务端 SM4 加密后入库；编辑时留空则不修改 */
+    /** 自定义请求路径模板，支持 {model} 占位 */
+    private String pathTemplate;
+    /** 额外请求头 JSON */
+    private String extraHeaders;
+    /** 明文 API Key，服务端 SM4-GCM 加密后入库；编辑时留空则不修改 */
     private String apiKey;
     private Double temperature;
     private Integer maxTokens;

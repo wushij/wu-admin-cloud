@@ -55,6 +55,8 @@ public class PayOrderService {
     private RedisService redisService;
     @Resource
     private PayOrderNotifier payOrderNotifier;
+    @Resource
+    private PayTxnService payTxnService;
 
     /**
      * 创建支付订单。
@@ -139,7 +141,8 @@ public class PayOrderService {
                 throw new BusinessException("支付处理中，请稍后重试");
             }
             // 仅在本次真正完成状态流转时才通知订单服务，避免重复回调重复通知
-            if (markPaid(payType, orderNo, transactionId)) {
+            // （markPaidAndEnqueue 在同一本地事务内完成入账+登记本地消息，经代理调用保证事务生效）
+            if (payTxnService.markPaidAndEnqueue(payType, orderNo, transactionId)) {
                 payOrderNotifier.notifyOrderPaid(orderNo, payType);
             }
         } catch (InterruptedException e) {
@@ -153,34 +156,9 @@ public class PayOrderService {
     }
 
     /**
-     * 条件更新为已支付；返回 true 表示本次真正完成入账。
+     * 条件更新为已支付并登记本地消息的逻辑已下沉至 {@link PayTxnService#markPaidAndEnqueue}，
+     * 独立 Bean 保证事务注解经代理生效（避免同类自调用导致事务失效）。
      */
-    @Transactional(rollbackFor = Exception.class)
-    public boolean markPaid(String payType, String orderNo, String transactionId) {
-        PayOrderDO order = getByOrderNo(orderNo);
-        if (order == null) {
-            // 订单不存在说明回调对应的不是本系统订单，记录后忽略，不可自动创建
-            log.error("[Pay] 回调订单不存在: orderNo={}, payType={}", orderNo, payType);
-            return false;
-        }
-        if (STATUS_PAID.equals(order.getStatus())) {
-            log.info("[Pay] 订单已入账，幂等跳过: orderNo={}", orderNo);
-            return false;
-        }
-        // 条件更新：只有仍处于 PENDING 的订单才会被更新，影响行数即为幂等判据
-        int rows = payOrderMapper.update(null, new LambdaUpdateWrapper<PayOrderDO>()
-                .eq(PayOrderDO::getOrderNo, orderNo)
-                .eq(PayOrderDO::getStatus, STATUS_PENDING)
-                .set(PayOrderDO::getStatus, STATUS_PAID)
-                .set(PayOrderDO::getTransactionId, transactionId)
-                .set(PayOrderDO::getPaidTime, LocalDateTime.now()));
-        if (rows == 0) {
-            log.info("[Pay] 并发入账已被其他线程完成: orderNo={}", orderNo);
-            return false;
-        }
-        log.info("[Pay] 入账成功: orderNo={}, transactionId={}", orderNo, transactionId);
-        return true;
-    }
 
     /**
      * 主动查单并同步本地状态（兜底：回调丢失时由前端轮询/定时任务触发）。

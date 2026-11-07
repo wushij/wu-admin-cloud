@@ -16,4 +16,6 @@ public class RoleSaveReqVO implements Serializable {
     private Integer status;
     private String remark;
     private Integer dataScope;
+    /** 自定义数据范围部门 ID（逗号分隔） */
+    private String dataScopeDeptIds;
 }

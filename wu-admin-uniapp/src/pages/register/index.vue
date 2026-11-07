@@ -52,17 +52,18 @@
 import { reactive, ref, onMounted } from 'vue'
 import { register, getCaptcha, getConfig } from '@/api/system/auth'
 import { useAppStore } from '@/store/app'
-import { sliderVerifyToRequest } from '@/utils/slider-captcha'
-import type { SliderVerifyPayload } from '@/utils/slider-captcha'
-import SliderCaptcha from '@/components/business/SliderCaptcha/index.vue'
-import AuthParticleBackground from '@/components/business/AuthParticleBackground/index.vue'
-import AuthGlassForm from '@/components/business/AuthGlassForm/index.vue'
-import AuthInput from '@/components/business/AuthInput/index.vue'
-import AuthPasswordInput from '@/components/business/AuthPasswordInput/index.vue'
-import AuthFooterLink from '@/components/business/AuthFooterLink/index.vue'
-import { toCaptchaDataUrl } from '@/utils/captcha'
-import { navigateToLogin } from '@/utils/auth-route'
-import { useH5PageHead } from '@/composables/useH5PageHead'
+import { sliderVerifyToRequest } from '@/utils/security/slider-captcha'
+import type { SliderVerifyPayload } from '@/utils/security/slider-captcha'
+import SliderCaptcha from '@/components/business/shared/SliderCaptcha/index.vue'
+import AuthParticleBackground from '@/components/business/auth/AuthParticleBackground/index.vue'
+import AuthGlassForm from '@/components/business/auth/AuthGlassForm/index.vue'
+import AuthInput from '@/components/business/auth/AuthInput/index.vue'
+import AuthPasswordInput from '@/components/business/auth/AuthPasswordInput/index.vue'
+import AuthFooterLink from '@/components/business/auth/AuthFooterLink/index.vue'
+import { toCaptchaDataUrl } from '@/utils/security/captcha'
+import { navigateToLogin } from '@/utils/nav/auth-route'
+import { useH5PageHead } from '@/composables/base/useH5PageHead'
+import { encryptSm2 } from '@/utils/security/crypto'
 
 useH5PageHead('注册')
 
@@ -132,7 +133,7 @@ async function doRegister(sliderCaptcha?: { uuid: string; code: string }) {
   try {
     const payload: Parameters<typeof register>[0] = {
       username,
-      password: form.password,
+      password: encryptSm2(form.password),
       nickname: form.nickname.trim() || undefined,
       mobile: form.mobile.trim() || undefined,
     }
@@ -147,9 +148,20 @@ async function doRegister(sliderCaptcha?: { uuid: string; code: string }) {
       }
     }
     const res = await register(payload)
-    const msg = res.message || res.msg || '注册成功，请登录'
-    uni.showToast({ title: msg, icon: 'success' })
-    setTimeout(() => goLogin(), 500)
+    const needAudit = res.data === true || (typeof res.message === 'string' && res.message.includes('审核'))
+    if (needAudit) {
+      uni.showModal({
+        title: '注册成功（待审核）',
+        content: '您的账号已成功提交注册，当前需要等待管理员审核通过后方可登录。请耐心等待！',
+        showCancel: false,
+        confirmText: '去登录',
+        success: () => goLogin(),
+      })
+    } else {
+      const msg = res.message || res.msg || '注册成功，请登录'
+      uni.showToast({ title: msg, icon: 'success' })
+      setTimeout(() => goLogin(), 500)
+    }
   } catch (e) {
     console.error(e)
     await refreshCaptcha()

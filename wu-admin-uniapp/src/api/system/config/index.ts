@@ -1,6 +1,12 @@
-import { get, put, post } from '@/utils/request'
+import { get, put, post } from '@/core/http'
 import type { ConfigGroup } from '@/types/system'
-import type { PayOrderRecord, SmsLogRecord, EmailLogRecord } from '@/types/config-types'
+import type {
+  PayOrderRecord,
+  SmsLogRecord,
+  EmailLogRecord,
+  StorageConfigDTO,
+  StorageConfigVO,
+} from '@/types/config-types'
 
 export function listConfigGroups() {
   return get<ConfigGroup[]>('/system/config-group/list')
@@ -12,6 +18,21 @@ export function getConfigGroup(groupCode: string) {
 
 export function updateConfigGroup(groupCode: string, configValue: string) {
   return put(`/system/config-group/${groupCode}`, { configValue })
+}
+
+/** 获取存储引擎配置（含各引擎参数与当前生效引擎） */
+export function getStorageConfig() {
+  return get<StorageConfigVO>('/system/config-group/storage')
+}
+
+/** 保存存储引擎配置并热重载 */
+export function updateStorageConfig(data: StorageConfigDTO) {
+  return put<boolean>('/system/config-group/storage', data)
+}
+
+/** 测试存储引擎连通性 */
+export function testStorageConfig(data: StorageConfigDTO) {
+  return post<boolean>('/system/config-group/test-storage', data)
 }
 
 export function testSms(phone: string, templateCode?: string) {

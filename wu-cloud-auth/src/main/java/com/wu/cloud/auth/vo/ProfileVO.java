@@ -8,7 +8,7 @@ import java.util.List;
 import java.util.Set;
 
 /**
- * 个人信息响应（对齐移动端 UserProfile / 单体 buildProfileMap）
+ * 个人信息响应（对齐移动端 UserProfile / 旧版 buildProfileMap）
  */
 @Data
 public class ProfileVO implements Serializable {

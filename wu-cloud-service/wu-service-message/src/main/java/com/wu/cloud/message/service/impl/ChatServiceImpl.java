@@ -5,7 +5,9 @@ import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.wu.cloud.api.system.dto.SysUserDTO;
+import com.wu.cloud.api.system.feign.RemoteUserService;
 import com.wu.cloud.common.core.context.UserContextHolder;
+import com.wu.cloud.common.core.domain.R;
 import com.wu.cloud.common.exception.BusinessException;
 import com.wu.cloud.common.security.PermissionChecker;
 import com.wu.cloud.message.entity.*;
@@ -15,7 +17,6 @@ import com.wu.cloud.message.vo.*;
 import com.wu.cloud.message.websocket.MessageWebSocketHandler;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
@@ -49,11 +50,11 @@ public class ChatServiceImpl implements ChatService {
     @Resource
     private MessageWebSocketHandler webSocketHandler;
     @Resource
-    private JdbcTemplate jdbcTemplate;
+    private RemoteUserService remoteUserService;
 
     @Override
     public boolean canCreateGroup(Long userId) {
-        // 仅超级管理员可创建群聊（角色由网关注入线程上下文；对齐单体 PermissionService.hasRole(userId, super_admin)）
+        // 仅超级管理员可创建群聊（角色由网关注入线程上下文；与既有规范对齐 PermissionService.hasRole(userId, super_admin)）
         if (userId == null || userId <= 0) {
             return false;
         }
@@ -729,45 +730,29 @@ public class ChatServiceImpl implements ChatService {
         groupLogMapper.insert(logEntry);
     }
 
-    /** 对齐单体：message 与 system 共用业务库，直接 JDBC 查 sys_user，避免 Feign 失败影响发消息 */
+    /** 用户数据统一由 wu-service-system 提供（OpenFeign 内网调用），本服务不直查用户表 */
     private SysUserDTO getUserById(Long userId) {
         if (userId == null) {
             return null;
         }
-        try {
-            List<SysUserDTO> rows = jdbcTemplate.query(
-                    "SELECT id, username, nickname, avatar FROM sys_user WHERE id = ? AND deleted = 0 LIMIT 1",
-                    (rs, rowNum) -> mapUserRow(rs),
-                    userId);
-            return rows.isEmpty() ? null : rows.get(0);
-        } catch (Exception e) {
-            log.warn("JDBC getUserById failed userId={}: {}", userId, e.getMessage());
-            return null;
+        R<SysUserDTO> resp = remoteUserService.getUserById(userId);
+        if (resp != null && resp.isSuccess() && resp.getData() != null) {
+            return resp.getData();
         }
+        log.warn("RPC getUserById 未返回有效数据 userId={}", userId);
+        return null;
     }
 
     private List<SysUserDTO> listActiveUsersExcept(Long userId) {
         if (userId == null) {
             return List.of();
         }
-        try {
-            return jdbcTemplate.query(
-                    "SELECT id, username, nickname, avatar FROM sys_user WHERE status = 1 AND deleted = 0 AND id <> ? ORDER BY id",
-                    (rs, rowNum) -> mapUserRow(rs),
-                    userId);
-        } catch (Exception e) {
-            log.warn("JDBC listActiveUsersExcept failed userId={}: {}", userId, e.getMessage());
-            return List.of();
+        R<List<SysUserDTO>> resp = remoteUserService.listActiveUsers(userId);
+        if (resp != null && resp.isSuccess() && resp.getData() != null) {
+            return resp.getData();
         }
-    }
-
-    private SysUserDTO mapUserRow(java.sql.ResultSet rs) throws java.sql.SQLException {
-        SysUserDTO dto = new SysUserDTO();
-        dto.setUserId(rs.getLong("id"));
-        dto.setUsername(rs.getString("username"));
-        dto.setNickname(rs.getString("nickname"));
-        dto.setAvatar(rs.getString("avatar"));
-        return dto;
+        log.warn("RPC listActiveUsers 未返回有效数据，返回空列表");
+        return List.of();
     }
 
     private void runAfterCommit(Runnable runnable) {

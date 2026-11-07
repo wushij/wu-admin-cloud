@@ -17,7 +17,6 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
-import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.Set;
 
@@ -37,16 +36,23 @@ class TicketServiceImplTest extends MybatisLambdaTestBase {
     @Mock
     private TicketMapper ticketMapper;
     @Mock
+    private com.wu.cloud.ticket.service.UserNameResolver userNameResolver;
+    @Mock
     private com.wu.cloud.ticket.mapper.TicketCommentMapper commentMapper;
     @Mock
     private com.wu.cloud.ticket.mapper.NoticeMapper noticeMapper;
+    @Mock
+    private com.wu.cloud.ticket.mapper.TicketAttachmentMapper attachmentMapper;
+    @Mock
+    private com.wu.cloud.api.system.feign.RemoteUserService remoteUserService;
+    @Mock
+    private com.wu.cloud.api.file.feign.RemoteFileService remoteFileService;
 
     @InjectMocks
     private TicketServiceImpl ticketService;
 
     @BeforeEach
     void setUp() {
-        ReflectionTestUtils.setField(ticketService, "baseMapper", ticketMapper);
         UserContextHolder.set(UserContext.builder().userId(1L).username("alice").build());
     }
 

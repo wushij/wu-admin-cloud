@@ -5,7 +5,7 @@ import lombok.Data;
 import java.io.Serializable;
 
 /**
- * 在线用户展示 VO（对齐单体 OnlineUserVO / 前端 OnlineUser）
+ * 在线用户展示 VO（与既有规范对齐 OnlineUserVO / 前端 OnlineUser）
  */
 @Data
 public class OnlineUserVO implements Serializable {

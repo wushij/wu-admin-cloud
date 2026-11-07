@@ -1,5 +1,6 @@
 package com.wu.cloud.ai.util;
 
+import com.wu.cloud.common.config.DynamicConfigHelper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -9,7 +10,6 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -22,7 +22,7 @@ class AiKeyCryptoTest {
     private static final String SM4_KEY = "0123456789abcdef0123456789abcdef";
 
     @Mock
-    private JdbcTemplate jdbcTemplate;
+    private DynamicConfigHelper dynamicConfigHelper;
 
     @InjectMocks
     private AiKeyCrypto crypto;
@@ -33,10 +33,10 @@ class AiKeyCryptoTest {
     }
 
     @Test
-    @DisplayName("encrypt/decrypt：SM4 往返一致")
+    @DisplayName("encrypt/decrypt：SM4-GCM 往返一致")
     void encryptDecrypt_roundTrip() {
         String cipher = crypto.encrypt("sk-test-secret");
-        assertTrue(cipher.startsWith("sm4:"));
+        assertTrue(cipher.startsWith("sm4-gcm:"));
         assertEquals("sk-test-secret", crypto.decrypt(cipher));
     }
 
@@ -50,7 +50,7 @@ class AiKeyCryptoTest {
     @DisplayName("encrypt：无密钥时降级为 plain 前缀")
     void encrypt_withoutKey_usesPlainPrefix() {
         ReflectionTestUtils.setField(crypto, "configuredSm4SecretKey", "");
-        // configured 为空且 JdbcTemplate 未 stub（返回 null）时走明文前缀降级
+        // configured 为空且 DynamicConfigHelper 未 stub（返回 null）时走明文前缀降级
 
         String stored = crypto.encrypt("sk-plain");
         assertEquals("plain:sk-plain", stored);

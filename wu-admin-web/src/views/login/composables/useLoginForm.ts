@@ -2,6 +2,7 @@ import { ref, reactive, computed, onMounted, onUnmounted, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, type FormInstance, type FormRules } from 'element-plus'
 import { useUserStore } from '@/store/user'
+import { useSiteStore } from '@/store/site'
 import { getCaptcha, getConfig, sendSmsCode, sendEmailCode } from '@/api/system/auth'
 import type { LoginForm } from '@/types/api'
 import { getErrorMessage } from '@/utils/axiosError'
@@ -12,6 +13,8 @@ import {
   loadLoginRemember,
   saveLoginRemember,
 } from '@/utils/loginRemember'
+import { getSecurityConfig } from '@/utils/security-config'
+import { encryptSm2 } from '@/utils/crypto'
 
 type CaptchaMode = 'image' | 'slider'
 type LoginMode = 'account' | 'sms' | 'email'
@@ -30,7 +33,7 @@ export function useLoginForm() {
   const router = useRouter()
   const userStore = useUserStore()
 
-  const captchaEnabled = ref(false)
+  const captchaEnabled = ref(true)
   const captchaType = ref<CaptchaMode>('image')
   const smsLoginEnabled = ref(false)
   const smsLoginSliderCaptchaEnabled = ref(false)
@@ -169,7 +172,7 @@ export function useLoginForm() {
       if (!config) return
 
       if (config.login) {
-        captchaEnabled.value = config.login.captchaEnabled === true
+        captchaEnabled.value = config.login.captchaEnabled !== false
         captchaType.value = parseCaptchaMode(config.login.captchaType)
         smsLoginEnabled.value = config.login.smsLoginEnabled === true
         smsLoginSliderCaptchaEnabled.value = config.login.smsLoginSliderCaptchaEnabled === true
@@ -186,6 +189,11 @@ export function useLoginForm() {
         if (config.site.platformName) sitePlatformName.value = config.site.platformName
         if (config.site.platformSubtitle) sitePlatformSubtitle.value = config.site.platformSubtitle
         if (config.site.loginWelcome) siteLoginWelcome.value = config.site.loginWelcome
+        const siteStore = useSiteStore()
+        siteStore.siteConfig = {
+          ...siteStore.siteConfig,
+          ...config.site,
+        }
       }
       rebuildFormRules()
     } catch (error) {
@@ -198,7 +206,7 @@ export function useLoginForm() {
       const res = await getCaptcha()
       const img = res.data.img ?? res.data.image
       if (img) {
-        captchaImg.value = img.startsWith('data:') ? img : `data:image/png;base64,${img}`
+        captchaImg.value = `data:image/png;base64,${img}`
         captchaUuid.value = res.data.uuid
       }
     } catch (error) {
@@ -381,10 +389,14 @@ export function useLoginForm() {
           rememberMe: formData.rememberMe,
         }
       } else {
+        const secConfig = getSecurityConfig()
+        const encryptedPassword = secConfig.sm2EncryptEnabled && secConfig.sm2PublicKey
+          ? encryptSm2(formData.password, secConfig.sm2PublicKey)
+          : formData.password
         loginData = {
           loginType: 'account',
           username: formData.username,
-          password: formData.password,
+          password: encryptedPassword,
           rememberMe: formData.rememberMe,
         }
         if (captchaEnabled.value && captchaType.value === 'slider') {
@@ -394,7 +406,6 @@ export function useLoginForm() {
         } else if (captchaEnabled.value && captchaType.value === 'image') {
           loginData.uuid = captchaUuid.value
           loginData.code = formData.code
-          loginData.captcha = formData.code
         }
       }
       const result = await userStore.loginAction(loginData)

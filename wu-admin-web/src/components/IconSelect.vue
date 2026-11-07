@@ -60,8 +60,12 @@ import { ref, computed, watch, type Component } from 'vue'
 import * as ElementPlusIconsVue from '@element-plus/icons-vue'
 import { Search } from '@element-plus/icons-vue'
 import { getIconLabel } from '@/utils/icon-labels'
+import { resolveMenuIcon, CUSTOM_ICONS } from '@/utils/menu-icon'
 
-const iconModules = ElementPlusIconsVue as Record<string, Component>
+const iconModules = {
+  ...ElementPlusIconsVue,
+  ...CUSTOM_ICONS
+} as Record<string, Component>
 
 interface IconItem {
   name: string
@@ -83,7 +87,8 @@ const searchText = ref('')
 
 /** 默认优先展示（置顶），其余图标跟在后面 */
 const PRIORITY_ICON_NAMES = [
-  'HomeFilled', 'Setting', 'User', 'UserFilled', 'Key', 'Lock',
+  'Workflow', 'AiModel', 'Lock',
+  'HomeFilled', 'Setting', 'User', 'UserFilled', 'Key',
   'Document', 'DocumentCopy', 'Files', 'Folder', 'FolderOpened', 'Grid',
   'ElementPlus', 'List', 'Menu', 'Search', 'Plus', 'Edit', 'Delete',
   'Upload', 'Download', 'Picture', 'Camera', 'VideoCamera', 'Headset',
@@ -110,6 +115,7 @@ const PRIORITY_ICON_NAMES = [
 ]
 
 const ALL_ICON_NAMES = [
+  'Workflow', 'AiModel',
   'AddLocation', 'Aim', 'AlarmClock', 'Apple', 'ArrowDown', 'ArrowDownBold',
   'ArrowLeft', 'ArrowLeftBold', 'ArrowRight', 'ArrowRightBold', 'ArrowUp',
   'ArrowUpBold', 'Avatar', 'Back', 'Baseball', 'Basketball', 'Bell',
@@ -196,7 +202,7 @@ const filteredIcons = computed(() => {
 
 const currentIconComponent = computed(() => {
   if (!props.modelValue) return null
-  return iconModules[props.modelValue] || null
+  return resolveMenuIcon(props.modelValue)
 })
 
 const displayValue = computed(() => {

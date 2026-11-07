@@ -7,7 +7,7 @@ import {
   ensureMessageWebSocketConnected,
   onMessageWebSocket,
   type WsPushMessage,
-} from '@/utils/webSocket'
+} from '@/core/ws'
 import {
   resolvePushTitle,
   shouldNotifyChat,
@@ -17,7 +17,7 @@ import {
 } from '@/utils/message-push'
 import type { ChatGroup } from '@/types/message'
 import { useUserStore } from '@/store/user'
-import { logger } from '@/utils/logger'
+import { logger } from '@/core/logger'
 
 export type { ActiveChatTarget } from '@/utils/message-push'
 
@@ -75,11 +75,21 @@ export const useMessageStore = defineStore('message', () => {
   }
 
   async function loadGroupNotifySettings() {
+    const userStore = useUserStore()
+    // 与 PC 端一致：仅以启用菜单判断企业 IM 权限。
+    // 无权限账号（如普通员工）登录/冷启动时不应请求群列表，否则后端 @RequirePermission 会返回 403，
+    // 移动端会弹出“权限不足”并打印错误日志（PC 端已有此门控，故不会出现）。
+    if (
+      !userStore.hasMenuPermission('system:chat:list') &&
+      !userStore.hasMenuPermission('system:chat:query')
+    ) {
+      return
+    }
     try {
-      const res = await getChatGroups()
+      const res = await getChatGroups({ silent403: true })
       if (res.data) syncGroupNotifySettings(res.data)
-    } catch (e) {
-      logger.error('loadGroupNotifySettings failed', e)
+    } catch {
+      /* 无 IM 权限或接口不可用时不打扰用户 */
     }
   }
 

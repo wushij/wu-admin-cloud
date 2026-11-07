@@ -24,7 +24,7 @@ import java.time.Duration;
 /**
  * 防重放攻击过滤器（时间戳 + Nonce 查重）。
  *
- * <p><b>背景</b>：单体 {@code ApiSecurityFilter} 提供了「时间戳窗口校验 + Nonce 防重放 +
+ * <p><b>背景</b>：旧版 {@code ApiSecurityFilter} 提供了「时间戳窗口校验 + Nonce 防重放 +
  * HMAC-SM3 验签 + SM4 收发加密」四件套，微服务改造时整体缺失。
  * 而前端 {@code request.ts} 仍在发送 {@code X-Timestamp / X-Nonce / X-Signature}，
  * 服务端却无人校验——安全能力实际处于「看起来有、其实没有」的状态。</p>
@@ -120,7 +120,14 @@ public class AntiReplayFilter implements GlobalFilter, Ordered {
     private Mono<Void> reject(ServerWebExchange exchange, String message) {
         ServerHttpResponse response = exchange.getResponse();
         response.setStatusCode(HttpStatus.FORBIDDEN);
-        response.getHeaders().setContentType(MediaType.APPLICATION_JSON);
+        // 响应已提交时 getHeaders() 为只读视图，写入会抛异常并中断连接，这里做保护
+        if (!response.isCommitted()) {
+            try {
+                response.getHeaders().setContentType(MediaType.APPLICATION_JSON);
+            } catch (UnsupportedOperationException ignored) {
+                // 响应头已只读，保持原样
+            }
+        }
         String body = "{\"code\":403,\"msg\":\"" + message + "\",\"data\":null}";
         DataBuffer buffer = response.bufferFactory().wrap(body.getBytes(StandardCharsets.UTF_8));
         return response.writeWith(Mono.just(buffer));

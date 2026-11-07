@@ -3,6 +3,8 @@ package com.wu.cloud.common.core.context;
 import com.wu.cloud.common.core.constant.HeaderConstants;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
 import org.springframework.web.servlet.HandlerInterceptor;
 
@@ -20,16 +22,52 @@ import java.util.Set;
  * 写入 MDC 以便日志串联。请求结束后清理 ThreadLocal 与 MDC，避免线程复用串号。
  * </p>
  * <p>
+ * 内网零信任：配置了 {@code wu.security.inner-token} 后，{@code /inner/**} 端点
+ * 强制校验请求头 {@code X-Inner-Token}（由 FeignAuthInterceptor 为服务间调用自动携带），
+ * 未携带或不匹配直接拒绝（403），防止内网直连绕过网关调用高危内部接口。
+ * </p>
+ * <p>
  * 网关未下发用户头时（白名单/匿名接口）上下文为空，由业务自行处理未登录态。
  * </p>
  */
 public class UserContextInterceptor implements HandlerInterceptor {
 
+    private static final Logger log = LoggerFactory.getLogger(UserContextInterceptor.class);
+
     /** MDC 中链路追踪 ID 的键名 */
     public static final String MDC_TRACE_ID = "traceId";
 
+    /** 内网端点路径前缀 */
+    private static final String INNER_API_PREFIX = "/inner/";
+
+    /** 内网令牌；为空表示未启用零信任校验（仅限开发环境） */
+    private final String innerToken;
+
+    public UserContextInterceptor() {
+        this("");
+    }
+
+    public UserContextInterceptor(String innerToken) {
+        this.innerToken = innerToken == null ? "" : innerToken.trim();
+    }
+
     @Override
-    public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) {
+    public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler)
+            throws java.io.IOException {
+        // 内网端点零信任校验：令牌已配置时强制匹配
+        if (!innerToken.isEmpty() && request.getRequestURI() != null
+                && request.getRequestURI().startsWith(INNER_API_PREFIX)) {
+            String presented = request.getHeader(HeaderConstants.INNER_TOKEN);
+            if (presented == null || !innerToken.equals(presented.trim())) {
+                log.warn("[InnerApi] 内网端点令牌校验失败 uri={} ip={}",
+                        request.getRequestURI(), request.getRemoteAddr());
+                response.setStatus(HttpServletResponse.SC_FORBIDDEN);
+                response.setContentType("application/json;charset=UTF-8");
+                response.getWriter().write("{\"code\":403,\"msg\":\"forbidden\"}");
+                return false;
+            }
+        }
+
         String traceId = request.getHeader(HeaderConstants.TRACE_ID);
         if (traceId != null && !traceId.isBlank()) {
             MDC.put(MDC_TRACE_ID, traceId);

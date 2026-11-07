@@ -209,7 +209,7 @@ public class AiChatServiceImpl implements AiChatService {
             };
 
             try {
-                aiProviderFactory.getStrategy(model.getProvider()).streamChat(model, plainApiKey, messages, listener);
+                aiProviderFactory.getStrategy(model).streamChat(model, plainApiKey, messages, listener);
             } catch (Exception e) {
                 log.error("AI 流式对话失败 provider={} model={}: {}", model.getProvider(), model.getModelName(), e.getMessage());
                 String errMsg = e instanceof BusinessException ? e.getMessage() : "AI 服务暂时不可用，请稍后再试";
@@ -411,5 +411,16 @@ public class AiChatServiceImpl implements AiChatService {
         AiChatLogDO latest = list.get(0);
         latest.setQuestion(title);
         return aiChatLogMapper.updateById(latest) > 0;
+    }
+
+    @Override
+    public boolean clearConversations() {
+        Long userId = UserContextHolder.getUserId();
+        if (userId == null) {
+            return false;
+        }
+        aiChatLogMapper.delete(new LambdaQueryWrapper<AiChatLogDO>()
+                .eq(AiChatLogDO::getUserId, userId));
+        return true;
     }
 }

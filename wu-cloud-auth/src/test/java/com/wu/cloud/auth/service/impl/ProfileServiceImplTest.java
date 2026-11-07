@@ -43,10 +43,17 @@ class ProfileServiceImplTest {
     @Mock
     private VerifyCodeService verifyCodeService;
     @Mock
+    private com.wu.cloud.auth.support.PasswordCipherService passwordCipherService;
+    @Mock
     private AuthProperties authProperties;
 
     @InjectMocks
     private ProfileServiceImpl profileService;
+
+    @org.junit.jupiter.api.BeforeEach
+    void setUp() {
+        when(passwordCipherService.resolve(any())).thenAnswer(inv -> inv.getArgument(0));
+    }
 
     @Test
     @DisplayName("getProfile：映射资料与角色权限")

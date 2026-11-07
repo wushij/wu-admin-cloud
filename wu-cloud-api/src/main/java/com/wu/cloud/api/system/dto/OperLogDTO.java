@@ -12,6 +12,9 @@ public class OperLogDTO implements Serializable {
 
     private static final long serialVersionUID = 1L;
 
+    /** 日志主键（查询/导出场景回填，写入时无需赋值） */
+    private Long id;
+
     private String title;
     private Integer businessType;
     private String method;

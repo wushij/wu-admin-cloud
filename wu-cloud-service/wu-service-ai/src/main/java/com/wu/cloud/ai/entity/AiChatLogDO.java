@@ -10,7 +10,7 @@ import lombok.Data;
 import lombok.EqualsAndHashCode;
 
 /**
- * AI 对话日志 DO（主键必须 AUTO，与单体 sys_ai_chat_log 自增一致）
+ * AI 对话日志 DO（主键必须 AUTO，与旧版 sys_ai_chat_log 自增一致）
  * <p>
  * 显式声明 {@code @TableId(AUTO)}，避免继承场景下落到雪花 ID；
  * Long 序列化为字符串，防止前端 JS 精度丢失导致删除「对话日志不存在」。

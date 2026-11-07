@@ -1,4 +1,4 @@
-import { get, post, put, del } from '@/utils/request'
+import { get, post, put, del } from '@/core/http'
 import { uploadFile } from '@/utils/upload'
 import type { PageQuery, PageResult } from '@/types/api'
 import type { FileRecord } from '@/api/system/file/index'
@@ -132,8 +132,9 @@ export function addGroupMembers(groupId: number, userIds: number[]) {
   return post(`/message/chat/group/${groupId}/members`, { userIds })
 }
 
-export function getChatGroups() {
-  return get<ChatGroup[]>('/message/chat/group/list')
+/** 群列表；无企业 IM 权限的后台预热场景可传 silent403，避免弹出权限提示 */
+export function getChatGroups(config?: { silent403?: boolean }) {
+  return get<ChatGroup[]>('/message/chat/group/list', undefined, config)
 }
 
 export function getChatHistory(targetId: number, params?: PageQuery) {

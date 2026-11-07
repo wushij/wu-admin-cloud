@@ -9,6 +9,19 @@
     <el-form-item label="注册(次/分钟/IP)">
       <el-input-number v-model="draft.registerPerIpMinute" :min="0" :max="200" :disabled="!canEdit" />
     </el-form-item>
+    <el-divider content-position="left">应用层滑动窗口（兜底限流）</el-divider>
+    <el-form-item label="业务 API(次/分钟/IP)">
+      <el-input-number :model-value="draft.apiPerIpMinute ?? 240" :min="0" :max="2000" :disabled="!canEdit" @update:model-value="(v) => draft.apiPerIpMinute = Number(v) || 0" />
+      <span class="unit">默认 240；0 表示不限制</span>
+    </el-form-item>
+    <el-form-item label="认证接口(次/分钟/IP)">
+      <el-input-number :model-value="draft.authPerIpMinute ?? 60" :min="0" :max="600" :disabled="!canEdit" @update:model-value="(v) => draft.authPerIpMinute = Number(v) || 0" />
+      <span class="unit">默认 60；0 表示不限制</span>
+    </el-form-item>
+    <el-form-item label="文件访问(次/分钟/IP)">
+      <el-input-number :model-value="draft.filesPerIpMinute ?? 600" :min="0" :max="5000" :disabled="!canEdit" @update:model-value="(v) => draft.filesPerIpMinute = Number(v) || 0" />
+      <span class="unit">默认 600；0 表示不限制</span>
+    </el-form-item>
     <el-divider content-position="left">短信发送防刷</el-divider>
     <el-form-item label="短信(次/分钟/IP)">
       <el-input-number v-model="draft.smsPerIpMinute" :min="0" :max="200" :disabled="!canEdit" />

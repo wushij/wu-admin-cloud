@@ -1,5 +1,6 @@
 package com.wu.cloud.api.system.feign;
 
+import com.wu.cloud.api.system.dto.AiUserContextDTO;
 import com.wu.cloud.api.system.dto.LoginUserDTO;
 import com.wu.cloud.api.system.dto.SysMenuDTO;
 import com.wu.cloud.api.system.dto.SysUserDTO;
@@ -99,4 +100,22 @@ public interface RemoteUserService {
      */
     @GetMapping("/get-menus")
     R<List<SysMenuDTO>> getMenusByUserId(@RequestParam("userId") Long userId);
+
+    /**
+     * 启用状态用户列表（工单/审批候选人、聊天联系人等场景），可按需排除指定用户
+     */
+    @GetMapping("/list-active")
+    R<List<SysUserDTO>> listActiveUsers(@RequestParam(value = "excludeUserId", required = false) Long excludeUserId);
+
+    /**
+     * 按主键集合批量查询用户基础信息
+     */
+    @PostMapping("/list-by-ids")
+    R<List<SysUserDTO>> listUsersByIds(@RequestBody List<Long> ids);
+
+    /**
+     * AI 用户上下文聚合：用户档案 + 部门 + 角色 + 可见菜单，一次调用返回
+     */
+    @GetMapping("/ai-context")
+    R<AiUserContextDTO> getAiContext(@RequestParam("userId") Long userId);
 }

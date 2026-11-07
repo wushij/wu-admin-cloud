@@ -2,7 +2,6 @@ package com.wu.cloud.pay.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
-import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.wu.cloud.common.core.PageParam;
 import com.wu.cloud.common.core.domain.PageResult;
 import com.wu.cloud.common.exception.BusinessException;
@@ -10,6 +9,7 @@ import com.wu.cloud.common.utils.crypto.SmCryptoUtils;
 import com.wu.cloud.pay.entity.PayConfigDO;
 import com.wu.cloud.pay.mapper.PayConfigMapper;
 import com.wu.cloud.pay.service.PayConfigService;
+import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -19,10 +19,14 @@ import java.nio.charset.StandardCharsets;
 
 /**
  * 支付配置 Service 实现：apiKey 加密存储 / 解密读取
+ * （MyBatis-Plus 3.5.18 已移除 extension.service.ServiceImpl，直接注入 Mapper）
  */
 @Slf4j
 @Service
-public class PayConfigServiceImpl extends ServiceImpl<PayConfigMapper, PayConfigDO> implements PayConfigService {
+public class PayConfigServiceImpl implements PayConfigService {
+
+    @Resource
+    private PayConfigMapper payConfigMapper;
 
     /**
      * SM4 加解密密钥与 IV（16 字节）
@@ -66,14 +70,14 @@ public class PayConfigServiceImpl extends ServiceImpl<PayConfigMapper, PayConfig
             wrapper.eq(PayConfigDO::getStatus, status);
         }
         wrapper.orderByDesc(PayConfigDO::getCreateTime);
-        Page<PayConfigDO> result = page(page, wrapper);
+        Page<PayConfigDO> result = payConfigMapper.selectPage(page, wrapper);
         // 列表不返回明文 apiKey，仅解密便于查看时使用 detail
         return PageResult.of(result.getRecords(), result.getTotal());
     }
 
     @Override
     public PayConfigDO detail(Long id) {
-        PayConfigDO config = getById(id);
+        PayConfigDO config = payConfigMapper.selectById(id);
         if (config == null) {
             throw new BusinessException(404, "支付配置不存在");
         }
@@ -88,14 +92,14 @@ public class PayConfigServiceImpl extends ServiceImpl<PayConfigMapper, PayConfig
             config.setStatus(1);
         }
         encryptApiKey(config);
-        save(config);
+        payConfigMapper.insert(config);
         return config.getId();
     }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void update(PayConfigDO config) {
-        PayConfigDO exist = getById(config.getId());
+        PayConfigDO exist = payConfigMapper.selectById(config.getId());
         if (exist == null) {
             throw new BusinessException(404, "支付配置不存在");
         }
@@ -105,21 +109,21 @@ public class PayConfigServiceImpl extends ServiceImpl<PayConfigMapper, PayConfig
         } else {
             encryptApiKey(config);
         }
-        updateById(config);
+        payConfigMapper.updateById(config);
     }
 
     @Override
     public void delete(Long id) {
-        PayConfigDO exist = getById(id);
+        PayConfigDO exist = payConfigMapper.selectById(id);
         if (exist == null) {
             throw new BusinessException(404, "支付配置不存在");
         }
-        removeById(id);
+        payConfigMapper.deleteById(id);
     }
 
     @Override
     public PayConfigDO getEnabledConfig(String payType) {
-        PayConfigDO config = getOne(new LambdaQueryWrapper<PayConfigDO>()
+        PayConfigDO config = payConfigMapper.selectOne(new LambdaQueryWrapper<PayConfigDO>()
                 .eq(PayConfigDO::getPayType, payType)
                 .eq(PayConfigDO::getStatus, 1)
                 .last("LIMIT 1"));

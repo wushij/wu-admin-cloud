@@ -1,6 +1,8 @@
 package com.wu.cloud.message.service.impl;
 
 import com.wu.cloud.api.system.dto.SysUserDTO;
+import com.wu.cloud.api.system.feign.RemoteUserService;
+import com.wu.cloud.common.core.domain.R;
 import com.wu.cloud.common.exception.BusinessException;
 import com.wu.cloud.message.entity.ChatMessageDO;
 import com.wu.cloud.message.entity.UserBlacklistDO;
@@ -23,8 +25,6 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
-import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.jdbc.core.RowMapper;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -36,7 +36,7 @@ import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 @MockitoSettings(strictness = Strictness.LENIENT)
-@DisplayName("ChatServiceImpl 单元测试（对齐单体 ChatServiceTest）")
+@DisplayName("ChatServiceImpl 单元测试（与既有规范对齐 ChatServiceTest）")
 class ChatServiceImplTest extends MybatisLambdaTestBase {
 
     private static final long ME = 1L;
@@ -56,21 +56,16 @@ class ChatServiceImplTest extends MybatisLambdaTestBase {
     @Mock
     private MessageWebSocketHandler webSocketHandler;
     @Mock
-    private JdbcTemplate jdbcTemplate;
+    private RemoteUserService remoteUserService;
 
     @InjectMocks
     private ChatServiceImpl chatService;
 
-    @SuppressWarnings("unchecked")
-    private static <T> RowMapper<T> anyRowMapper() {
-        return any(RowMapper.class);
-    }
-
     @Test
     @DisplayName("listUsers：无启用用户时返回空列表")
     void listUsers_emptyWhenNoPeers() {
-        when(jdbcTemplate.query(contains("status = 1"), anyRowMapper(), eq(ME)))
-                .thenReturn(List.of());
+        when(remoteUserService.listActiveUsers(ME))
+                .thenReturn(R.ok(List.of()));
 
         assertTrue(chatService.listUsers(ME).isEmpty());
         verifyNoInteractions(chatMessageMapper, blacklistMapper);
@@ -80,8 +75,8 @@ class ChatServiceImplTest extends MybatisLambdaTestBase {
     @DisplayName("listUsers：批量查询黑名单/最新消息/未读数")
     void listUsers_usesBatchQueries() {
         SysUserDTO peer = user(2L, "bob", "鲍勃");
-        when(jdbcTemplate.query(contains("status = 1"), anyRowMapper(), eq(ME)))
-                .thenReturn(List.of(peer));
+        when(remoteUserService.listActiveUsers(ME))
+                .thenReturn(R.ok(List.of(peer)));
         when(blacklistMapper.selectBlockedUserIds(ME)).thenReturn(List.of(2L));
 
         ChatPeerLatestVO latest = new ChatPeerLatestVO();
@@ -127,8 +122,8 @@ class ChatServiceImplTest extends MybatisLambdaTestBase {
     @DisplayName("sendPrivate：成功发送并推送 WebSocket")
     void sendPrivate_success() {
         when(blacklistMapper.selectCount(MybatisMockMatchers.anyLambdaQueryWrapper())).thenReturn(0L);
-        when(jdbcTemplate.query(contains("id = ?"), anyRowMapper(), eq(ME)))
-                .thenReturn(List.of(user(ME, "alice", "爱丽丝")));
+        when(remoteUserService.getUserById(ME))
+                .thenReturn(R.ok(user(ME, "alice", "爱丽丝")));
         doAnswer(inv -> {
             ChatMessageDO msg = inv.getArgument(0);
             msg.setId(200L);
@@ -247,8 +242,8 @@ class ChatServiceImplTest extends MybatisLambdaTestBase {
         me.setUserId(ME);
         me.setMuted(0);
         when(groupMemberMapper.selectOne(MybatisMockMatchers.anyLambdaQueryWrapper())).thenReturn(me);
-        when(jdbcTemplate.query(contains("id = ?"), anyRowMapper(), eq(ME)))
-                .thenReturn(List.of(user(ME, "alice", "爱丽丝")));
+        when(remoteUserService.getUserById(ME))
+                .thenReturn(R.ok(user(ME, "alice", "爱丽丝")));
 
         doAnswer(inv -> {
             com.wu.cloud.message.entity.ChatGroupMessageDO m = inv.getArgument(0);

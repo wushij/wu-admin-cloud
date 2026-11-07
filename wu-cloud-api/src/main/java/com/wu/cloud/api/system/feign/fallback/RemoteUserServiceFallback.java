@@ -1,5 +1,6 @@
 package com.wu.cloud.api.system.feign.fallback;
 
+import com.wu.cloud.api.system.dto.AiUserContextDTO;
 import com.wu.cloud.api.system.dto.LoginUserDTO;
 import com.wu.cloud.api.system.dto.SysMenuDTO;
 import com.wu.cloud.api.system.dto.SysUserDTO;
@@ -85,6 +86,21 @@ public class RemoteUserServiceFallback implements FallbackFactory<RemoteUserServ
             @Override
             public R<List<SysMenuDTO>> getMenusByUserId(Long userId) {
                 return R.fail("用户服务暂不可用，菜单获取失败");
+            }
+
+            @Override
+            public R<List<SysUserDTO>> listActiveUsers(Long excludeUserId) {
+                return R.fail("用户服务暂不可用，用户列表获取失败");
+            }
+
+            @Override
+            public R<List<SysUserDTO>> listUsersByIds(List<Long> ids) {
+                return R.fail("用户服务暂不可用，批量用户查询失败");
+            }
+
+            @Override
+            public R<AiUserContextDTO> getAiContext(Long userId) {
+                return R.fail("用户服务暂不可用，AI 用户上下文获取失败");
             }
         };
     }

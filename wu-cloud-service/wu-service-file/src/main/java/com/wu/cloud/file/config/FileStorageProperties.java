@@ -10,8 +10,8 @@ import org.springframework.context.annotation.Configuration;
 @ConfigurationProperties(prefix = "app.file")
 public class FileStorageProperties {
 
-    /** 本地存储根目录 */
-    private String localBaseDir = "./data/upload";
+    /** 本地存储根目录（与单体源码 ./data/uploads 对齐） */
+    private String localBaseDir = "./data/uploads";
 
     /** 上传大小上限（字节），默认 50MB */
     private long maxSize = 50 * 1024 * 1024L;

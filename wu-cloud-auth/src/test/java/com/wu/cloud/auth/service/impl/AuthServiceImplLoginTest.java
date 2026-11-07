@@ -54,6 +54,8 @@ class AuthServiceImplLoginTest {
     @Mock
     private AuthConfigLoader authConfigLoader;
     @Mock
+    private com.wu.cloud.auth.support.PasswordCipherService passwordCipherService;
+    @Mock
     private HttpServletRequest request;
 
     @InjectMocks
@@ -66,6 +68,7 @@ class AuthServiceImplLoginTest {
         when(request.getRemoteAddr()).thenReturn("127.0.0.1");
         when(loginLockService.recordFailure(anyString())).thenReturn(3);
         when(authConfigLoader.getLockTimeMinutes()).thenReturn(10);
+        when(passwordCipherService.resolve(any())).thenAnswer(inv -> inv.getArgument(0));
     }
 
     @Test

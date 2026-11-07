@@ -81,7 +81,6 @@
 
 <script setup lang="ts">
 import { ref, watchEffect, computed, defineAsyncComponent } from 'vue'
-import type { FormInstance } from 'element-plus'
 import ModulePageIcon from '@/components/ModulePageIcon.vue'
 import { MODULE_PAGE_ICON } from '@/constants/module-page-icons'
 import type { DeptVO } from '@/api/system/dept'
@@ -94,8 +93,8 @@ const DeptFormDialog = defineAsyncComponent(() => import('./DeptFormDialog.vue')
 const PostFormDialog = defineAsyncComponent(() => import('./PostFormDialog.vue'))
 
 const treePanelRef = ref<InstanceType<typeof OrgTreePanel> | null>(null)
-const deptDialogRef = ref<{ formRef?: FormInstance | null } | null>(null)
-const postDialogRef = ref<{ formRef?: FormInstance | null } | null>(null)
+const deptDialogRef = ref<any>(null)
+const postDialogRef = ref<any>(null)
 
 const {
   activeTab,

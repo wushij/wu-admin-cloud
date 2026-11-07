@@ -112,10 +112,7 @@ export function useDashboardData() {
       trends.value.role = data.roleTrend ?? 0
       trends.value.dept = data.deptTrend ?? 0
       trends.value.menu = data.menuTrend ?? 0
-      // BFF 已带 job 统计时不再二次请求 overview，避免拖慢首屏
-      if ((data.jobTotalCount ?? 0) <= 0 && (data.jobRunningCount ?? 0) <= 0) {
-        await mergeJobOverview()
-      }
+      await mergeJobOverview()
     } catch (error) {
       console.error('获取统计数据失败', error)
     }
@@ -130,16 +127,16 @@ export function useDashboardData() {
     }
   }
 
-  function recordVisit() {
-    apiRecordVisit().catch((error) => {
+  async function recordVisit() {
+    try {
+      await apiRecordVisit()
+    } catch (error) {
       console.error('记录访问失败', error)
-    })
+    }
   }
 
   async function initDashboard() {
-    // 访问埋点不阻塞渲染；统计与最近登录并行
-    recordVisit()
-    await Promise.all([loadStats(), loadRecentLogins()])
+    await Promise.all([loadStats(), loadRecentLogins(), recordVisit()])
   }
 
   return {

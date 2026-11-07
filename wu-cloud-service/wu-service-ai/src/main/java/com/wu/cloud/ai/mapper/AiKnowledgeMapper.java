@@ -24,4 +24,16 @@ public interface AiKnowledgeMapper extends BaseMapper<AiKnowledgeDO> {
             LIMIT #{limit}
             """)
     List<AiKnowledgeDO> searchFullText(@Param("query") String query, @Param("limit") int limit);
+
+    /**
+     * 知识库统计：总数、启用数、启用条目的正文字符数，避免把全部正文加载到 JVM 求和。
+     */
+    @Select("""
+            SELECT COUNT(*) AS total,
+                   COALESCE(SUM(CASE WHEN status = 1 THEN 1 ELSE 0 END), 0) AS activeCount,
+                   COALESCE(SUM(CASE WHEN status = 1 THEN CHAR_LENGTH(content) ELSE 0 END), 0) AS totalWords
+            FROM sys_ai_knowledge
+            WHERE deleted = 0
+            """)
+    java.util.Map<String, Object> selectStats();
 }

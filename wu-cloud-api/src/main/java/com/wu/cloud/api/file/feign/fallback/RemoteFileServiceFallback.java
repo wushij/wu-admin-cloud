@@ -1,5 +1,6 @@
 package com.wu.cloud.api.file.feign.fallback;
 
+import com.wu.cloud.api.file.dto.StorageConfigDTO;
 import com.wu.cloud.api.file.dto.SysFileDTO;
 import com.wu.cloud.api.file.feign.RemoteFileService;
 import com.wu.cloud.common.core.domain.R;
@@ -7,6 +8,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.cloud.openfeign.FallbackFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.web.multipart.MultipartFile;
+
+import java.util.Map;
 
 /**
  * 远程文件服务 Feign 降级工厂（P0-3 修复）
@@ -32,6 +35,16 @@ public class RemoteFileServiceFallback implements FallbackFactory<RemoteFileServ
             @Override
             public R<SysFileDTO> uploadFile(MultipartFile file, String type) {
                 return R.fail("文件服务暂不可用，上传失败");
+            }
+
+            @Override
+            public R<Map<String, Object>> testStorage(StorageConfigDTO config) {
+                return R.fail("文件服务暂不可用，存储连通性测试失败");
+            }
+
+            @Override
+            public R<Boolean> reloadStorage() {
+                return R.fail("文件服务暂不可用，存储配置热重载失败");
             }
         };
     }

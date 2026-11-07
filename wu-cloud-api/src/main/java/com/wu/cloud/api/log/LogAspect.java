@@ -39,7 +39,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 
 /**
- * 操作日志切面（对齐单体：支持 {@link OperLogContext} 跳过/自定义标题/摘要/变更明细）。
+ * 操作日志切面（与既有规范对齐：支持 {@link OperLogContext} 跳过/自定义标题/摘要/变更明细）。
  *
  * <p>拦截所有标注 {@link Log} 的方法，采集请求/响应/异常信息后写入 system {@code sys_oper_log}。</p>
  *
@@ -220,7 +220,7 @@ public class LogAspect {
         return null;
     }
 
-    /** 与单体 getLoginUserDisplayName 一致：昵称优先，无昵称回退账号 */
+    /** 与旧版 getLoginUserDisplayName 一致：昵称优先，无昵称回退账号 */
     private String resolveSaTokenDisplayName() {
         try {
             if (!StpUtil.isLogin()) {

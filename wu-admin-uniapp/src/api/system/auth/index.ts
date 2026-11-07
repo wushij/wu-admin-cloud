@@ -1,6 +1,7 @@
-import { get, post } from '@/utils/request'
+import { get, post } from '@/core/http'
 import type { AuthInfo, LoginForm, LoginResult, RegisterForm } from '@/types/api'
 import type { AuthPublicConfig } from '@/types/config'
+import type { SliderTrackEvent } from '@/utils/security/slider-captcha'
 
 export interface CaptchaResult {
   uuid: string
@@ -10,9 +11,21 @@ export interface CaptchaResult {
 
 export interface SliderChallengeResult {
   token: string
-  bgIndex: number
+  /** 已挖出缺口的背景图（data:image/jpeg;base64） */
+  background: string
+  /** 缺口位置的拼图块（data:image/png;base64） */
+  piece: string
+  width: number
+  height: number
+  pieceSize: number
   pieceTop: number
-  targetX: number
+  expireAt?: number
+}
+
+export interface SliderVerifyResult {
+  /** 一次性验证票据，业务接口以 uuid 字段提交 */
+  ticket: string
+  expireAt?: number
 }
 
 /** 会话签名密钥初始化返回结果 */
@@ -32,8 +45,20 @@ export function getSliderChallenge(scene: string = 'login') {
   return get<SliderChallengeResult>('/auth/slider-challenge', { scene })
 }
 
+export function verifySlider(data: {
+  token: string
+  offsetX: number
+  durationMs: number
+  events: SliderTrackEvent[]
+}) {
+  return post<SliderVerifyResult>('/auth/slider-verify', data)
+}
+
 export function login(data: LoginForm) {
-  return post<LoginResult>('/auth/login', data)
+  // 登录接口跳过 SM4 报文加密（口令仍由 SM2 公钥加密）：
+  // 登录前可能残留已过期的会话密钥，且登录响应会下发新的会话密钥，
+  // 用旧密钥加密/解密会导致 GCM Tag 校验失败。
+  return post<LoginResult>('/auth/login', data, { skipEncrypt: true })
 }
 
 export function getInfo() {

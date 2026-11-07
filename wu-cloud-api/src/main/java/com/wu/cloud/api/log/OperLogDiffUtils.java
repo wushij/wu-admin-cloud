@@ -8,7 +8,7 @@ import java.util.Map;
 import java.util.Objects;
 
 /**
- * 操作日志字段差异工具（对齐单体 OperLogDiffUtils）。
+ * 操作日志字段差异工具（与既有规范对齐 OperLogDiffUtils）。
  */
 public final class OperLogDiffUtils {
 

@@ -1,13 +1,17 @@
 package com.wu.cloud.auth.service.impl;
 
+import com.wu.cloud.api.infra.dto.EmailLogDTO;
+import com.wu.cloud.api.infra.dto.SmsLogDTO;
+import com.wu.cloud.api.infra.feign.RemoteConfigLogService;
 import com.wu.cloud.auth.config.AuthConfigLoader;
 import com.wu.cloud.auth.config.AuthProperties;
 import com.wu.cloud.auth.service.VerifyCodeService;
 import com.wu.cloud.auth.support.AuthRedisKeys;
 import com.wu.cloud.common.exception.BusinessException;
+import com.wu.cloud.common.mail.MailResult;
 import com.wu.cloud.common.mail.MailSender;
 import com.wu.cloud.common.sms.SmsResult;
-import com.wu.cloud.common.sms.SmsSender;
+import com.wu.cloud.common.sms.SmsSenderFactory;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -42,10 +46,13 @@ public class VerifyCodeServiceImpl implements VerifyCodeService {
     private AuthConfigLoader authConfigLoader;
 
     @Resource
-    private SmsSender smsSender;
+    private SmsSenderFactory smsSenderFactory;
 
     @Resource
     private MailSender mailSender;
+
+    @Resource
+    private RemoteConfigLogService remoteConfigLogService;
 
     @Override
     public void sendSmsCode(String scene, String mobile) {
@@ -59,8 +66,9 @@ public class VerifyCodeServiceImpl implements VerifyCodeService {
                 Duration.ofSeconds(authProperties.getCodeExpireSeconds()));
 
         long expireMinutes = Math.max(1, authProperties.getCodeExpireSeconds() / 60);
-        SmsResult result = smsSender.send(mobile, scene,
+        SmsResult result = smsSenderFactory.sender().send(mobile, scene,
                 Map.of("code", code, "minute", String.valueOf(expireMinutes)));
+        reportSmsLog(scene, mobile, result);
         if (!result.isSuccess()) {
             // 发送失败时清理验证码与间隔标记，允许用户立即重试
             redisTemplate.delete(AuthRedisKeys.smsCode(scene, mobile));
@@ -86,12 +94,47 @@ public class VerifyCodeServiceImpl implements VerifyCodeService {
         String content = String.format(
                 "您的验证码是 %s，%d 分钟内有效，请勿泄露给他人。", code, expireMinutes);
         var result = mailSender.send(email, subject, content);
+        reportEmailLog(scene, email, subject, result);
         if (!result.isSuccess()) {
             redisTemplate.delete(AuthRedisKeys.emailCode(scene, email));
             redisTemplate.delete(AuthRedisKeys.codeInterval(scene, email));
             throw new BusinessException("邮件发送失败：" + result.getMessage());
         }
         markSendInterval(scene, email);
+    }
+
+    /** 短信发送记录旁路上报（infra 域 sys_sms_log），失败不影响发送主流程 */
+    private void reportSmsLog(String scene, String mobile, SmsResult result) {
+        try {
+            SmsLogDTO dto = new SmsLogDTO();
+            dto.setPhone(mobile);
+            dto.setSmsType("verify_code");
+            dto.setBizType(scene);
+            dto.setProvider(smsSenderFactory.sender().channel());
+            dto.setStatus(result.isSuccess() ? 1 : 2);
+            dto.setResultMsg(result.getMessage());
+            dto.setBizId(result.getBizId());
+            remoteConfigLogService.saveSmsLog(dto);
+        } catch (Exception e) {
+            log.warn("[VerifyCode] 短信日志上报失败（不影响发送流程）: {}", e.getMessage());
+        }
+    }
+
+    /** 邮件发送记录旁路上报（infra 域 sys_email_log），失败不影响发送主流程 */
+    private void reportEmailLog(String scene, String email, String subject,
+                                 MailResult result) {
+        try {
+            EmailLogDTO dto = new EmailLogDTO();
+            dto.setEmail(email);
+            dto.setSubject(subject);
+            dto.setScene(scene);
+            dto.setProvider(mailSender.channel());
+            dto.setStatus(result.isSuccess() ? 1 : 2);
+            dto.setResultMsg(result.getMessage());
+            remoteConfigLogService.saveEmailLog(dto);
+        } catch (Exception e) {
+            log.warn("[VerifyCode] 邮件日志上报失败（不影响发送流程）: {}", e.getMessage());
+        }
     }
 
     @Override

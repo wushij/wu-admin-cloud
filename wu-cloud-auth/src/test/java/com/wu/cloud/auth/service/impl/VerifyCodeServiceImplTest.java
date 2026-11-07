@@ -44,6 +44,10 @@ class VerifyCodeServiceImplTest {
     @Mock
     private AuthConfigLoader authConfigLoader;
     @Mock
+    private com.wu.cloud.common.sms.SmsSenderFactory smsSenderFactory;
+    @Mock
+    private com.wu.cloud.api.infra.feign.RemoteConfigLogService remoteConfigLogService;
+    @Mock
     private SmsSender smsSender;
     @Mock
     private MailSender mailSender;
@@ -57,6 +61,7 @@ class VerifyCodeServiceImplTest {
         when(authProperties.getCodeExpireSeconds()).thenReturn(300L);
         when(authConfigLoader.getSmsSendIntervalSeconds()).thenReturn(60);
         when(redisTemplate.getExpire(anyString())).thenReturn(-2L);
+        when(smsSenderFactory.sender()).thenReturn(smsSender);
     }
 
     @Test

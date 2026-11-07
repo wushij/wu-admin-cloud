@@ -51,7 +51,7 @@ public class AuthProperties {
     /** 是否启用响应体 SM4 加密 */
     private boolean sm4EncryptEnabled = false;
 
-    /** 会话签名密钥有效期（秒），与单体默认 1800 一致 */
+    /** 会话签名密钥有效期（秒），与旧版默认 1800 一致 */
     private long sessionSignExpireSeconds = 1800;
 
     /**

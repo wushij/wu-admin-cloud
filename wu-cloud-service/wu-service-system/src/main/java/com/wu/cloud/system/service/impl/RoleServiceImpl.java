@@ -4,8 +4,10 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.wu.cloud.common.core.domain.PageQuery;
 import com.wu.cloud.common.exception.BusinessException;
+import com.wu.cloud.system.entity.SysMenuDO;
 import com.wu.cloud.system.entity.SysRoleDO;
 import com.wu.cloud.system.entity.SysRoleMenuDO;
+import com.wu.cloud.system.mapper.MenuMapper;
 import com.wu.cloud.system.mapper.RoleMapper;
 import com.wu.cloud.system.mapper.SysRoleMenuMapper;
 import com.wu.cloud.system.service.RoleService;
@@ -13,10 +15,15 @@ import jakarta.annotation.Resource;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 @Service
 public class RoleServiceImpl implements RoleService {
@@ -26,6 +33,9 @@ public class RoleServiceImpl implements RoleService {
 
     @Resource
     private SysRoleMenuMapper sysRoleMenuMapper;
+
+    @Resource
+    private MenuMapper menuMapper;
 
     @Override
     public List<SysRoleDO> getRoleList() {
@@ -69,7 +79,22 @@ public class RoleServiceImpl implements RoleService {
             return new HashSet<>();
         }
         List<Long> ids = sysRoleMenuMapper.selectMenuIdsByRoleId(roleId);
-        return new HashSet<>(ids);
+        if (ids == null || ids.isEmpty()) {
+            return Collections.emptySet();
+        }
+        // 关键对齐单体：必须过滤掉父级节点，只向前端返回纯叶子节点 ID！
+        // 否则 Element Plus 的 el-tree 在收到父级节点 ID 时，会自动把该父节点下的所有子孙按钮（新增、修改、删除等）全量级联勾选！
+        List<SysMenuDO> menus = menuMapper.selectBatchIds(ids);
+        if (menus == null || menus.isEmpty()) {
+            return Collections.emptySet();
+        }
+        Set<Long> parentIdsInAssigned = menus.stream()
+                .map(SysMenuDO::getId)
+                .filter(id -> menus.stream().anyMatch(m -> id.equals(m.getParentId())))
+                .collect(Collectors.toSet());
+        return ids.stream()
+                .filter(id -> !parentIdsInAssigned.contains(id))
+                .collect(Collectors.toSet());
     }
 
     @Override
@@ -83,14 +108,39 @@ public class RoleServiceImpl implements RoleService {
         if (menuIds == null || menuIds.isEmpty()) {
             return;
         }
-        List<SysRoleMenuDO> records = new ArrayList<>(menuIds.size());
-        for (Long menuId : menuIds) {
+        // 勾选按钮时同步补齐父级页面/目录，避免前端因为只有按钮权限而无法在左侧栏展开目录
+        Set<Long> expandedMenuIds = expandMenuClosure(new HashSet<>(menuIds));
+        List<SysRoleMenuDO> records = new ArrayList<>(expandedMenuIds.size());
+        for (Long menuId : expandedMenuIds) {
             SysRoleMenuDO rm = new SysRoleMenuDO();
             rm.setRoleId(roleId);
             rm.setMenuId(menuId);
             records.add(rm);
         }
         sysRoleMenuMapper.insertBatch(records);
+    }
+
+    private Set<Long> expandMenuClosure(Set<Long> menuIds) {
+        if (menuIds == null || menuIds.isEmpty()) {
+            return Collections.emptySet();
+        }
+        List<SysMenuDO> allMenus = menuMapper.selectList(null);
+        Map<Long, Long> parentMap = new HashMap<>();
+        for (SysMenuDO menu : allMenus) {
+            if (menu.getParentId() != null && menu.getParentId() > 0) {
+                parentMap.put(menu.getId(), menu.getParentId());
+            }
+        }
+        Set<Long> result = new HashSet<>(menuIds);
+        ArrayDeque<Long> queue = new ArrayDeque<>(menuIds);
+        while (!queue.isEmpty()) {
+            Long id = queue.poll();
+            Long parentId = parentMap.get(id);
+            if (parentId != null && parentId > 0 && result.add(parentId)) {
+                queue.add(parentId);
+            }
+        }
+        return result;
     }
 
     @Override

@@ -1,4 +1,11 @@
-/** 滑块验证通过后提交给后端的参数（uuid=token, code=offsetX 字符串） */
+/** 滑块拖动轨迹采样点（服务端逻辑坐标，t 为相对开始时间毫秒） */
+export interface SliderTrackEvent {
+  x: number
+  y: number
+  t: number
+}
+
+/** 滑块验证通过后提交给后端的参数（uuid=一次性票据, code=offsetX 字符串） */
 export interface SliderVerifyPayload {
   token: string
   offsetX: number

@@ -10,10 +10,10 @@ import java.util.List;
 /**
  * 接口安全过滤器配置（签名校验 + SM4 收发加密）。
  *
- * <p>与单体 {@code ApiSecurityFilter} 行为对齐：当 {@link #enabled} 为 true 时（对应单体
+ * <p>与旧版 {@code ApiSecurityFilter} 行为对齐：当 {@link #enabled} 为 true 时（对应旧版
  * 「系统安全开关 sm2SignEnabled / sm4EncryptEnabled 已生效」），对所有非公开、非排除接口
  * 强制 HMAC-SM3 验签 + SM4 收发加密；缺失 {@code X-Client-Id}/{@code X-Timestamp}/
- * {@code X-Nonce}/{@code X-Signature} 即 403，与单体严格模式完全一致。</p>
+ * {@code X-Nonce}/{@code X-Signature} 即 403，与旧版严格模式完全一致。</p>
  *
  * <p>会话密钥由认证中心 {@code /api/auth/session-sign-init} 按 clientId 下发并写入 Redis
  * （{@code security:session-sign:{clientId}} / {@code security:session-sm4:{clientId}}），
@@ -23,10 +23,10 @@ import java.util.List;
 @ConfigurationProperties(prefix = "gateway.api-security")
 public class ApiSecurityProperties {
 
-    /** 是否启用接口签名/加密校验（= 单体全局安全开关） */
+    /** 是否启用接口签名/加密校验（= 旧版全局安全开关） */
     private boolean enabled = true;
 
-    /** 时间戳有效窗口（秒），同时作为 nonce 的 Redis 过期时间，对齐单体 5 分钟窗口 */
+    /** 时间戳有效窗口（秒），同时作为 nonce 的 Redis 过期时间，与既有规范对齐 5 分钟窗口 */
     private long timestampWindowSeconds = 300L;
 
     /** 免校验路径前缀（静态资源/回调/文档等；登录类公开接口走 publicAuthUris，仍可 SM4 解密） */
@@ -54,7 +54,7 @@ public class ApiSecurityProperties {
             "/favicon.ico"
     ));
 
-    /** 公开免验签接口（与单体 PUBLIC_AUTH_URIS 对齐）：免强制签名，但仍会解密 X-Encrypted 请求体 */
+    /** 公开免验签接口（与旧版 PUBLIC_AUTH_URIS 对齐）：免强制签名，但仍会解密 X-Encrypted 请求体 */
     private List<String> publicAuthUris = new ArrayList<>(Arrays.asList(
             "/api/auth/session-sign-init",
             "/api/auth/login",
@@ -67,7 +67,7 @@ public class ApiSecurityProperties {
             "/api/auth/refresh-token"
     ));
 
-    /** 流式响应接口后缀（与单体 STREAMING_URI_SUFFIXES 对齐）：保留验签但响应不整体加密 */
+    /** 流式响应接口后缀（与旧版 STREAMING_URI_SUFFIXES 对齐）：保留验签但响应不整体加密 */
     private List<String> streamingUriSuffixes = new ArrayList<>(List.of("/ai/chat/stream"));
 
     public boolean isEnabled() {

@@ -55,3 +55,15 @@ feign:
         connect-timeout: 1000
         # 工作台等聚合场景靠业务侧 orTimeout；单路不要拖到 3s
         read-timeout: 1200
+
+# ===== Unified file logging: output to <repo>/logs/ (logs/ is git-ignored) =====
+# Console output is kept for mvn spring-boot:run; the file is for post-mortem review.
+# Override the output root with the LOG_DIR environment variable.
+logging:
+  file:
+    name: ${LOG_DIR:E:/wu-admin-cloud/logs}/wu-admin.log
+  logback:
+    rollingpolicy:
+      max-file-size: 20MB
+      max-history: 7
+      total-size-cap: 200MB

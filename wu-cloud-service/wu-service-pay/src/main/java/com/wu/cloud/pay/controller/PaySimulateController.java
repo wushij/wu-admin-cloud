@@ -1,5 +1,7 @@
 package com.wu.cloud.pay.controller;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import com.wu.cloud.common.core.domain.R;
 import com.wu.cloud.pay.service.PayOrderService;
 import jakarta.annotation.Resource;
@@ -26,6 +28,7 @@ import java.util.UUID;
  * <p>从 {@code PayController} 中拆出，避免与真实支付端点混在同一个类里被误放行。</p>
  */
 @Slf4j
+@Tag(name = "支付模拟")
 @RestController
 @RequestMapping("/api/pay")
 @Profile("!prod")
@@ -37,6 +40,7 @@ public class PaySimulateController {
     /**
      * 模拟支付成功回调（本地联调专用）。
      */
+    @Operation(summary = "批量已读")
     @PostMapping("/notify/simulate")
     public R<Boolean> simulateNotify(@RequestParam String orderNo) {
         log.warn("[Pay] 收到模拟支付请求（非生产环境专用）: orderNo={}", orderNo);

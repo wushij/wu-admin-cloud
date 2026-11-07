@@ -32,7 +32,7 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * 在线用户服务实现（对齐单体 OnlineUserServiceImpl）
+ * 在线用户服务实现（与既有规范对齐 OnlineUserServiceImpl）
  */
 @Slf4j
 @Service

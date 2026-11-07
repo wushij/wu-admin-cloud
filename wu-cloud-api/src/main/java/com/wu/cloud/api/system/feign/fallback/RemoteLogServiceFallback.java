@@ -7,6 +7,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.cloud.openfeign.FallbackFactory;
 import org.springframework.stereotype.Component;
 
+import java.util.List;
+
 /**
  * 远程日志服务 Feign 降级工厂（P0-3 修复）
  */
@@ -21,6 +23,16 @@ public class RemoteLogServiceFallback implements FallbackFactory<RemoteLogServic
             @Override
             public R<Boolean> saveOperLog(OperLogDTO operLogDTO) {
                 return R.fail("日志服务暂不可用，操作日志记录失败");
+            }
+
+            @Override
+            public R<Integer> purgeExpiredOperLogs(Integer retentionDays) {
+                return R.fail("日志服务暂不可用，操作日志清理失败");
+            }
+
+            @Override
+            public R<List<OperLogDTO>> listRecentOperLogs(Integer limit) {
+                return R.fail("日志服务暂不可用，操作日志导出失败");
             }
         };
     }

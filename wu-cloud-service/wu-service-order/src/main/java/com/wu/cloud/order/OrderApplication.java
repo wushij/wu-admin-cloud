@@ -1,10 +1,12 @@
 package com.wu.cloud.order;
 
+import com.wu.cloud.common.banner.StartupBanner;
 import org.mybatis.spring.annotation.MapperScan;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.cloud.client.discovery.EnableDiscoveryClient;
 import org.springframework.cloud.openfeign.EnableFeignClients;
+import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.scheduling.annotation.EnableScheduling;
 
 /**
@@ -18,6 +20,7 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 public class OrderApplication {
 
     public static void main(String[] args) {
-        SpringApplication.run(OrderApplication.class, args);
+        ConfigurableApplicationContext context = SpringApplication.run(OrderApplication.class, args);
+        StartupBanner.print(context);
     }
 }

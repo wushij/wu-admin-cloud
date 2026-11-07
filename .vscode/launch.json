@@ -77,7 +77,7 @@
       "command": "mvn spring-boot:run -DskipTests",
       "cwd": "${workspaceFolder}/wu-cloud-service/wu-service-file",
       "env": {
-        "FILE_LOCAL_BASE_DIR": "${workspaceFolder}/wu-cloud-service/wu-service-file/data/file-upload"
+        "FILE_LOCAL_BASE_DIR": "${workspaceFolder}/wu-cloud-service/wu-service-file/data/uploads"
       }
     },
     {

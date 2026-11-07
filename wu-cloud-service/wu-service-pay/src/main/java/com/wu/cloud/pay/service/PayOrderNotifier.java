@@ -1,100 +1,91 @@
 package com.wu.cloud.pay.service;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.wu.cloud.api.infra.dto.OutboxDTO;
-import com.wu.cloud.api.infra.feign.RemoteOutboxService;
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.wu.cloud.api.order.feign.RemoteOrderService;
 import com.wu.cloud.common.core.domain.R;
+import com.wu.cloud.pay.entity.PayOutboxMessageDO;
+import com.wu.cloud.pay.mapper.PayOutboxMessageMapper;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
-
-import java.util.LinkedHashMap;
-import java.util.Map;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 /**
- * 支付成功 → 订单服务的最终一致性通知器（P1-2 修复）。
+ * 支付成功 → 订单服务的最终一致性通知器（标准本地事务消息表模式）。
  *
- * <p><b>背景</b>：此前 pay 服务支付成功后<b>完全没有</b>通知 order 服务，
- * 且 pay 是唯一未开启 {@code @EnableFeignClients} 的服务；
- * infra 侧虽已建好本地消息表（infra_outbox）与补偿任务 OutboxCompensateJob，
- * 但全局没有任何调用方，等于「基建建好了却没接线」。
- * 结果是用户付款成功、pay_order 为 PAID，而 trade_order 永远停留在 PENDING。</p>
- *
- * <p><b>策略</b>：同步优先 + 异步兜底</p>
+ * <p><b>一致性模型</b>：
+ * {@link PayTxnService#markPaidAndEnqueue} 在同一本地事务内完成
+ * 「支付单置为 PAID + 写入 pay_outbox_message(PENDING)」，事务提交即保证消息必然存在；
+ * 本类只负责<b>事务提交后</b>的投递加速：</p>
  * <ol>
- *   <li>先尝试同步 Feign 调用 order 的 {@code /inner/order/notify-paid}（幂等），
- *       成功则链路最短、用户体验最好；</li>
- *   <li>同步失败（order 宕机/网络抖动/降级）时，写入 infra_outbox，
- *       由 OutboxCompensateJob 以指数退避重试，最多 5 次后标记 DEAD 供人工介入；</li>
- *   <li>若连 outbox 也写入失败，打 ERROR 日志告警——此时需要对账任务兜底，
- *       绝不能吞掉异常导致资金状态静默不一致。</li>
+ *   <li>提交后优先同步 Feign 调用 order 的 {@code /inner/order/notify-paid}（幂等），
+ *       成功则把本地消息标记 SUCCESS，链路最短；</li>
+ *   <li>同步失败（order 宕机/网络抖动/降级）时保持 PENDING，
+ *       由 {@code PayOutboxCompensateJob} 以指数退避重试，最多 5 次后标记 DEAD 供人工介入。</li>
  * </ol>
  *
- * <p><b>不影响主流程</b>：本类所有异常都被捕获，不会让第三方回调收到失败响应
- * 而触发渠道侧无意义的重复回调（本地入账已完成，重复回调只会被幂等拦截）。</p>
+ * <p><b>不影响主流程</b>：所有异常都被捕获，不会让第三方回调收到失败响应
+ * 而触发渠道侧无意义的重复回调（本地入账已完成，重复回调会被幂等拦截）。</p>
  */
 @Slf4j
 @Component
 public class PayOrderNotifier {
 
-    private static final String TARGET_SERVICE = "wu-service-order";
-    private static final String TARGET_API = "/inner/order/notify-paid";
-
     @Resource
     private RemoteOrderService remoteOrderService;
     @Resource
-    private RemoteOutboxService remoteOutboxService;
-    @Resource
-    private ObjectMapper objectMapper;
+    private PayOutboxMessageMapper payOutboxMessageMapper;
 
     /**
-     * 通知订单服务「该业务订单已支付」。
-     *
-     * @param orderNo 业务订单号
-     * @param payType 支付方式
+     * 通知订单服务「该业务订单已支付」。若当前存在未提交事务，投递动作延迟到提交后执行。
      */
     public void notifyOrderPaid(String orderNo, String payType) {
         if (orderNo == null || orderNo.isBlank()) {
             return;
         }
-        // 1) 同步优先
+        if (TransactionSynchronizationManager.isActualTransactionActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    deliver(orderNo, payType);
+                }
+            });
+        } else {
+            deliver(orderNo, payType);
+        }
+    }
+
+    /**
+     * 同步投递；成功则把本地消息标记 SUCCESS，失败留给补偿任务重试
+     */
+    private void deliver(String orderNo, String payType) {
         try {
             R<Boolean> resp = remoteOrderService.markPaidByOrderNo(orderNo, payType);
-            if (resp != null && resp.getCode() == R.SUCCESS) {
+            if (resp != null && resp.isSuccess()) {
+                markSuccess(orderNo);
                 log.info("[Pay->Order] 同步通知成功: orderNo={}, matched={}", orderNo, resp.getData());
                 return;
             }
-            log.warn("[Pay->Order] 同步通知未成功，转入本地消息表补偿: orderNo={}, resp={}",
+            log.warn("[Pay->Order] 同步通知未成功，等待本地消息表补偿重试: orderNo={}, resp={}",
                     orderNo, resp == null ? "null" : resp.getMsg());
         } catch (Exception e) {
-            log.warn("[Pay->Order] 同步通知异常，转入本地消息表补偿: orderNo={}, err={}", orderNo, e.getMessage());
+            log.warn("[Pay->Order] 同步通知异常，等待本地消息表补偿重试: orderNo={}, err={}",
+                    orderNo, e.getMessage());
         }
-
-        // 2) 异步兜底
-        saveOutbox(orderNo, payType);
     }
 
-    private void saveOutbox(String orderNo, String payType) {
+    private void markSuccess(String orderNo) {
         try {
-            Map<String, String> payload = new LinkedHashMap<>();
-            payload.put("orderNo", orderNo);
-            if (payType != null) {
-                payload.put("payType", payType);
-            }
-
-            OutboxDTO dto = new OutboxDTO();
-            // bizKey 具备业务唯一性，便于排查与去重
-            dto.setBizKey("pay:order:paid:" + orderNo);
-            dto.setTargetService(TARGET_SERVICE);
-            dto.setTargetApi(TARGET_API);
-            dto.setPayload(objectMapper.writeValueAsString(payload));
-
-            remoteOutboxService.save(dto);
-            log.info("[Pay->Order] 已写入本地消息表待补偿: orderNo={}", orderNo);
+            payOutboxMessageMapper.update(null, new LambdaUpdateWrapper<PayOutboxMessageDO>()
+                    .eq(PayOutboxMessageDO::getBizKey, "pay:order:paid:" + orderNo)
+                    .eq(PayOutboxMessageDO::getStatus, PayOutboxMessageDO.STATUS_PENDING)
+                    .set(PayOutboxMessageDO::getStatus, PayOutboxMessageDO.STATUS_SUCCESS)
+                    .set(PayOutboxMessageDO::getUpdateTime, java.time.LocalDateTime.now()));
         } catch (Exception e) {
-            // 兜底失败属于严重问题：此时只能依赖对账任务发现，必须告警
-            log.error("[Pay->Order] 写入本地消息表失败，订单状态可能不一致，请人工核查! orderNo={}", orderNo, e);
+            // 标记失败不影响正确性：补偿任务重试时对端幂等，重复通知无副作用
+            log.warn("[Pay->Order] 本地消息标记 SUCCESS 失败（补偿任务会重试）: orderNo={}, err={}",
+                    orderNo, e.getMessage());
         }
     }
 }

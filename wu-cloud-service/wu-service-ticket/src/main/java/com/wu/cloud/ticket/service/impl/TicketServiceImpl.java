@@ -3,9 +3,13 @@ package com.wu.cloud.ticket.service.impl;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
-import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.wu.cloud.api.file.dto.SysFileDTO;
+import com.wu.cloud.api.file.feign.RemoteFileService;
+import com.wu.cloud.api.system.dto.SysUserDTO;
+import com.wu.cloud.api.system.feign.RemoteUserService;
 import com.wu.cloud.common.core.PageParam;
 import com.wu.cloud.common.core.domain.PageResult;
+import com.wu.cloud.common.core.domain.R;
 import com.wu.cloud.common.core.context.UserContextHolder;
 import com.wu.cloud.common.exception.BusinessException;
 import com.wu.cloud.common.security.PermissionChecker;
@@ -13,6 +17,7 @@ import com.wu.cloud.ticket.entity.NoticeDO;
 import com.wu.cloud.ticket.entity.TicketAttachmentDO;
 import com.wu.cloud.ticket.entity.TicketCommentDO;
 import com.wu.cloud.ticket.entity.TicketDO;
+import cn.hutool.core.util.StrUtil;
 import org.springframework.web.multipart.MultipartFile;
 import java.io.IOException;
 import java.util.Map;
@@ -23,28 +28,27 @@ import com.wu.cloud.ticket.mapper.TicketMapper;
 import com.wu.cloud.ticket.service.TicketService;
 import com.wu.cloud.ticket.service.UserNameResolver;
 import jakarta.annotation.Resource;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.nio.file.StandardCopyOption;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.UUID;
 
 /**
- * 工单 Service 实现
+ * 工单 Service 实现（MyBatis-Plus 3.5.18 已移除 extension.service.ServiceImpl，
+ * 直接注入 Mapper 承载数据访问；跨域数据经 OpenFeign 契约获取）
  */
+@Slf4j
 @Service
-public class TicketServiceImpl extends ServiceImpl<TicketMapper, TicketDO> implements TicketService {
+public class TicketServiceImpl implements TicketService {
 
+    @Resource
+    private TicketMapper ticketMapper;
     @Resource
     private UserNameResolver userNameResolver;
     @Resource
@@ -53,6 +57,10 @@ public class TicketServiceImpl extends ServiceImpl<TicketMapper, TicketDO> imple
     private NoticeMapper noticeMapper;
     @Resource
     private TicketAttachmentMapper attachmentMapper;
+    @Resource
+    private RemoteUserService remoteUserService;
+    @Resource
+    private RemoteFileService remoteFileService;
 
     private String generateTicketNo() {
         return "TK" + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMddHHmmss"));
@@ -81,7 +89,7 @@ public class TicketServiceImpl extends ServiceImpl<TicketMapper, TicketDO> imple
                     .or().eq(TicketDO::getAssigneeUserId, currentUserId));
         }
         wrapper.orderByDesc(TicketDO::getUpdateTime);
-        Page<TicketDO> result = page(page, wrapper);
+        Page<TicketDO> result = ticketMapper.selectPage(page, wrapper);
         userNameResolver.fillNames(result.getRecords(), TicketDO::getCreatorUserId, TicketDO::setCreatorName);
         userNameResolver.fillNames(result.getRecords(), TicketDO::getAssigneeUserId, TicketDO::setAssigneeName);
         return PageResult.of(result.getRecords(), result.getTotal());
@@ -89,7 +97,7 @@ public class TicketServiceImpl extends ServiceImpl<TicketMapper, TicketDO> imple
 
     @Override
     public TicketDO getDetail(Long id) {
-        TicketDO ticket = getById(id);
+        TicketDO ticket = ticketMapper.selectById(id);
         if (ticket == null) {
             throw new BusinessException(404, "工单不存在");
         }
@@ -98,15 +106,9 @@ public class TicketServiceImpl extends ServiceImpl<TicketMapper, TicketDO> imple
         return ticket;
     }
 
-    /**
-     * 按主键查询工单（内部 RPC 用，委托给 ServiceImpl.getById）
-     * <p>
-     * ServiceImpl.getById 参数为 Serializable，与接口声明的 Long 不完全匹配，
-     * 需显式桥接，否则编译报"未覆盖抽象方法"。
-     */
     @Override
     public TicketDO getById(Long id) {
-        return super.getById(id);
+        return ticketMapper.selectById(id);
     }
 
     @Override
@@ -119,7 +121,7 @@ public class TicketServiceImpl extends ServiceImpl<TicketMapper, TicketDO> imple
         if (ticket.getStatus() == null || ticket.getStatus().isBlank()) {
             ticket.setStatus("OPEN");
         }
-        save(ticket);
+        ticketMapper.insert(ticket);
         return ticket.getId();
     }
 
@@ -128,7 +130,7 @@ public class TicketServiceImpl extends ServiceImpl<TicketMapper, TicketDO> imple
     public void update(TicketDO ticket) {
         ticket.setCreatorUserId(null);
         ticket.setCreator(null);
-        updateById(ticket);
+        ticketMapper.updateById(ticket);
     }
 
     @Override
@@ -155,13 +157,13 @@ public class TicketServiceImpl extends ServiceImpl<TicketMapper, TicketDO> imple
         if ("CLOSED".equals(status)) {
             update.set(TicketDO::getClosedTime, LocalDateTime.now());
         }
-        update(update);
+        ticketMapper.update(null, update);
     }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void assign(Long id, Long assigneeUserId) {
-        update(null, new LambdaUpdateWrapper<TicketDO>()
+        ticketMapper.update(null, new LambdaUpdateWrapper<TicketDO>()
                 .eq(TicketDO::getId, id)
                 .set(TicketDO::getAssigneeUserId, assigneeUserId)
                 .set(TicketDO::getStatus, "IN_PROGRESS"));
@@ -194,7 +196,7 @@ public class TicketServiceImpl extends ServiceImpl<TicketMapper, TicketDO> imple
         noticeMapper.delete(new LambdaQueryWrapper<NoticeDO>()
                 .eq(NoticeDO::getBizType, "TICKET")
                 .eq(NoticeDO::getBizId, id));
-        removeById(id);
+        ticketMapper.deleteById(id);
     }
 
     @Override
@@ -207,7 +209,7 @@ public class TicketServiceImpl extends ServiceImpl<TicketMapper, TicketDO> imple
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void restore(Long id) {
-        int rows = baseMapper.restoreById(id);
+        int rows = ticketMapper.restoreById(id);
         if (rows == 0) {
             throw new BusinessException(404, "回收站工单不存在");
         }
@@ -228,7 +230,7 @@ public class TicketServiceImpl extends ServiceImpl<TicketMapper, TicketDO> imple
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void deletePermanent(Long id) {
-        int rows = baseMapper.deletePhysicalById(id);
+        int rows = ticketMapper.deletePhysicalById(id);
         if (rows == 0) {
             throw new BusinessException(404, "回收站工单不存在");
         }
@@ -242,7 +244,7 @@ public class TicketServiceImpl extends ServiceImpl<TicketMapper, TicketDO> imple
     @Override
     public PageResult<TicketDO> recyclePage(PageParam pageParam, String title, String status, String priority) {
         Page<TicketDO> page = new Page<>(pageParam.getPageNo(), pageParam.getPageSize());
-        Page<TicketDO> result = (Page<TicketDO>) baseMapper.selectDeletedPage(page, title, status, priority);
+        Page<TicketDO> result = (Page<TicketDO>) ticketMapper.selectDeletedPage(page, title, status, priority);
         return PageResult.of(result.getRecords(), result.getTotal());
     }
 
@@ -276,29 +278,29 @@ public class TicketServiceImpl extends ServiceImpl<TicketMapper, TicketDO> imple
     @Transactional(rollbackFor = Exception.class)
     public void purgeExpiredRecycleBin() {
         LocalDateTime cutoff = LocalDateTime.now().minusDays(30);
-        baseMapper.selectExpiredRecycleIds(cutoff).forEach(this::deletePermanent);
+        ticketMapper.selectExpiredRecycleIds(cutoff).forEach(this::deletePermanent);
     }
 
     @Override
     public List<Map<String, Object>> getAssigneeOptions() {
-        // 微服务简化：从最近工单提取处理人列表去重，名称通过 UserNameResolver 解析
-        List<TicketDO> recent = baseMapper.selectList(
-                new LambdaQueryWrapper<TicketDO>()
-                        .isNotNull(TicketDO::getAssigneeUserId)
-                        .orderByDesc(TicketDO::getCreateTime)
-                        .last("LIMIT 200"));
-        Map<Long, Map<String, Object>> dedup = new LinkedHashMap<>();
-        for (TicketDO t : recent) {
-            Long uid = t.getAssigneeUserId();
-            if (uid == null || dedup.containsKey(uid)) {
+        // 启用状态用户全量候选（经用户服务 RPC），新入职员工也能被指派；排除当前登录用户
+        Long currentUserId = UserContextHolder.getUserId();
+        R<List<SysUserDTO>> resp = remoteUserService.listActiveUsers(currentUserId);
+        if (resp == null || !resp.isSuccess() || resp.getData() == null) {
+            throw new BusinessException("用户服务暂不可用，处理人候选列表获取失败，请稍后重试");
+        }
+        List<Map<String, Object>> options = new ArrayList<>(resp.getData().size());
+        for (SysUserDTO user : resp.getData()) {
+            if (user == null || user.getUserId() == null) {
                 continue;
             }
-            Map<String, Object> opt = new HashMap<>();
-            opt.put("userId", uid);
-            opt.put("nickname", userNameResolver.resolve(uid));
-            dedup.put(uid, opt);
+            Map<String, Object> opt = new LinkedHashMap<>();
+            opt.put("userId", user.getUserId());
+            opt.put("username", user.getUsername());
+            opt.put("nickname", user.getNickname());
+            options.add(opt);
         }
-        return new ArrayList<>(dedup.values());
+        return options;
     }
 
     @Override
@@ -312,7 +314,6 @@ public class TicketServiceImpl extends ServiceImpl<TicketMapper, TicketDO> imple
     }
 
     @Override
-    @Transactional(rollbackFor = Exception.class)
     public Long uploadAttachment(Long ticketId, MultipartFile file) throws IOException {
         TicketDO ticket = getById(ticketId);
         if (ticket == null) {
@@ -323,19 +324,24 @@ public class TicketServiceImpl extends ServiceImpl<TicketMapper, TicketDO> imple
         }
         String originFileName = (file.getOriginalFilename() != null && !file.getOriginalFilename().isBlank())
                 ? file.getOriginalFilename() : "file";
-        String safeName = UUID.randomUUID().toString().replace("-", "") + "_" + originFileName;
-        Path uploadDir = Paths.get(System.getProperty("user.dir"), "data", "uploads", "ticket");
-        Files.createDirectories(uploadDir);
-        Path targetPath = uploadDir.resolve(safeName);
-        Files.copy(file.getInputStream(), targetPath, StandardCopyOption.REPLACE_EXISTING);
+
+        // 统一经文件服务存储（受存储配额管控，多实例/容器化部署下均可访问），本服务不落本地磁盘
+        R<SysFileDTO> resp = remoteFileService.uploadFile(file, "ticket");
+        if (resp == null || !resp.isSuccess() || resp.getData() == null
+                || StrUtil.isBlank(resp.getData().getUrl())) {
+            log.warn("[Ticket] 附件上传文件服务失败: ticketId={}, resp={}",
+                    ticketId, resp == null ? "null" : resp.getMsg());
+            throw new BusinessException("文件服务暂不可用，附件上传失败，请稍后重试");
+        }
+        SysFileDTO uploaded = resp.getData();
 
         Long userId = UserContextHolder.getUserId();
         TicketAttachmentDO attachment = new TicketAttachmentDO();
         attachment.setTicketId(ticketId);
         attachment.setUploaderUserId(userId);
         attachment.setFileName(originFileName);
-        attachment.setFilePath(targetPath.toString());
-        attachment.setFileSize(file.getSize());
+        attachment.setFilePath(uploaded.getUrl());
+        attachment.setFileSize(uploaded.getFileSize() != null ? uploaded.getFileSize() : file.getSize());
         attachment.setCreator(userId != null ? userId.toString() : null);
         attachmentMapper.insert(attachment);
         return attachment.getId();

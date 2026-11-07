@@ -51,6 +51,8 @@ class AuthServiceImplForgotPasswordTest {
     @Mock
     private AuthConfigLoader authConfigLoader;
     @Mock
+    private com.wu.cloud.auth.support.PasswordCipherService passwordCipherService;
+    @Mock
     private HttpServletRequest request;
 
     @InjectMocks
@@ -59,6 +61,7 @@ class AuthServiceImplForgotPasswordTest {
     @BeforeEach
     void setUp() {
         when(authConfigLoader.getRegisterMinPasswordLength()).thenReturn(6);
+        when(passwordCipherService.resolve(any())).thenAnswer(inv -> inv.getArgument(0));
     }
 
     @Test

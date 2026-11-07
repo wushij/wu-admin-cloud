@@ -9,7 +9,7 @@ spring:
       - optional:nacos:wu-cloud-common.yaml?group=WU_CLOUD&refreshEnabled=true
       - optional:nacos:${spring.application.name}.yaml?group=WU_CLOUD&refreshEnabled=true
   datasource:
-    url: jdbc:mysql://127.0.0.1:3306/wu-admin?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true&nullCatalogMeansCurrent=true
+    url: jdbc:mysql://127.0.0.1:3306/wu_system?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true&nullCatalogMeansCurrent=true
     username: root
     password: root
     driver-class-name: com.mysql.cj.jdbc.Driver
@@ -83,3 +83,20 @@ knife4j:
     language: zh_cn
     enable-host: true
     enable-host-text: http://localhost:3000/api
+
+# 内网端点零信任令牌(X-Inner-Token)
+wu:
+  security:
+    inner-token: ${INNER_API_TOKEN:}
+
+# ===== Unified file logging: output to <repo>/logs/ (logs/ is git-ignored) =====
+# Console output is kept for mvn spring-boot:run; the file is for post-mortem review.
+# Override the output root with the LOG_DIR environment variable.
+logging:
+  file:
+    name: ${LOG_DIR:E:/wu-admin-cloud/logs}/system.log
+  logback:
+    rollingpolicy:
+      max-file-size: 20MB
+      max-history: 7
+      total-size-cap: 200MB

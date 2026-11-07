@@ -10,7 +10,7 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * 支付服务工厂（替代单体 framework.pay.PayServiceFactory）
+ * 支付服务工厂（替代旧版 framework.pay.PayServiceFactory）
  */
 @Slf4j
 @Component
@@ -30,7 +30,8 @@ public class PayServiceFactory {
     }
 
     public PayService getService(String payType) {
-        PayService service = serviceMap.get(payType);
+        String normalized = payType == null ? "" : payType.trim().toUpperCase(java.util.Locale.ROOT);
+        PayService service = serviceMap.get(normalized);
         if (service == null) {
             throw new RuntimeException("不支持的支付类型: " + payType);
         }
@@ -38,6 +39,9 @@ public class PayServiceFactory {
     }
 
     public boolean isSupported(String payType) {
-        return serviceMap.containsKey(payType);
+        if (payType == null) {
+            return false;
+        }
+        return serviceMap.containsKey(payType.trim().toUpperCase(java.util.Locale.ROOT));
     }
 }

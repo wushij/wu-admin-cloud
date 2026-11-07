@@ -107,6 +107,11 @@
               </div>
             </div>
             <div class="file-name" :title="file.originalName">{{ file.originalName }}</div>
+            <div class="file-engine-badge">
+              <el-tag size="small" effect="plain" :type="getStorageTagType(file.storageType)">
+                {{ getStorageLabel(file.storageType) }}
+              </el-tag>
+            </div>
             <div class="file-actions" @click.stop>
               <a @click="$emit('rename', file)">重命名</a>
               <span>|</span>
@@ -140,6 +145,12 @@
               <div class="file-meta">
                 <span>{{ formatSize(file.fileSize) }}</span>
                 <span>{{ file.createTime }}</span>
+                <el-tag size="small" effect="plain" :type="getStorageTagType(file.storageType)">
+                  {{ getStorageLabel(file.storageType) }}
+                </el-tag>
+                <span v-if="file.bucketName && file.storageType !== 'local'" class="bucket-badge">
+                  空间: {{ file.bucketName }}
+                </span>
               </div>
             </div>
             <div class="file-row-actions action-buttons" @click.stop>
@@ -221,6 +232,24 @@ defineEmits<{
   download: [file: FileRecord]
   delete: [file: FileRecord]
 }>()
+
+function getStorageTagType(type?: string): 'success' | 'primary' | 'warning' | 'info' | 'danger' {
+  switch (type?.toLowerCase()) {
+    case 'minio': return 'danger'
+    case 'cos': return 'info'
+    case 'oss': return 'warning'
+    default: return 'success'
+  }
+}
+
+function getStorageLabel(type?: string): string {
+  switch (type?.toLowerCase()) {
+    case 'minio': return 'MinIO'
+    case 'cos': return 'COS'
+    case 'oss': return 'OSS'
+    default: return '本地'
+  }
+}
 </script>
 
 <style scoped lang="scss">
@@ -430,6 +459,10 @@ defineEmits<{
   min-width: 0;
 }
 
+.file-card .file-engine-badge {
+  margin-bottom: 6px;
+}
+
 .file-row .file-name {
   font-size: 14px;
   overflow: hidden;
@@ -439,10 +472,16 @@ defineEmits<{
 
 .file-meta {
   display: flex;
+  align-items: center;
   gap: 12px;
   font-size: 12px;
   color: var(--el-text-color-secondary);
   margin-top: 2px;
+}
+
+.bucket-badge {
+  font-size: 11px;
+  color: var(--el-text-color-placeholder);
 }
 
 .file-row-actions {
@@ -459,7 +498,7 @@ defineEmits<{
 .pagination-bar {
   padding: 12px 16px;
   display: flex;
-  justify-content: flex-end;
+  justify-content: flex-start;
   border-top: 1px solid var(--el-border-color-lighter);
 }
 

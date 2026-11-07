@@ -10,9 +10,9 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
+import com.wu.cloud.api.system.feign.RemoteUserService;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.ValueOperations;
-import org.springframework.jdbc.core.JdbcTemplate;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
@@ -32,7 +32,7 @@ class PromptAssemblerTest {
     @Mock
     private ValueOperations<String, String> valueOps;
     @Mock
-    private JdbcTemplate jdbcTemplate;
+    private RemoteUserService remoteUserService;
 
     @InjectMocks
     private PromptAssembler promptAssembler;
@@ -54,7 +54,7 @@ class PromptAssemblerTest {
         assertTrue(prompt.contains("当前使用 PC 端"));
         assertTrue(prompt.contains("MODEL_SYS"));
         assertTrue(prompt.contains("安全声明"));
-        verifyNoInteractions(jdbcTemplate);
+        verifyNoInteractions(remoteUserService);
     }
 
     @Test

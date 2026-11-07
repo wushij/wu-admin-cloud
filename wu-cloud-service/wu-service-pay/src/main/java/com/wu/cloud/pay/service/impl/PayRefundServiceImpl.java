@@ -2,7 +2,6 @@ package com.wu.cloud.pay.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
-import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.wu.cloud.common.core.PageParam;
 import com.wu.cloud.common.core.domain.PageResult;
 import com.wu.cloud.common.core.context.UserContextHolder;
@@ -25,12 +24,15 @@ import java.time.format.DateTimeFormatter;
 import java.util.Map;
 
 /**
- * 退款单 Service 实现
+ * 退款单 Service 实现（MyBatis-Plus 3.5.18 已移除 extension.service.ServiceImpl，
+ * 与最新业务规范保持一致：直接注入 Mapper 承载数据访问）
  */
 @Slf4j
 @Service
-public class PayRefundServiceImpl extends ServiceImpl<PayRefundMapper, PayRefundDO> implements PayRefundService {
+public class PayRefundServiceImpl implements PayRefundService {
 
+    @Resource
+    private PayRefundMapper payRefundMapper;
     @Resource
     private PayOrderMapper payOrderMapper;
     @Resource
@@ -50,13 +52,13 @@ public class PayRefundServiceImpl extends ServiceImpl<PayRefundMapper, PayRefund
             wrapper.eq(PayRefundDO::getStatus, status);
         }
         wrapper.orderByDesc(PayRefundDO::getCreateTime);
-        Page<PayRefundDO> result = page(page, wrapper);
+        Page<PayRefundDO> result = payRefundMapper.selectPage(page, wrapper);
         return PageResult.of(result.getRecords(), result.getTotal());
     }
 
     @Override
     public PayRefundDO detail(Long id) {
-        PayRefundDO refund = getById(id);
+        PayRefundDO refund = payRefundMapper.selectById(id);
         if (refund == null) {
             throw new BusinessException(404, "退款单不存在");
         }
@@ -82,7 +84,7 @@ public class PayRefundServiceImpl extends ServiceImpl<PayRefundMapper, PayRefund
         refund.setReason(reason);
         refund.setApplicantUserId(UserContextHolder.getUserId());
         refund.setApplicantName(UserContextHolder.getUsername());
-        save(refund);
+        payRefundMapper.insert(refund);
         return refund.getId();
     }
 
@@ -105,16 +107,16 @@ public class PayRefundServiceImpl extends ServiceImpl<PayRefundMapper, PayRefund
         refund.setStatus("APPROVED");
         refund.setReason(reason);
         refund.setAuditRemark("order 服务内部自动退款");
-        save(refund);
+        payRefundMapper.insert(refund);
         // 联动第三方渠道执行真实退款
         execute(refund.getId());
-        return getById(refund.getId());
+        return payRefundMapper.selectById(refund.getId());
     }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void audit(Long id, Boolean approved, String remark) {
-        PayRefundDO refund = getById(id);
+        PayRefundDO refund = payRefundMapper.selectById(id);
         if (refund == null) {
             throw new BusinessException(404, "退款单不存在");
         }
@@ -126,12 +128,12 @@ public class PayRefundServiceImpl extends ServiceImpl<PayRefundMapper, PayRefund
         refund.setAuditRemark(remark);
         if (Boolean.TRUE.equals(approved)) {
             refund.setStatus("APPROVED");
-            updateById(refund);
+            payRefundMapper.updateById(refund);
             // 审核通过后自动执行退款
             execute(id);
         } else {
             refund.setStatus("REJECTED");
-            updateById(refund);
+            payRefundMapper.updateById(refund);
         }
     }
 
@@ -142,7 +144,7 @@ public class PayRefundServiceImpl extends ServiceImpl<PayRefundMapper, PayRefund
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void execute(Long id) {
-        PayRefundDO refund = getById(id);
+        PayRefundDO refund = payRefundMapper.selectById(id);
         if (refund == null) {
             throw new BusinessException(404, "退款单不存在");
         }
@@ -170,13 +172,13 @@ public class PayRefundServiceImpl extends ServiceImpl<PayRefundMapper, PayRefund
         } else {
             refund.setStatus("PROCESSING");
         }
-        updateById(refund);
+        payRefundMapper.updateById(refund);
     }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void handleRefundNotify(String refundNo, String transactionId, boolean success) {
-        PayRefundDO refund = getOne(new LambdaQueryWrapper<PayRefundDO>()
+        PayRefundDO refund = payRefundMapper.selectOne(new LambdaQueryWrapper<PayRefundDO>()
                 .eq(PayRefundDO::getRefundNo, refundNo));
         if (refund == null) {
             throw new BusinessException(404, "退款单不存在: " + refundNo);
@@ -194,7 +196,7 @@ public class PayRefundServiceImpl extends ServiceImpl<PayRefundMapper, PayRefund
         } else {
             refund.setStatus("FAILED");
         }
-        updateById(refund);
+        payRefundMapper.updateById(refund);
     }
 
     private String generateRefundNo() {

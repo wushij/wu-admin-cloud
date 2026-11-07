@@ -9,7 +9,7 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 /**
- * 支付订单（落库，替代单体内存 PayOrderStore）
+ * 支付订单（落库，替代旧版内存 PayOrderStore）
  */
 @Data
 @EqualsAndHashCode(callSuper = true)

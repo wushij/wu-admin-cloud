@@ -1,5 +1,7 @@
 package com.wu.cloud.pay.controller;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import com.wu.cloud.common.core.PageParam;
 import com.wu.cloud.common.core.domain.PageResult;
 import com.wu.cloud.common.core.domain.R;
@@ -11,6 +13,7 @@ import org.springframework.web.bind.annotation.*;
 /**
  * 退款单 Controller
  */
+@Tag(name = "支付退款")
 @RestController
 @RequestMapping("/api/pay/refund")
 public class PayRefundController {
@@ -21,6 +24,7 @@ public class PayRefundController {
     /**
      * 分页查询退款单
      */
+    @Operation(summary = "分页查询 API 访问日志")
     @GetMapping("/page")
     public R<PageResult<PayRefundDO>> page(PageParam pageParam,
                                            @RequestParam(required = false) String refundNo,
@@ -32,6 +36,7 @@ public class PayRefundController {
     /**
      * 退款单详情
      */
+    @Operation(summary = "下载工单附件")
     @GetMapping("/{id}")
     public R<PayRefundDO> detail(@PathVariable Long id) {
         return R.ok(payRefundService.detail(id));
@@ -40,6 +45,7 @@ public class PayRefundController {
     /**
      * 申请退款
      */
+    @Operation(summary = "新增")
     @PostMapping("/apply")
     public R<Long> apply(@RequestParam Long orderId,
                         @RequestParam(required = false) String reason) {
@@ -49,6 +55,7 @@ public class PayRefundController {
     /**
      * 审核退款
      */
+    @Operation(summary = "审核")
     @PostMapping("/audit")
     public R<Boolean> audit(@RequestParam Long id,
                             @RequestParam Boolean approved,
@@ -60,6 +67,7 @@ public class PayRefundController {
     /**
      * 第三方退款回调（返回第三方要求的纯文本 SUCCESS / FAIL）
      */
+    @Operation(summary = "批量已读")
     @PostMapping("/notify/refund")
     public String refundNotify(@RequestParam String refundNo,
                                @RequestParam(required = false) String transactionId,

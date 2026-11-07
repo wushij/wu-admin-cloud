@@ -1,5 +1,7 @@
 package com.wu.cloud.infra.controller;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import com.alibaba.excel.EasyExcel;
 import com.alibaba.excel.annotation.ExcelProperty;
 import com.wu.cloud.common.core.domain.PageResult;
@@ -26,9 +28,10 @@ import java.util.Map;
 
 /**
  * API 访问日志 REST 控制器。
- * B 队修复：网关 compat-monitor-access 将前端 /system/monitor/api-access/** 重写为
- * /api/infra/access-log/**，此处补齐 /page 与 /statistics（对应前端 getApiAccessPage/getApiAccessStatistics）。
+ * <p>路径说明：前端直接调用 {@code /api/infra/access-log/**}（网关路由 {@code Path=/api/infra/**}），
+ * 不依赖任何网关重写规则。</p>
  */
+@Tag(name = "API 访问统计")
 @RestController
 @RequestMapping("/api/infra/access-log")
 public class AccessLogController {
@@ -40,6 +43,7 @@ public class AccessLogController {
     @Resource
     private ApiAccessLogService apiAccessLogService;
 
+    @Operation(summary = "保存")
     @PostMapping("/save")
     public R<Boolean> save(@RequestBody AccessLogDO accessLogDO) {
         accessLogService.saveAccessLog(accessLogDO);
@@ -47,6 +51,7 @@ public class AccessLogController {
     }
 
     /** B 队修复：分页查询 API 访问日志（前端 getApiAccessPage） */
+    @Operation(summary = "分页查询 API 访问日志")
     @GetMapping("/page")
     public R<PageResult<ApiAccessLogDO>> page(
             @RequestParam(defaultValue = "1") Integer pageNo,
@@ -61,6 +66,7 @@ public class AccessLogController {
     }
 
     /** B 队修复：统计 API 访问日志（前端 getApiAccessStatistics） */
+    @Operation(summary = "获取统计数据")
     @GetMapping("/statistics")
     public R<Map<String, Object>> statistics(
             @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate startDate,
@@ -82,6 +88,7 @@ public class AccessLogController {
 
     /** 导出 API 访问日志（前端 /system/monitor/api-access/export） */
     @RequiresPermissions("monitor:apiAccess:query")
+    @Operation(summary = "导出 API 访问日志")
     @GetMapping("/export")
     public void export(HttpServletResponse response,
                        @RequestParam(defaultValue = "xlsx") String format,

@@ -23,7 +23,7 @@ import java.util.Collection;
  * 网关下游上下文注入过滤器
  * <p>
  * {@code SaReactorFilter} 为 WebFilter，{@code StpUtil.isLogin()} 在 GlobalFilter 阶段常不可用；
- * 与单体「鉴权通过后业务侧能读到登录用户」对齐：从请求 Token（Header/Cookie）解析 loginId，
+ * 与旧版「鉴权通过后业务侧能读到登录用户」对齐：从请求 Token（Header/Cookie）解析 loginId，
  * 向下游注入 {@code X-User-Id} / {@code X-User-Name} / {@code X-User-Roles} / {@code X-User-Permissions}。
  * </p>
  * <p>
@@ -95,7 +95,7 @@ public class AuthGlobalFilter implements GlobalFilter, Ordered {
         }
     }
 
-    /** 与单体 SecurityUtils.getLoginUserDisplayName 一致：昵称优先，无昵称回退账号 */
+    /** 与旧版 SecurityUtils.getLoginUserDisplayName 一致：昵称优先，无昵称回退账号 */
     private String resolveDisplayName(SaSession session) {
         if (session == null) {
             return null;

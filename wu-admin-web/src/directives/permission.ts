@@ -1,8 +1,14 @@
 import type { App, Directive, DirectiveBinding } from 'vue'
 import { useUserStore } from '@/store/user'
-import type { MenuTreeNode } from '@/types/api'
+import {
+  hasPermission,
+  hasMenuPermission,
+  type PermissionValue
+} from '@/utils/permission'
 
-type PermissionValue = string | string[]
+// 向后兼容导出
+export { hasPermission, hasMenuPermission }
+export type { PermissionValue }
 
 /**
  * 权限控制指令
@@ -10,40 +16,13 @@ type PermissionValue = string | string[]
  */
 export const permission: Directive<HTMLElement, PermissionValue> = {
   mounted(el, binding) {
-    const userStore = useUserStore()
     const requiredPermissions = binding.value
     if (!requiredPermissions) return
 
-    const permissionList = Array.isArray(requiredPermissions)
-      ? requiredPermissions
-      : [requiredPermissions]
-
-    const codes = userStore.userInfo.permissions || []
-    const hasPermission = permissionList.some(perm =>
-      codes.includes(perm) || checkPermissionFromMenus(userStore.menus, perm)
-    )
-
-    if (!hasPermission) {
+    if (!hasPermission(requiredPermissions)) {
       el.parentNode?.removeChild(el)
     }
   },
-}
-
-/** 从菜单树中判断是否拥有某权限标识（与角色勾选的菜单/按钮一致） */
-export function hasMenuPermission(menus: MenuTreeNode[], permission: string): boolean {
-  return checkPermissionFromMenus(menus, permission)
-}
-
-function checkPermissionFromMenus(menus: MenuTreeNode[] | undefined, permission: string): boolean {
-  if (!menus?.length) return false
-
-  for (const menu of menus) {
-    if (menu.permission === permission) return true
-    if (menu.children?.length && checkPermissionFromMenus(menu.children, permission)) {
-      return true
-    }
-  }
-  return false
 }
 
 /**

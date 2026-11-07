@@ -9,6 +9,7 @@ import org.springframework.cloud.openfeign.FallbackFactory;
 import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
+import java.util.Map;
 
 /**
  * 远程支付服务 Feign 降级工厂（P0-3 修复）
@@ -29,6 +30,11 @@ public class RemotePayServiceFallback implements FallbackFactory<RemotePayServic
             @Override
             public R<PayRefundDTO> applyRefund(String orderNo, BigDecimal amount, String reason) {
                 return R.fail("支付服务暂不可用，退款失败");
+            }
+
+            @Override
+            public R<Map<String, String>> testChannel(String payType) {
+                return R.fail("支付服务暂不可用，渠道测试失败");
             }
         };
     }

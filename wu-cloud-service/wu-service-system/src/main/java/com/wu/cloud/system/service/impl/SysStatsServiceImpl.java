@@ -208,6 +208,22 @@ public class SysStatsServiceImpl implements SysStatsService {
         }
     }
 
+    @Override
+    public Map<String, Long> countLoginSince(int days) {
+        int validDays = Math.max(1, Math.min(days, 30));
+        LocalDateTime since = LocalDateTime.now().minusDays(validDays);
+        Long success = sysLoginLogMapper.selectCount(new LambdaQueryWrapper<SysLoginLogDO>()
+                .ge(SysLoginLogDO::getLoginTime, since)
+                .eq(SysLoginLogDO::getStatus, 0));
+        Long fail = sysLoginLogMapper.selectCount(new LambdaQueryWrapper<SysLoginLogDO>()
+                .ge(SysLoginLogDO::getLoginTime, since)
+                .eq(SysLoginLogDO::getStatus, 1));
+        Map<String, Long> result = new LinkedHashMap<>();
+        result.put("successCount", nullSafe(success));
+        result.put("failCount", nullSafe(fail));
+        return result;
+    }
+
     /**
      * 读取指定日期的访问量
      */

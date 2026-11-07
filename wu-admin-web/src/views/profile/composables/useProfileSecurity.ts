@@ -8,6 +8,12 @@ import {
 } from '@/api/system/profile'
 import { sliderVerifyToRequest } from '@/types/slider-captcha'
 import type { SliderVerifyPayload } from '@/types/slider-captcha'
+import { encryptPasswordForTransport } from '@/utils/password-crypto'
+
+/** 口令统一走 SM2 传输加密，与服务端 sm2EncryptEnabled 联动 */
+function encryptPassword(plain: string): string {
+  return encryptPasswordForTransport(plain)
+}
 
 export function useProfileSecurity(
   getMinPwdLen: () => number,
@@ -58,7 +64,7 @@ export function useProfileSecurity(
     confirmPassword: [
       { required: true, message: '请确认新密码', trigger: 'blur' },
       {
-        validator: (_rule: unknown, value: string, callback: (error?: Error) => void) => {
+        validator: (_rule: any, value: string, callback: any) => {
           if (value !== pwdForm.newPassword) callback(new Error('两次输入的密码不一致'))
           else callback()
         },
@@ -79,7 +85,7 @@ export function useProfileSecurity(
     confirmPassword: [
       { required: true, message: '请确认新密码', trigger: 'blur' },
       {
-        validator: (_rule: unknown, value: string, callback: (error?: Error) => void) => {
+        validator: (_rule: any, value: string, callback: any) => {
           if (value !== smsPwdForm.newPassword) callback(new Error('两次输入的密码不一致'))
           else callback()
         },
@@ -100,7 +106,7 @@ export function useProfileSecurity(
     confirmPassword: [
       { required: true, message: '请确认新密码', trigger: 'blur' },
       {
-        validator: (_rule: unknown, value: string, callback: (error?: Error) => void) => {
+        validator: (_rule: any, value: string, callback: any) => {
           if (value !== emailPwdForm.newPassword) callback(new Error('两次输入的密码不一致'))
           else callback()
         },
@@ -231,8 +237,8 @@ export function useProfileSecurity(
     try {
       await resetPasswordByEmail({
         emailCode: emailPwdForm.emailCode.trim(),
-        newPassword: emailPwdForm.newPassword,
-        confirmPassword: emailPwdForm.confirmPassword,
+        newPassword: encryptPassword(emailPwdForm.newPassword),
+        confirmPassword: encryptPassword(emailPwdForm.confirmPassword),
       })
       ElMessage.success('密码已通过邮箱验证成功重置，请妥善保管新密码')
       resetEmailPwdForm()
@@ -299,7 +305,11 @@ export function useProfileSecurity(
     if (!valid) return
     savingPwd.value = true
     try {
-      await changePassword({ oldPassword: pwdForm.oldPassword, newPassword: pwdForm.newPassword, confirmPassword: pwdForm.confirmPassword })
+      await changePassword({
+        oldPassword: encryptPassword(pwdForm.oldPassword),
+        newPassword: encryptPassword(pwdForm.newPassword),
+        confirmPassword: encryptPassword(pwdForm.confirmPassword),
+      })
       ElMessage.success('密码修改成功，请妥善保管新密码')
       resetPwdForm()
     } finally { savingPwd.value = false }
@@ -310,7 +320,11 @@ export function useProfileSecurity(
     if (!valid) return
     savingSmsPwd.value = true
     try {
-      await resetPasswordBySms({ smsCode: smsPwdForm.smsCode.trim(), newPassword: smsPwdForm.newPassword, confirmPassword: smsPwdForm.confirmPassword })
+      await resetPasswordBySms({
+        smsCode: smsPwdForm.smsCode.trim(),
+        newPassword: encryptPassword(smsPwdForm.newPassword),
+        confirmPassword: encryptPassword(smsPwdForm.confirmPassword),
+      })
       ElMessage.success('密码已重置，请使用新密码登录')
       resetSmsPwdForm()
       securityMode.value = 'password'

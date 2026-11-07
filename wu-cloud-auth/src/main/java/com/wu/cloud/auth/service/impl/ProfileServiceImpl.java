@@ -58,6 +58,9 @@ public class ProfileServiceImpl implements ProfileService {
     private VerifyCodeService verifyCodeService;
 
     @Resource
+    private com.wu.cloud.auth.support.PasswordCipherService passwordCipherService;
+
+    @Resource
     private AuthProperties authProperties;
 
     @Override
@@ -80,7 +83,7 @@ public class ProfileServiceImpl implements ProfileService {
         vo.setUserId(profile.getUserId());
         vo.setUsername(profile.getUsername());
         vo.setNickname(profile.getNickname());
-        // 与单体 buildProfileMap 一致：返回完整手机号/邮箱，前端自行脱敏展示
+        // 与旧版 buildProfileMap 一致：返回完整手机号/邮箱，前端自行脱敏展示
         vo.setMobile(profile.getMobile());
         vo.setEmail(profile.getEmail());
         vo.setAvatar(profile.getAvatar());
@@ -128,19 +131,23 @@ public class ProfileServiceImpl implements ProfileService {
         if (changeDTO == null || !StringUtils.hasText(changeDTO.getOldPassword())) {
             throw new BusinessException("请输入原密码");
         }
-        AuthUtils.validatePassword(changeDTO.getNewPassword(),
-                changeDTO.getConfirmPassword(), authProperties.getPasswordMinLength());
+        // SM2 口令传输：原密码/新密码/确认密码都可能以密文提交，先统一还原为明文
+        String plainOldPassword = passwordCipherService.resolve(changeDTO.getOldPassword());
+        String plainNewPassword = passwordCipherService.resolve(changeDTO.getNewPassword());
+        String plainConfirmPassword = passwordCipherService.resolve(changeDTO.getConfirmPassword());
+        AuthUtils.validatePassword(plainNewPassword,
+                plainConfirmPassword, authProperties.getPasswordMinLength());
 
         LoginUserDTO user = currentUser();
-        if (!AuthUtils.matchPassword(changeDTO.getOldPassword(), user.getPassword())) {
+        if (!AuthUtils.matchPassword(plainOldPassword, user.getPassword())) {
             throw new BusinessException("原密码不正确");
         }
-        if (AuthUtils.matchPassword(changeDTO.getNewPassword(), user.getPassword())) {
+        if (AuthUtils.matchPassword(plainNewPassword, user.getPassword())) {
             throw new BusinessException("新密码不能与原密码相同");
         }
 
         assertSuccess(remoteUserService.resetPassword(user.getUserId(),
-                AuthUtils.encryptPassword(changeDTO.getNewPassword())), "密码修改失败");
+                AuthUtils.encryptPassword(plainNewPassword)), "密码修改失败");
 
         // 密码变更后强制重新登录
         StpUtil.logout();
@@ -221,8 +228,10 @@ public class ProfileServiceImpl implements ProfileService {
         if (resetDTO == null) {
             throw new BusinessException("参数不能为空");
         }
-        AuthUtils.validatePassword(resetDTO.getNewPassword(),
-                resetDTO.getConfirmPassword(), authProperties.getPasswordMinLength());
+        String plainSmsNewPassword = passwordCipherService.resolve(resetDTO.getNewPassword());
+        String plainSmsConfirmPassword = passwordCipherService.resolve(resetDTO.getConfirmPassword());
+        AuthUtils.validatePassword(plainSmsNewPassword,
+                plainSmsConfirmPassword, authProperties.getPasswordMinLength());
 
         LoginUserDTO user = currentUser();
         if (!StringUtils.hasText(user.getMobile())) {
@@ -232,7 +241,7 @@ public class ProfileServiceImpl implements ProfileService {
                 user.getMobile(), resetDTO.getCode());
 
         assertSuccess(remoteUserService.resetPassword(user.getUserId(),
-                AuthUtils.encryptPassword(resetDTO.getNewPassword())), "密码重置失败");
+                AuthUtils.encryptPassword(plainSmsNewPassword)), "密码重置失败");
         StpUtil.logout();
     }
 
@@ -251,8 +260,10 @@ public class ProfileServiceImpl implements ProfileService {
         if (resetDTO == null) {
             throw new BusinessException("参数不能为空");
         }
-        AuthUtils.validatePassword(resetDTO.getNewPassword(),
-                resetDTO.getConfirmPassword(), authProperties.getPasswordMinLength());
+        String plainEmailNewPassword = passwordCipherService.resolve(resetDTO.getNewPassword());
+        String plainEmailConfirmPassword = passwordCipherService.resolve(resetDTO.getConfirmPassword());
+        AuthUtils.validatePassword(plainEmailNewPassword,
+                plainEmailConfirmPassword, authProperties.getPasswordMinLength());
 
         LoginUserDTO user = currentUser();
         if (!StringUtils.hasText(user.getEmail())) {
@@ -262,7 +273,7 @@ public class ProfileServiceImpl implements ProfileService {
                 user.getEmail(), resetDTO.getCode());
 
         assertSuccess(remoteUserService.resetPassword(user.getUserId(),
-                AuthUtils.encryptPassword(resetDTO.getNewPassword())), "密码重置失败");
+                AuthUtils.encryptPassword(plainEmailNewPassword)), "密码重置失败");
         StpUtil.logout();
     }
 

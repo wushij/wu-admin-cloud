@@ -42,4 +42,10 @@ public interface RemoteStatsService {
      */
     @PostMapping("/visit")
     R<Boolean> recordVisit();
+
+    /**
+     * 近 N 天（1~30）登录成功/失败次数统计（AI 登录统计工具等场景）
+     */
+    @GetMapping("/login-count")
+    R<Map<String, Long>> countLoginByStartTime(@RequestParam(value = "days", defaultValue = "7") Integer days);
 }

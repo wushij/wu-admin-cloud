@@ -1,8 +1,7 @@
 .profile-page {
   min-height: 100%;
-}
 
-/* 顶部横幅 */
+  /* 顶部横幅 */
 .profile-hero {
   position: relative;
   border-radius: 14px;
@@ -542,7 +541,7 @@
 
 .logs-pagination {
   margin-top: 16px;
-  justify-content: flex-end;
+  justify-content: flex-start;
 }
 
 /* 右侧面板 */
@@ -639,3 +638,5 @@
     font-size: 13px;
   }
 }
+}
+

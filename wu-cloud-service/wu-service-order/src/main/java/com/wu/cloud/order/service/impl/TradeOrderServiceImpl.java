@@ -2,7 +2,6 @@ package com.wu.cloud.order.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
-import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.wu.cloud.common.core.PageParam;
 import com.wu.cloud.common.core.domain.PageResult;
 import com.wu.cloud.common.core.context.UserContextHolder;
@@ -29,10 +28,10 @@ import java.util.Map;
 import java.util.Set;
 
 /**
- * 交易订单 Service 实现
+ * 交易订单 Service 实现（MyBatis-Plus 3.5.18 已移除 extension.service.ServiceImpl，直接注入 Mapper）
  */
 @Service
-public class TradeOrderServiceImpl extends ServiceImpl<TradeOrderMapper, TradeOrderDO> implements TradeOrderService {
+public class TradeOrderServiceImpl implements TradeOrderService {
 
     /** 状态流转矩阵：key=当前状态，value=允许流转的目标状态集合 */
     private static final Map<String, Set<String>> TRANSITION_MATRIX = new HashMap<>();
@@ -43,6 +42,9 @@ public class TradeOrderServiceImpl extends ServiceImpl<TradeOrderMapper, TradeOr
         TRANSITION_MATRIX.put("SHIPPED", Set.of("COMPLETED", "REFUNDED"));
         TRANSITION_MATRIX.put("COMPLETED", Set.of("REFUNDED"));
     }
+
+    @Resource
+    private TradeOrderMapper tradeOrderMapper;
 
     @Resource
     private OrderItemMapper orderItemMapper;
@@ -64,13 +66,13 @@ public class TradeOrderServiceImpl extends ServiceImpl<TradeOrderMapper, TradeOr
             wrapper.eq(TradeOrderDO::getStatus, status);
         }
         wrapper.orderByDesc(TradeOrderDO::getCreateTime);
-        Page<TradeOrderDO> result = page(page, wrapper);
+        Page<TradeOrderDO> result = tradeOrderMapper.selectPage(page, wrapper);
         return PageResult.of(result.getRecords(), result.getTotal());
     }
 
     @Override
     public TradeOrderDO getDetail(Long id) {
-        TradeOrderDO order = getById(id);
+        TradeOrderDO order = tradeOrderMapper.selectById(id);
         if (order == null) {
             throw new BusinessException(404, "订单不存在");
         }
@@ -90,7 +92,7 @@ public class TradeOrderServiceImpl extends ServiceImpl<TradeOrderMapper, TradeOr
             order.setPayAmount(order.getTotalAmount());
         }
         order.setStatus("PENDING");
-        save(order);
+        tradeOrderMapper.insert(order);
         // 保存订单明细并扣减库存
         List<OrderItemDO> items = order.getItems();
         if (items != null && !items.isEmpty()) {
@@ -112,27 +114,27 @@ public class TradeOrderServiceImpl extends ServiceImpl<TradeOrderMapper, TradeOr
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void update(TradeOrderDO order) {
-        TradeOrderDO exist = getById(order.getId());
+        TradeOrderDO exist = tradeOrderMapper.selectById(order.getId());
         if (exist == null || !"PENDING".equals(exist.getStatus())) {
             throw new BusinessException("仅待支付订单可编辑");
         }
         exist.setSubject(order.getSubject());
         exist.setTotalAmount(order.getTotalAmount());
         exist.setPayAmount(order.getPayAmount());
-        updateById(exist);
+        tradeOrderMapper.updateById(exist);
     }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void pay(Long id, String payType) {
-        TradeOrderDO order = getById(id);
+        TradeOrderDO order = tradeOrderMapper.selectById(id);
         if (order == null) {
             throw new BusinessException(404, "订单不存在");
         }
         transition(id, "PAID");
         order.setPayType(payType);
         order.setPayTime(LocalDateTime.now());
-        updateById(order);
+        tradeOrderMapper.updateById(order);
     }
 
     @Override
@@ -141,7 +143,7 @@ public class TradeOrderServiceImpl extends ServiceImpl<TradeOrderMapper, TradeOr
         if (orderNo == null || orderNo.isBlank()) {
             return false;
         }
-        TradeOrderDO order = getOne(new LambdaQueryWrapper<TradeOrderDO>().eq(TradeOrderDO::getOrderNo, orderNo).last("LIMIT 1"));
+        TradeOrderDO order = tradeOrderMapper.selectOne(new LambdaQueryWrapper<TradeOrderDO>().eq(TradeOrderDO::getOrderNo, orderNo).last("LIMIT 1"));
         if (order == null) {
             // 仅支付、无对应业务订单的场景，静默返回
             return false;
@@ -157,7 +159,7 @@ public class TradeOrderServiceImpl extends ServiceImpl<TradeOrderMapper, TradeOr
         order.setStatus("PAID");
         order.setPayType(payType);
         order.setPayTime(LocalDateTime.now());
-        updateById(order);
+        tradeOrderMapper.updateById(order);
         return true;
     }
 
@@ -171,15 +173,15 @@ public class TradeOrderServiceImpl extends ServiceImpl<TradeOrderMapper, TradeOr
     @Transactional(rollbackFor = Exception.class)
     public void complete(Long id) {
         transition(id, "COMPLETED");
-        TradeOrderDO order = getById(id);
+        TradeOrderDO order = tradeOrderMapper.selectById(id);
         order.setFinishTime(LocalDateTime.now());
-        updateById(order);
+        tradeOrderMapper.updateById(order);
     }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void cancel(Long id) {
-        TradeOrderDO order = getById(id);
+        TradeOrderDO order = tradeOrderMapper.selectById(id);
         if (order == null) {
             throw new BusinessException(404, "订单不存在");
         }
@@ -190,12 +192,12 @@ public class TradeOrderServiceImpl extends ServiceImpl<TradeOrderMapper, TradeOr
 
     @Override
     public void delete(Long id) {
-        removeById(id);
+        tradeOrderMapper.deleteById(id);
     }
 
     @Override
     public List<TradeOrderDO> listByUser(Long userId) {
-        return list(new LambdaQueryWrapper<TradeOrderDO>()
+        return tradeOrderMapper.selectList(new LambdaQueryWrapper<TradeOrderDO>()
                 .eq(TradeOrderDO::getUserId, userId)
                 .orderByDesc(TradeOrderDO::getCreateTime));
     }
@@ -210,7 +212,7 @@ public class TradeOrderServiceImpl extends ServiceImpl<TradeOrderMapper, TradeOr
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void transition(Long id, String targetStatus) {
-        TradeOrderDO order = getById(id);
+        TradeOrderDO order = tradeOrderMapper.selectById(id);
         if (order == null) {
             throw new BusinessException(404, "订单不存在");
         }
@@ -220,7 +222,7 @@ public class TradeOrderServiceImpl extends ServiceImpl<TradeOrderMapper, TradeOr
             throw new BusinessException("订单状态不允许从[" + currentStatus + "]流转到[" + targetStatus + "]");
         }
         order.setStatus(targetStatus);
-        updateById(order);
+        tradeOrderMapper.updateById(order);
     }
 
     @Override
@@ -233,7 +235,7 @@ public class TradeOrderServiceImpl extends ServiceImpl<TradeOrderMapper, TradeOr
         if (endDate != null && !endDate.isBlank()) {
             wrapper.le(TradeOrderDO::getCreateTime, LocalDate.parse(endDate).atTime(23, 59, 59));
         }
-        List<TradeOrderDO> orders = list(wrapper);
+        List<TradeOrderDO> orders = tradeOrderMapper.selectList(wrapper);
 
         long totalOrders = orders.size();
         BigDecimal totalAmount = orders.stream()

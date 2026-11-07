@@ -10,7 +10,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
 
 /**
- * 动态配置助手：对齐单体 SystemConfigHelper，从 sys_config_group 读取配置。
+ * 动态配置助手：与既有规范对齐 SystemConfigHelper，从 sys_config_group 读取配置。
  * <p>
  * 有 JDBC 的服务通过 Mapper 查表；无 JDBC 的通过 Feign 获取。
  * 使用方在构造时传入 configValueLoader（groupCode -> configValue JSON 字符串）。

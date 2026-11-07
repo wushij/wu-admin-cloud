@@ -5,7 +5,7 @@ import lombok.Data;
 import java.io.Serializable;
 
 /**
- * 会话签名初始化返回对象，与单体前端 {@code security-config.ts} 期望结构保持一致：
+ * 会话签名初始化返回对象，与旧版前端 {@code security-config.ts} 期望结构保持一致：
  * <ul>
  *     <li>{@code enabled}：是否启用签名/加密（前端 {@code request.ts} 据此决定是否生效）</li>
  *     <li>{@code sm3SignKey}：HMAC-SM3 签名密钥（64 位 Hex）</li>

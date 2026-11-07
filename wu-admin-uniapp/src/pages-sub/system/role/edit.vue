@@ -40,6 +40,45 @@
 
       <view class="form-section card--elevated">
         <view class="form-section__head">
+          <ModuleIcon icon="shield-o" theme="role" size="sm" />
+          <view class="form-section__intro">
+            <text class="form-section__title">数据权限</text>
+            <text class="form-section__desc">控制该角色可查看的数据范围</text>
+          </view>
+        </view>
+
+        <view class="form-fields">
+          <FormCell
+            label="数据范围"
+            clickable
+            boxed
+            arrow
+            :last="form.dataScope !== 2"
+            @click="pickDataScope"
+          >
+            <text class="picker-value">{{ dataScopeLabel }}</text>
+          </FormCell>
+          <FormCell
+            v-if="form.dataScope === 2"
+            label="可见部门"
+            clickable
+            boxed
+            arrow
+            last
+            @click="pickDept"
+          >
+            <text
+              class="picker-value"
+              :class="{ 'picker-value--muted': !form.dataScopeDeptIds.length }"
+            >
+              {{ selectedDeptLabel }}
+            </text>
+          </FormCell>
+        </view>
+      </view>
+
+      <view class="form-section card--elevated">
+        <view class="form-section__head">
           <ModuleIcon icon="setting-o" theme="role" size="sm" />
           <view class="form-section__intro">
             <text class="form-section__title">状态与备注</text>
@@ -66,14 +105,17 @@
 
 <script setup lang="ts">
 import { ref, computed } from 'vue'
-import { onLoad } from '@dcloudio/uni-app'
-import ModuleDarkHero from '@/components/common/ModuleDarkHero/index.vue'
-import ModuleIcon from '@/components/common/ModuleIcon/index.vue'
-import ListLoading from '@/components/common/ListLoading/index.vue'
-import FormCell from '@/components/common/FormCell/index.vue'
-import PageFooter from '@/components/common/PageFooter/index.vue'
-import { useRoleForm } from '@/composables/useRoleForm'
-import { useEditPageGuard } from '@/composables/useEditPageGuard'
+import { onLoad, onShow } from '@dcloudio/uni-app'
+import ModuleDarkHero from '@/components/layout/ModuleDarkHero/index.vue'
+import ModuleIcon from '@/components/base/ModuleIcon/index.vue'
+import ListLoading from '@/components/base/ListLoading/index.vue'
+import FormCell from '@/components/base/FormCell/index.vue'
+import PageFooter from '@/components/base/PageFooter/index.vue'
+import { useRoleForm } from '@/composables/system/useRoleForm'
+import { useEditPageGuard } from '@/composables/base/useEditPageGuard'
+import { setTreeSelectDeptIds } from '@/utils/tree/tree-select-init'
+import { consumePagePickerResult } from '@/utils/nav/page-picker-result'
+import { appendNavFromParam } from '@/utils/nav/nav-from'
 
 const roleId = ref(0)
 const {
@@ -83,9 +125,14 @@ const {
   form,
   statusOptions,
   statusIndex,
+  dataScopeOptions,
+  dataScopeLabel,
+  selectedDeptLabel,
   initCreate,
   loadRole,
   onStatusChange,
+  onDataScopeChange,
+  setDeptSelection,
   save,
 } = useRoleForm()
 
@@ -96,6 +143,8 @@ const { resetBaseline } = useEditPageGuard(
     sort: form.sort,
     remark: form.remark,
     statusIndex: statusIndex.value,
+    dataScope: form.dataScope,
+    dataScopeDeptIds: [...form.dataScopeDeptIds].sort((a, b) => a - b),
   }),
   { loading },
 )
@@ -113,6 +162,30 @@ function pickStatus() {
     success: (res) => onStatusChange({ detail: { value: res.tapIndex } }),
   })
 }
+
+function pickDataScope() {
+  uni.showActionSheet({
+    itemList: dataScopeOptions.map((item) => item.label),
+    success: (res) => onDataScopeChange({ detail: { value: res.tapIndex } }),
+  })
+}
+
+function pickDept() {
+  setTreeSelectDeptIds([...form.dataScopeDeptIds])
+  uni.navigateTo({
+    url: appendNavFromParam(
+      `/pages-sub/system/tree-select?type=dept-multi&title=${encodeURIComponent('选择可见部门')}`,
+    ),
+  })
+}
+
+function applyPickerResults() {
+  const result = consumePagePickerResult('dept-multi')
+  if (!result) return
+  setDeptSelection(result.ids || [], result.labelText || '')
+}
+
+onShow(applyPickerResults)
 
 onLoad((options) => {
   if (options?.mode === 'create') {

@@ -1,5 +1,7 @@
 package com.wu.cloud.system.controller;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.wu.cloud.api.log.Log;
 import com.wu.cloud.common.core.domain.PageQuery;
@@ -23,6 +25,7 @@ import java.util.stream.Collectors;
 /**
  * 部门管理 REST
  */
+@Tag(name = "部门管理")
 @RestController
 @RequestMapping("/api/system/dept")
 public class DeptController {
@@ -33,12 +36,14 @@ public class DeptController {
     private SysRecycleService sysRecycleService;
 
     @RequiresPermissions("system:dept:list")
+    @Operation(summary = "在线用户列表")
     @GetMapping("/list")
     public R<List<SysDeptDO>> getDeptList() {
         return R.ok(deptService.getDeptList());
     }
 
     @RequiresPermissions("system:dept:list")
+    @Operation(summary = "获取树形结构")
     @GetMapping("/tree")
     public R<List<Map<String, Object>>> getDeptTree(
             @RequestParam(required = false) String name,
@@ -59,36 +64,41 @@ public class DeptController {
     }
 
     @RequiresPermissions("system:dept:query")
+    @Operation(summary = "获取菜单详情")
     @GetMapping("/get")
     public R<SysDeptDO> getDept(@RequestParam("id") Long id) {
         return R.ok(deptService.getDept(id));
     }
 
-    @RequiresPermissions("system:dept:add")
+    @RequiresPermissions("system:dept:create")
     @Log(title = "部门管理", businessType = Log.BusinessType.INSERT)
+    @Operation(summary = "新增菜单")
     @PostMapping("/create")
     public R<Long> createDept(@RequestBody SysDeptDO deptDO) {
         return R.ok(deptService.createDept(deptDO));
     }
 
-    @RequiresPermissions("system:dept:edit")
+    @RequiresPermissions("system:dept:update")
     @Log(title = "部门管理", businessType = Log.BusinessType.UPDATE)
+    @Operation(summary = "修改菜单")
     @PutMapping("/update")
     public R<Boolean> updateDept(@RequestBody SysDeptDO deptDO) {
         deptService.updateDept(deptDO);
         return R.ok(true);
     }
 
-    @RequiresPermissions("system:dept:remove")
+    @RequiresPermissions("system:dept:delete")
     @Log(title = "部门管理", businessType = Log.BusinessType.DELETE)
+    @Operation(summary = "删除菜单")
     @DeleteMapping("/delete")
     public R<Boolean> deleteDept(@RequestParam("id") Long id) {
         deptService.deleteDept(id);
         return R.ok(true);
     }
 
-    @RequiresPermissions("system:dept:edit")
+    @RequiresPermissions("system:dept:update")
     @Log(title = "部门管理", businessType = Log.BusinessType.UPDATE)
+    @Operation(summary = "移动")
     @PutMapping("/move")
     public R<Boolean> move(@RequestParam("id") Long id,
                            @RequestParam("parentId") Long parentId,
@@ -104,8 +114,9 @@ public class DeptController {
         return R.ok(true);
     }
 
-    @RequiresPermissions("system:dept:edit")
+    @RequiresPermissions("system:dept:update")
     @Log(title = "部门管理", businessType = Log.BusinessType.UPDATE)
+    @Operation(summary = "更新菜单状态")
     @PutMapping("/update-status")
     public R<Boolean> updateStatus(@RequestParam("id") Long id, @RequestParam("status") Integer status) {
         deptService.updateStatus(id, status);
@@ -113,6 +124,7 @@ public class DeptController {
     }
 
     @RequiresPermissions("system:dept:list")
+    @Operation(summary = "分页查询 API 访问日志")
     @GetMapping("/recycle/page")
     public R<PageResult<SysDeptDO>> recyclePage(PageQuery pageQuery,
                                                 @RequestParam(value = "name", required = false) String name,
@@ -122,22 +134,25 @@ public class DeptController {
         return R.ok(PageResult.of(page.getRecords(), page.getTotal()));
     }
 
-    @RequiresPermissions("system:dept:edit")
+    @RequiresPermissions("system:dept:update")
     @Log(title = "部门管理", businessType = Log.BusinessType.UPDATE)
+    @Operation(summary = "恢复菜单")
     @PutMapping("/restore")
     public R<Boolean> restore(@RequestParam("id") Long id) {
         return R.ok(sysRecycleService.restoreDept(id));
     }
 
     /** 兼容旧 POST */
-    @RequiresPermissions("system:dept:edit")
+    @RequiresPermissions("system:dept:update")
+    @Operation(summary = "恢复数据")
     @PostMapping("/restore")
     public R<Boolean> restorePost(@RequestParam("id") Long id) {
         return restore(id);
     }
 
-    @RequiresPermissions("system:dept:remove")
+    @RequiresPermissions("system:dept:delete")
     @Log(title = "部门管理", businessType = Log.BusinessType.DELETE)
+    @Operation(summary = "彻底删除菜单")
     @DeleteMapping("/delete-permanent")
     public R<Boolean> deletePermanent(@RequestParam("id") Long id) {
         return R.ok(sysRecycleService.purgeDept(id));

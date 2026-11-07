@@ -27,4 +27,7 @@ public interface AiChatService {
 
     /** 重命名会话（更新该会话最新一条记录的 question 为 title） */
     boolean renameConversation(String conversationId, String title);
+
+    /** 清空当前用户的全部会话记录 */
+    boolean clearConversations();
 }

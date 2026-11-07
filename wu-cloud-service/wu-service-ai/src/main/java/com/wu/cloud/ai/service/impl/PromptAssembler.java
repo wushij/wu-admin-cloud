@@ -4,13 +4,16 @@ import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.util.StrUtil;
 import cn.hutool.json.JSONObject;
 import cn.hutool.json.JSONUtil;
+import com.wu.cloud.api.system.dto.AiUserContextDTO;
+import com.wu.cloud.api.system.dto.SysMenuDTO;
+import com.wu.cloud.api.system.feign.RemoteUserService;
 import com.wu.cloud.ai.util.AiPromptTemplates;
 import com.wu.cloud.common.config.DynamicConfigHelper;
+import com.wu.cloud.common.core.domain.R;
 import jakarta.annotation.Resource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.redis.core.StringRedisTemplate;
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
 
 import java.time.Duration;
@@ -18,13 +21,14 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
 /**
- * L1 系统提示词组装器（对齐单体 PromptAssembler）
+ * L1 系统提示词组装器
  * <p>
  * 人设 → 全局知识 → 菜单结构 → 用户上下文(昵称/部门/角色名) → 模型 systemPrompt → 注入防护。
- * AI 与 system 共用同一业务库，直接 JDBC 查询（与单体同库直读一致），避免 Feign 失败导致空上下文。
+ * 用户档案/部门/角色/菜单统一由 wu-service-system 的 /inner/system/user/ai-context
+ * 聚合接口提供（单次 RPC），本服务不持有任何用户侧表；
+ * 组装结果按用户维度缓存 Redis 10 分钟，降低 RPC 压力。
  * </p>
  */
 @Component
@@ -48,7 +52,7 @@ public class PromptAssembler {
     private StringRedisTemplate stringRedisTemplate;
 
     @Resource
-    private JdbcTemplate jdbcTemplate;
+    private RemoteUserService remoteUserService;
 
     public String assemble(Long userId, String modelSystemPrompt, String source, String latestUserQuery) {
         StringBuilder sb = new StringBuilder(AiPromptTemplates.PERSONA);
@@ -129,7 +133,7 @@ public class PromptAssembler {
             String cachedJson = stringRedisTemplate.opsForValue().get(cacheKey);
             if (StrUtil.isNotBlank(cachedJson)) {
                 JSONObject json = JSONUtil.parseObj(cachedJson);
-                // 旧版空缓存（只有端来源）作废，强制重建
+                // 空上下文缓存作废，强制重建
                 String ctx = json.getStr("ctx", "");
                 if (StrUtil.isNotBlank(ctx) && ctx.contains("当前用户：")) {
                     json.set("ctx", appendSource(ctx, source));
@@ -140,9 +144,11 @@ public class PromptAssembler {
             log.warn("AI 用户上下文缓存读取失败，降级实时构建: {}", e.getMessage());
         }
 
-        String ctx = buildUserContext(userId);
-        String menu = buildMenuKnowledge(userId);
-        String menuTop = buildTopLevelOnly(userId);
+        AiUserContextDTO aiContext = fetchAiContext(userId);
+        String ctx = aiContext == null ? "" : buildUserContext(aiContext);
+        List<MenuRow> menus = aiContext == null ? List.of() : toMenuRows(aiContext.getMenus());
+        String menu = buildMenuKnowledge(menus);
+        String menuTop = buildTopLevelOnly(menus);
         JSONObject blocks = new JSONObject()
                 .set("ctx", ctx)
                 .set("menu", menu)
@@ -168,78 +174,56 @@ public class PromptAssembler {
         return result;
     }
 
-    /** 构建用户上下文（昵称/账号/角色名/部门），对齐单体 SystemConfigHelper 侧的 PromptAssembler */
-    private String buildUserContext(Long userId) {
-        List<String> lines = new ArrayList<>();
+    /**
+     * 用户上下文聚合 RPC：一次调用拿齐档案/部门/角色/可见菜单
+     */
+    private AiUserContextDTO fetchAiContext(Long userId) {
         try {
-            List<Map<String, Object>> users = jdbcTemplate.queryForList(
-                    "SELECT username, nickname, dept_id FROM sys_user WHERE id = ? AND deleted = 0 LIMIT 1",
-                    userId);
-            if (!users.isEmpty()) {
-                Map<String, Object> user = users.get(0);
-                String username = str(user.get("username"));
-                String nickname = StrUtil.blankToDefault(str(user.get("nickname")), username);
-                lines.add("当前用户：" + nickname + " (" + username + ")");
-                Long deptId = toLong(user.get("dept_id"));
-                String deptName = resolveDeptName(deptId);
-                if (StrUtil.isNotBlank(deptName)) {
-                    lines.add("所属部门：" + deptName);
-                }
+            R<AiUserContextDTO> resp = remoteUserService.getAiContext(userId);
+            if (resp != null && resp.isSuccess() && resp.getData() != null) {
+                return resp.getData();
             }
+            log.warn("AI 用户上下文 RPC 未返回有效数据 userId={}", userId);
         } catch (Exception e) {
-            log.warn("AI 用户上下文-用户信息构建失败 userId={}: {}", userId, e.getMessage());
+            log.warn("AI 用户上下文 RPC 调用失败 userId={}: {}", userId, e.getMessage());
         }
-        try {
-            String roleNames = resolveRoleNames(userId);
-            if (StrUtil.isNotBlank(roleNames)) {
-                lines.add("角色：" + roleNames);
-            }
-        } catch (Exception e) {
-            log.warn("AI 用户上下文-角色信息构建失败 userId={}: {}", userId, e.getMessage());
+        return null;
+    }
+
+    /** 构建用户上下文（昵称/账号/部门/角色） */
+    private String buildUserContext(AiUserContextDTO ctx) {
+        List<String> lines = new ArrayList<>();
+        String username = StrUtil.nullToEmpty(ctx.getUsername());
+        String nickname = StrUtil.blankToDefault(ctx.getNickname(), username);
+        if (StrUtil.isNotBlank(nickname)) {
+            lines.add("当前用户：" + nickname + " (" + username + ")");
+        }
+        if (StrUtil.isNotBlank(ctx.getDeptName())) {
+            lines.add("所属部门：" + ctx.getDeptName());
+        }
+        if (CollUtil.isNotEmpty(ctx.getRoleNames())) {
+            lines.add("角色：" + String.join("、", ctx.getRoleNames()));
         }
         if (!lines.isEmpty()) {
-            log.info("AI 用户上下文已注入 userId={} lines={}", userId, lines.size());
+            log.info("AI 用户上下文已注入 userId={} lines={}", ctx.getUserId(), lines.size());
         }
         return String.join("\n", lines);
     }
 
-    private String resolveDeptName(Long deptId) {
-        if (deptId == null || deptId <= 0) {
-            return "";
+    private List<MenuRow> toMenuRows(List<SysMenuDTO> menus) {
+        if (CollUtil.isEmpty(menus)) {
+            return List.of();
         }
-        try {
-            List<String> names = jdbcTemplate.query(
-                    "SELECT name FROM sys_dept WHERE id = ? AND deleted = 0 LIMIT 1",
-                    (rs, i) -> rs.getString(1), deptId);
-            return CollUtil.isEmpty(names) ? "" : StrUtil.nullToEmpty(names.get(0));
-        } catch (Exception e) {
-            return "";
-        }
-    }
-
-    private String resolveRoleNames(Long userId) {
-        List<String> names = jdbcTemplate.query(
-                """
-                        SELECT r.name FROM sys_role r
-                        INNER JOIN sys_user_role ur ON ur.role_id = r.id
-                        WHERE ur.user_id = ? AND r.deleted = 0
-                        ORDER BY r.sort ASC, r.id ASC
-                        """,
-                (rs, i) -> rs.getString(1), userId);
-        if (CollUtil.isEmpty(names)) {
-            return "";
-        }
-        List<String> cleaned = new ArrayList<>();
-        for (String name : names) {
-            if (StrUtil.isNotBlank(name)) {
-                cleaned.add(name.trim());
+        List<MenuRow> rows = new ArrayList<>(menus.size());
+        for (SysMenuDTO menu : menus) {
+            if (menu != null && StrUtil.isNotBlank(menu.getName())) {
+                rows.add(new MenuRow(menu.getId(), menu.getName(), menu.getParentId()));
             }
         }
-        return String.join("、", cleaned);
+        return rows;
     }
 
-    private String buildMenuKnowledge(Long userId) {
-        List<MenuRow> menus = loadVisibleMenus(userId);
+    private String buildMenuKnowledge(List<MenuRow> menus) {
         if (menus.isEmpty()) {
             return "";
         }
@@ -271,8 +255,7 @@ public class PromptAssembler {
         return sb.toString().trim();
     }
 
-    private String buildTopLevelOnly(Long userId) {
-        List<MenuRow> menus = loadVisibleMenus(userId);
+    private String buildTopLevelOnly(List<MenuRow> menus) {
         if (menus.isEmpty()) {
             return "";
         }
@@ -286,77 +269,6 @@ public class PromptAssembler {
         return tops.isEmpty() ? "" : "- " + String.join("、", tops);
     }
 
-    private List<MenuRow> loadVisibleMenus(Long userId) {
-        try {
-            boolean superAdmin = isSuperAdmin(userId);
-            String sql = superAdmin
-                    ? """
-                    SELECT id, name, parent_id FROM sys_menu
-                    WHERE deleted = 0 AND status = 1 AND type IN (1, 2)
-                    ORDER BY sort ASC, id ASC
-                    """
-                    : """
-                    SELECT DISTINCT m.id, m.name, m.parent_id
-                    FROM sys_menu m
-                    INNER JOIN sys_role_menu rm ON rm.menu_id = m.id
-                    INNER JOIN sys_user_role ur ON ur.role_id = rm.role_id
-                    WHERE ur.user_id = ? AND m.deleted = 0 AND m.status = 1 AND m.type IN (1, 2)
-                    ORDER BY m.sort ASC, m.id ASC
-                    """;
-            List<Map<String, Object>> rows = superAdmin
-                    ? jdbcTemplate.queryForList(sql)
-                    : jdbcTemplate.queryForList(sql, userId);
-            List<MenuRow> menus = new ArrayList<>(rows.size());
-            for (Map<String, Object> row : rows) {
-                String name = str(row.get("name"));
-                if (StrUtil.isBlank(name)) {
-                    continue;
-                }
-                menus.add(new MenuRow(toLong(row.get("id")), name, toLong(row.get("parent_id"))));
-            }
-            return menus;
-        } catch (Exception e) {
-            log.warn("AI 菜单知识加载失败 userId={}: {}", userId, e.getMessage());
-            return List.of();
-        }
-    }
-
-    private boolean isSuperAdmin(Long userId) {
-        try {
-            List<String> codes = jdbcTemplate.query(
-                    """
-                            SELECT r.code FROM sys_role r
-                            INNER JOIN sys_user_role ur ON ur.role_id = r.id
-                            WHERE ur.user_id = ? AND r.deleted = 0
-                            """,
-                    (rs, i) -> rs.getString(1), userId);
-            if (CollUtil.isEmpty(codes)) {
-                return false;
-            }
-            Set<String> permissions = null;
-            try {
-                permissions = com.wu.cloud.common.core.context.UserContextHolder.getPermissions();
-            } catch (Exception ignored) {
-                // ignore
-            }
-            if (permissions != null && permissions.contains("*:*:*")) {
-                return true;
-            }
-            for (String code : codes) {
-                if (code == null) {
-                    continue;
-                }
-                String c = code.trim().toLowerCase();
-                if ("admin".equals(c) || "super_admin".equals(c) || "superadmin".equals(c)) {
-                    return true;
-                }
-            }
-            return false;
-        } catch (Exception e) {
-            return false;
-        }
-    }
-
     private String appendSource(String ctx, String source) {
         String sourceLine = "mobile".equalsIgnoreCase(source) ? "当前使用移动端" : "当前使用 PC 端";
         return StrUtil.isBlank(ctx) ? sourceLine : ctx + "\n" + sourceLine;
@@ -368,24 +280,6 @@ public class PromptAssembler {
         } catch (Exception e) {
             log.warn("AI 全局知识读取失败，本轮跳过注入: {}", e.getMessage());
             return "";
-        }
-    }
-
-    private static String str(Object value) {
-        return value == null ? "" : String.valueOf(value).trim();
-    }
-
-    private static Long toLong(Object value) {
-        if (value == null) {
-            return null;
-        }
-        if (value instanceof Number number) {
-            return number.longValue();
-        }
-        try {
-            return Long.parseLong(String.valueOf(value));
-        } catch (NumberFormatException e) {
-            return null;
         }
     }
 

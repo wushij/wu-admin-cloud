@@ -21,6 +21,7 @@ import { getDeptTree, type DeptVO } from '@/api/system/dept'
 import { displayOrgTree } from '@/utils/org-tree'
 import { buildUnlockLoginConfirm } from '@/utils/login-lock'
 import { getPostList, type PostVO } from '@/api/system/post'
+import { encryptPasswordForTransport } from '@/utils/password-crypto'
 
 export function useUserPage() {
   const route = useRoute()
@@ -99,7 +100,11 @@ export function useUserPage() {
       },
     ],
     nickname: [{ required: true, message: '请输入昵称', trigger: 'blur' }],
-    password: [{ required: true, message: '请输入密码', trigger: 'blur' }],
+    password: [
+      { required: true, message: '请输入密码', trigger: 'blur' },
+      { min: 6, max: 50, message: '密码长度 6~50 个字符', trigger: 'blur' },
+    ],
+    roleId: [{ required: true, message: '请选择角色', trigger: 'change' }],
   }
 
   const getList = async () => {
@@ -193,9 +198,14 @@ export function useUserPage() {
       ElMessage.warning('请输入新密码')
       return
     }
+    if (resetPwdForm.password.length < 6 || resetPwdForm.password.length > 50) {
+      ElMessage.warning('密码长度 6~50 个字符')
+      return
+    }
     if (resetPwdForm.id == null) return
     try {
-      await resetUserPassword(resetPwdForm.id, resetPwdForm.password)
+      // 后台重置密码与登录一致，走 SM2 传输加密
+      await resetUserPassword(resetPwdForm.id, encryptPasswordForTransport(resetPwdForm.password))
       ElMessage.success('重置密码成功')
       resetPwdVisible.value = false
     } catch (error) {
@@ -214,6 +224,10 @@ export function useUserPage() {
     resetForm()
     dialogTitle.value = '新增用户'
     await ensureRoleOptions()
+    const defaultRole = roleOptions.value.find((r) => r.code === 'user') || roleOptions.value[0]
+    if (defaultRole) {
+      form.roleId = defaultRole.id
+    }
     dialogVisible.value = true
   }
 
@@ -280,7 +294,11 @@ export function useUserPage() {
       await updateUser(form)
       ElMessage.success('修改成功')
     } else {
-      await createUser(form)
+      // 新增用户的口令与登录保持一致，走 SM2 传输加密
+      await createUser({
+        ...form,
+        password: form.password ? encryptPasswordForTransport(form.password) : form.password,
+      })
       ElMessage.success('新增成功')
     }
     dialogVisible.value = false

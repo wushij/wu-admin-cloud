@@ -24,6 +24,20 @@ public class DashboardStatsVO implements Serializable {
     private Long todayVisits;
     private Long yesterdayVisits;
 
+    /**
+     * 环比趋势（今日新增相对昨日新增的百分比变化），对应前端 DashboardStats.trends。
+     * <p>由 system 服务 InnerStatsController 计算后透传，此处只做承载。</p>
+     */
+    private Double userTrend;
+    private Double roleTrend;
+    private Double deptTrend;
+    private Double menuTrend;
+
+    /** 待审核用户数（注册审核开启时非零） */
+    private Long userPendingCount;
+    /** 已禁用用户数 */
+    private Long userDisabledCount;
+
     private String platformName;
     private String platformSubtitle;
 

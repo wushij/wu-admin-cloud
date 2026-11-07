@@ -151,6 +151,8 @@ export interface RoleVO {
   sort?: number
   remark?: string
   dataScope?: number
+  /** 自定义数据范围的部门 ID，逗号分隔 */
+  dataScopeDeptIds?: string
   createTime?: string
 }
 
@@ -161,6 +163,10 @@ export interface RoleSaveDTO {
   sort?: number
   status?: number
   remark?: string
+  /** 数据范围 1:全部 2:自定义 3:本部门 4:本部门及以下 5:仅本人 */
+  dataScope?: number
+  /** 自定义数据范围部门 ID，逗号分隔 */
+  dataScopeDeptIds?: string
 }
 
 export interface MenuVO {
@@ -457,4 +463,8 @@ export interface FilePageQuery {
   pageSize?: number
   originalName?: string
   fileCategory?: string
+  /** 指定分组 ID；与 ungrouped 互斥 */
+  groupId?: number
+  /** 仅查询未分组文件 */
+  ungrouped?: boolean
 }

@@ -1,13 +1,16 @@
 -- =============================================================================
--- wu-service-ticket 库脚本（库名 wu-admin，可单独部署到独立 MySQL）
+-- wu-admin-cloud · wu_ticket 库
+-- 表结构源自单体总库 admin_platform_prod.sql（按领域拆分），含各服务的自建表
+-- 字符集: utf8mb4 / utf8mb4_unicode_ci
 -- =============================================================================
-CREATE DATABASE IF NOT EXISTS `wu-admin` DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-USE `wu-admin`;
+
+CREATE DATABASE IF NOT EXISTS `wu_ticket` DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+USE `wu_ticket`;
 
 SET NAMES utf8mb4;
 SET FOREIGN_KEY_CHECKS = 0;
 
-DROP TABLE IF EXISTS sys_ticket;
+DROP TABLE IF EXISTS `sys_ticket`;
 CREATE TABLE sys_ticket (
     id BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '主键ID',
     ticket_no VARCHAR(64) NOT NULL COMMENT '工单编号',
@@ -33,7 +36,7 @@ CREATE TABLE sys_ticket (
     INDEX idx_deleted_update_time (deleted, update_time)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='工单表';
 
-DROP TABLE IF EXISTS sys_ticket_comment;
+DROP TABLE IF EXISTS `sys_ticket_comment`;
 CREATE TABLE sys_ticket_comment (
     id BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '主键ID',
     ticket_id BIGINT NOT NULL COMMENT '工单ID',
@@ -48,7 +51,7 @@ CREATE TABLE sys_ticket_comment (
     INDEX idx_user_id (user_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='工单评论表';
 
-DROP TABLE IF EXISTS sys_ticket_attachment;
+DROP TABLE IF EXISTS `sys_ticket_attachment`;
 CREATE TABLE sys_ticket_attachment (
     id BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '主键ID',
     ticket_id BIGINT NOT NULL COMMENT '工单ID',
@@ -65,7 +68,7 @@ CREATE TABLE sys_ticket_attachment (
     INDEX idx_uploader_user_id (uploader_user_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='工单附件表';
 
-DROP TABLE IF EXISTS sys_notice;
+DROP TABLE IF EXISTS `sys_notice`;
 CREATE TABLE sys_notice (
     id BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '主键ID',
     user_id BIGINT NOT NULL COMMENT '接收用户ID',
@@ -84,7 +87,7 @@ CREATE TABLE sys_notice (
     INDEX idx_biz (biz_type, biz_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='站内消息表';
 
-DROP TABLE IF EXISTS sys_approval_form;
+DROP TABLE IF EXISTS `sys_approval_form`;
 CREATE TABLE sys_approval_form (
     id BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '主键ID',
     form_no VARCHAR(64) NOT NULL COMMENT '审批单号',
@@ -107,9 +110,7 @@ CREATE TABLE sys_approval_form (
     INDEX idx_type_applicant_status (form_type, applicant_user_id, status, deleted)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='审批单表';
 
--- 分库说明：单体脚本里「待审用户 → 审批单」种子依赖 sys_user，跨库不可用；运行时由业务写入。
-
-DROP TABLE IF EXISTS sys_approval_record;
+DROP TABLE IF EXISTS `sys_approval_record`;
 CREATE TABLE sys_approval_record (
     id BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '主键ID',
     form_id BIGINT NOT NULL COMMENT '审批单ID',

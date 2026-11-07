@@ -1,11 +1,13 @@
 package com.wu.cloud.common.utils.web;
 
-import org.springframework.util.StringUtils;
 import jakarta.servlet.http.HttpServletRequest;
-import java.net.InetAddress;
 
 /**
- * 解析真实客户端 IP 工具类
+ * 解析真实客户端 IP 工具类。
+ *
+ * <p>只有当请求来自可信代理时才读取 {@code X-Real-IP} / {@code X-Forwarded-For} /
+ * {@code CF-Connecting-IP}，否则一律使用 TCP 对端地址。
+ * 判定逻辑统一收敛在 {@link TrustedProxyIpResolver}，与网关侧共用同一套口径。</p>
  */
 public final class ClientIpUtils {
 
@@ -13,47 +15,13 @@ public final class ClientIpUtils {
     }
 
     public static String resolve(HttpServletRequest request) {
-        String xff = request.getHeader("X-Forwarded-For");
-        if (StringUtils.hasText(xff)) {
-            String[] parts = xff.split(",");
-            for (int i = parts.length - 1; i >= 0; i--) {
-                String candidate = parts[i].trim();
-                if (!candidate.isEmpty()) {
-                    return stripIpv6Prefix(candidate);
-                }
-            }
+        if (request == null) {
+            return "unknown";
         }
-        String realIp = request.getHeader("X-Real-IP");
-        if (StringUtils.hasText(realIp)) {
-            int comma = realIp.indexOf(',');
-            String first = comma > 0 ? realIp.substring(0, comma).trim() : realIp.trim();
-            if (!first.isEmpty()) {
-                return stripIpv6Prefix(first);
-            }
-        }
-        String remote = request.getRemoteAddr();
-        return StringUtils.hasText(remote) ? stripIpv6Prefix(remote) : "unknown";
-    }
-
-    private static String stripIpv6Prefix(String ip) {
-        if (ip == null || ip.isEmpty()) {
-            return ip;
-        }
-        String trimmed = ip.trim();
-        if (isLoopback(trimmed)) {
-            return "127.0.0.1";
-        }
-        if (trimmed.startsWith("::ffff:") && trimmed.indexOf('.') > 0) {
-            return trimmed.substring(7);
-        }
-        return trimmed;
-    }
-
-    private static boolean isLoopback(String ip) {
-        try {
-            return InetAddress.getByName(ip).isLoopbackAddress();
-        } catch (Exception e) {
-            return "127.0.0.1".equals(ip) || "::1".equals(ip);
-        }
+        return TrustedProxyIpResolver.resolve(
+                request.getRemoteAddr(),
+                request.getHeader("X-Real-IP"),
+                request.getHeader("X-Forwarded-For"),
+                request.getHeader("CF-Connecting-IP"));
     }
 }

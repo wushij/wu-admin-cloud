@@ -3,7 +3,7 @@ package com.wu.cloud.common.utils.web;
 import org.springframework.util.StringUtils;
 
 /**
- * IP 归属地解析（与单体 {@code IpLocationUtils} 一致：内网/本机 →「内网IP」，其余暂无 ip2region 时 →「未知」）
+ * IP 归属地解析（与旧版 {@code IpLocationUtils} 一致：内网/本机 →「内网IP」，其余暂无 ip2region 时 →「未知」）
  */
 public final class IpLocationUtils {
 

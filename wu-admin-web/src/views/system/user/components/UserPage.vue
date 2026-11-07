@@ -69,7 +69,6 @@
 
 <script setup lang="ts">
 import { ref, watchEffect, defineAsyncComponent } from 'vue'
-import type { FormInstance } from 'element-plus'
 import ModulePageIcon from '@/components/ModulePageIcon.vue'
 import { MODULE_PAGE_ICON } from '@/constants/module-page-icons'
 import UserDeptTree from './UserDeptTree.vue'
@@ -81,7 +80,7 @@ const UserRoleDialog = defineAsyncComponent(() => import('./UserRoleDialog.vue')
 const UserResetPwdDialog = defineAsyncComponent(() => import('./UserResetPwdDialog.vue'))
 
 const deptTreeComponentRef = ref<InstanceType<typeof UserDeptTree> | null>(null)
-const formDialogRef = ref<{ formRef?: FormInstance | null } | null>(null)
+const formDialogRef = ref<any>(null)
 
 const {
   loading,
@@ -126,21 +125,29 @@ watchEffect(() => {
 <style scoped lang="scss">
 .user-page {
   padding: 0;
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
 }
 
 .user-layout {
   display: flex;
   gap: 16px;
-  align-items: flex-start;
+  align-items: stretch;
+  flex: 1 0 auto;
 }
 
 .user-layout__side {
   width: 280px;
   flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
 }
 
 .user-layout__main {
-  flex: 1;
+  flex: 1 1 auto;
   min-width: 0;
+  display: flex;
+  flex-direction: column;
 }
 </style>

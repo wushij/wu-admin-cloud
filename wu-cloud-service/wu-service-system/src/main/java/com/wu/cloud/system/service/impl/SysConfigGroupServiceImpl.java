@@ -7,15 +7,18 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.wu.cloud.api.log.OperLogContext;
+import com.wu.cloud.common.core.domain.R;
 import com.wu.cloud.common.exception.BusinessException;
+import com.wu.cloud.api.infra.feign.RemoteConfigLogService;
 import com.wu.cloud.common.mail.MailResult;
 import com.wu.cloud.common.mail.MailSender;
 import com.wu.cloud.common.sms.SmsProperties;
 import com.wu.cloud.common.sms.SmsResult;
-import com.wu.cloud.common.sms.SmsSender;
+import com.wu.cloud.common.sms.SmsSenderFactory;
 import com.wu.cloud.system.entity.SysConfigGroupDO;
 import com.wu.cloud.system.mapper.SysConfigGroupMapper;
 import com.wu.cloud.system.service.SysConfigGroupService;
+import com.wu.cloud.system.service.cache.SysConfigCacheService;
 import com.wu.cloud.system.vo.config.ConfigTestEmailReqVO;
 import com.wu.cloud.system.vo.config.ConfigTestPaymentReqVO;
 import com.wu.cloud.system.vo.config.ConfigTestRespVO;
@@ -70,7 +73,13 @@ public class SysConfigGroupServiceImpl implements SysConfigGroupService {
     private SysConfigGroupMapper sysConfigGroupMapper;
 
     @Resource
-    private SmsSender smsSender;
+    private SysConfigCacheService sysConfigCacheService;
+
+    @Resource
+    private RemoteConfigLogService remoteConfigLogService;
+
+    @Resource
+    private SmsSenderFactory smsSenderFactory;
 
     @Resource
     private MailSender mailSender;
@@ -133,6 +142,7 @@ public class SysConfigGroupServiceImpl implements SysConfigGroupService {
             throw new BusinessException("分组编码已存在：" + groupDO.getGroupCode());
         }
         sysConfigGroupMapper.insert(groupDO);
+        sysConfigCacheService.refresh(groupDO.getGroupCode());
     }
 
     @Override
@@ -156,6 +166,7 @@ public class SysConfigGroupServiceImpl implements SysConfigGroupService {
         if (!StringUtils.hasText(newConfigValue)) {
             // 未传 configValue 时保持原行为：整行更新（兼容 /update）
             sysConfigGroupMapper.updateById(groupDO);
+            sysConfigCacheService.refresh(groupCode);
             return;
         }
         if (!JSONUtil.isTypeJSON(newConfigValue)) {
@@ -170,7 +181,7 @@ public class SysConfigGroupServiceImpl implements SysConfigGroupService {
             oldJson = new JSONObject();
         }
 
-        // 对齐单体：无实际变更则跳过写库与操作日志（前端会批量 PUT 全部 grouping）
+        // 无实际变更则跳过写库与操作日志（前端会批量 PUT 全部 grouping）
         List<String> diffItems = buildConfigDiffs(groupCode, oldJson, newJson);
         if (diffItems.isEmpty()) {
             OperLogContext.setSkipLog(true);
@@ -190,6 +201,8 @@ public class SysConfigGroupServiceImpl implements SysConfigGroupService {
             exists.setRemark(groupDO.getRemark());
         }
         sysConfigGroupMapper.updateById(exists);
+        // 配置属主负责同步共享缓存，其他服务经 Redis/Feign 链路立即读到新值
+        sysConfigCacheService.refresh(groupCode);
     }
 
     private String getGroupTitle(String groupCode) {
@@ -372,13 +385,32 @@ public class SysConfigGroupServiceImpl implements SysConfigGroupService {
             return ConfigTestRespVO.fail(type, "支付参数不完整，缺少：" + String.join("、", missing));
         }
 
-        // 支付服务当前仅提供订单查询能力，待其补齐测试下单接口后在此发起真实调用
-        if (remotePayServiceProvider.getIfAvailable() == null) {
+        // 支付渠道唯一真实数据源为 wu-service-pay 的 pay_config，
+        // 静态校验通过后由支付服务用真实渠道配置发起 0.01 元测试预下单
+        com.wu.cloud.api.pay.feign.RemotePayService remotePayService = remotePayServiceProvider.getIfAvailable();
+        if (remotePayService == null) {
             return ConfigTestRespVO.fail(type, "配置项完整，但支付服务未接入，无法发起真实测试订单")
                     .put("configComplete", true);
         }
-        return ConfigTestRespVO.fail(type, "配置项完整，但支付服务暂未提供测试下单接口")
-                .put("configComplete", true);
+        long start = System.currentTimeMillis();
+        try {
+            R<java.util.Map<String, String>> resp = remotePayService.testChannel(type.toLowerCase());
+            long cost = System.currentTimeMillis() - start;
+            if (resp != null && resp.isSuccess() && resp.getData() != null) {
+                ConfigTestRespVO ok = ConfigTestRespVO.success(type, "测试下单成功（0.01 元沙箱订单）")
+                        .put("configComplete", true);
+                resp.getData().forEach(ok::put);
+                ok.setCostMillis(cost);
+                return ok;
+            }
+            ConfigTestRespVO fail = ConfigTestRespVO.fail(type, resp == null ? "支付服务无响应" : resp.getMsg())
+                    .put("configComplete", true);
+            fail.setCostMillis(cost);
+            return fail;
+        } catch (Exception e) {
+            return ConfigTestRespVO.fail(type, "支付服务调用失败：" + e.getMessage())
+                    .put("configComplete", true);
+        }
     }
 
     /**
@@ -413,7 +445,7 @@ public class SysConfigGroupServiceImpl implements SysConfigGroupService {
                 ? trim(request.getTemplateCode())
                 : resolveSmsTemplateId();
         if (!StringUtils.hasText(templateId)) {
-            return ConfigTestRespVO.fail(smsSender.channel(),
+            return ConfigTestRespVO.fail(smsSenderFactory.sender().channel(),
                     "未配置短信模板，请先在【短信配置】中设置验证码模板 ID");
         }
 
@@ -424,21 +456,23 @@ public class SysConfigGroupServiceImpl implements SysConfigGroupService {
 
         long start = System.currentTimeMillis();
         try {
-            SmsResult result = smsSender.send(phone, templateId, params);
+            SmsResult result = smsSenderFactory.sender().send(phone, templateId, params);
             long cost = System.currentTimeMillis() - start;
+            reportSmsLog(phone, templateId, result);
             if (result != null && result.isSuccess()) {
-                ConfigTestRespVO vo = ConfigTestRespVO.success(smsSender.channel(), "测试短信已发送，请注意查收");
+                ConfigTestRespVO vo = ConfigTestRespVO.success(smsSenderFactory.sender().channel(), "测试短信已发送，请注意查收");
                 vo.setCostMillis(cost);
                 return vo.put("bizId", result.getBizId()).put("templateId", templateId);
             }
             String detail = result == null ? "渠道无响应" : result.getMessage();
-            ConfigTestRespVO vo = ConfigTestRespVO.fail(smsSender.channel(),
+            ConfigTestRespVO vo = ConfigTestRespVO.fail(smsSenderFactory.sender().channel(),
                     "短信发送失败：" + (StringUtils.hasText(detail) ? detail : "请检查签名、模板 ID 与密钥是否正确"));
             vo.setCostMillis(cost);
             return vo;
         } catch (Exception e) {
             log.error("[配置测试] 短信发送异常 phone={}", maskMobile(phone), e);
-            ConfigTestRespVO vo = ConfigTestRespVO.fail(smsSender.channel(),
+            reportSmsLog(phone, templateId, SmsResult.fail("EXCEPTION", rootMessage(e)));
+            ConfigTestRespVO vo = ConfigTestRespVO.fail(smsSenderFactory.sender().channel(),
                     "短信发送异常：" + rootMessage(e));
             vo.setCostMillis(System.currentTimeMillis() - start);
             return vo;
@@ -462,6 +496,7 @@ public class SysConfigGroupServiceImpl implements SysConfigGroupService {
         try {
             MailResult result = mailSender.send(toEmail, subject, content);
             long cost = System.currentTimeMillis() - start;
+            reportEmailLog(toEmail, subject, result);
             if (result != null && result.isSuccess()) {
                 ConfigTestRespVO vo = ConfigTestRespVO.success(mailSender.channel(), "测试邮件已发送，请注意查收");
                 vo.setCostMillis(cost);
@@ -474,10 +509,44 @@ public class SysConfigGroupServiceImpl implements SysConfigGroupService {
             return vo;
         } catch (Exception e) {
             log.error("[配置测试] 邮件发送异常 toEmail={}", toEmail, e);
+            reportEmailLog(toEmail, subject, MailResult.fail(rootMessage(e)));
             ConfigTestRespVO vo = ConfigTestRespVO.fail(mailSender.channel(),
                     "邮件发送异常：" + rootMessage(e));
             vo.setCostMillis(System.currentTimeMillis() - start);
             return vo;
+        }
+    }
+
+    /** 短信测试发送记录旁路上报（infra 域 sys_sms_log），失败不影响测试结果返回 */
+    private void reportSmsLog(String phone, String templateId, SmsResult result) {
+        try {
+            com.wu.cloud.api.infra.dto.SmsLogDTO dto = new com.wu.cloud.api.infra.dto.SmsLogDTO();
+            dto.setPhone(phone);
+            dto.setSmsType("test");
+            dto.setTemplateId(templateId);
+            dto.setProvider(smsSenderFactory.sender().channel());
+            dto.setStatus(result != null && result.isSuccess() ? 1 : 2);
+            dto.setResultMsg(result == null ? "渠道无响应" : result.getMessage());
+            dto.setBizId(result == null ? null : result.getBizId());
+            remoteConfigLogService.saveSmsLog(dto);
+        } catch (Exception e) {
+            log.warn("[配置测试] 短信日志上报失败（不影响测试流程）: {}", e.getMessage());
+        }
+    }
+
+    /** 邮件测试发送记录旁路上报（infra 域 sys_email_log），失败不影响测试结果返回 */
+    private void reportEmailLog(String toEmail, String subject, MailResult result) {
+        try {
+            com.wu.cloud.api.infra.dto.EmailLogDTO dto = new com.wu.cloud.api.infra.dto.EmailLogDTO();
+            dto.setEmail(toEmail);
+            dto.setSubject(subject);
+            dto.setScene("test");
+            dto.setProvider(mailSender.channel());
+            dto.setStatus(result != null && result.isSuccess() ? 1 : 2);
+            dto.setResultMsg(result == null ? "渠道无响应" : result.getMessage());
+            remoteConfigLogService.saveEmailLog(dto);
+        } catch (Exception e) {
+            log.warn("[配置测试] 邮件日志上报失败（不影响测试流程）: {}", e.getMessage());
         }
     }
 

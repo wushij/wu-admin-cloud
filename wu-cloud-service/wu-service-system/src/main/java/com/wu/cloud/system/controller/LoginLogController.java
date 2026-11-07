@@ -1,5 +1,7 @@
 package com.wu.cloud.system.controller;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.wu.cloud.api.log.Log;
 import com.wu.cloud.common.core.domain.PageQuery;
@@ -22,8 +24,9 @@ import java.util.List;
 /**
  * 登录日志 REST 控制器
  *
- * <p>对外查询端点。写入端点位于 {@link InnerLoginLogController}，仅供认证服务 Feign 调用。</p>
+ * <p>对外查询端点。写入端点位于 {@code com.wu.cloud.system.api.InnerLoginLogController}，仅供认证服务 Feign 调用。</p>
  */
+@Tag(name = "登录日志")
 @RestController
 @RequestMapping("/api/system/login-log")
 public class LoginLogController {
@@ -32,6 +35,7 @@ public class LoginLogController {
     private SysLoginLogService sysLoginLogService;
 
     @RequiresPermissions("system:loginLog:query")
+    @Operation(summary = "获取登录日志列表")
     @GetMapping("/list")
     public R<PageResult<LoginLogRespVO>> list(PageQuery pageQuery,
                                               @RequestParam(value = "username", required = false) String username,
@@ -49,6 +53,7 @@ public class LoginLogController {
      */
     @RequiresPermissions("system:loginLog:clear")
     @Log(title = "登录日志", businessType = Log.BusinessType.DELETE)
+    @Operation(summary = "清空登录日志")
     @DeleteMapping("/clear")
     public R<Boolean> clear() {
         sysLoginLogService.clearLoginLog();
@@ -57,6 +62,7 @@ public class LoginLogController {
 
     @RequiresPermissions("system:loginLog:delete")
     @Log(title = "登录日志", businessType = Log.BusinessType.DELETE)
+    @Operation(summary = "删除登录日志")
     @DeleteMapping("/{id}")
     public R<Boolean> delete(@PathVariable("id") Long id) {
         sysLoginLogService.deleteLoginLog(id);

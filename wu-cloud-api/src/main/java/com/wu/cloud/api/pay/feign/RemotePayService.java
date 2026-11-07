@@ -11,6 +11,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 
 import java.math.BigDecimal;
+import java.util.Map;
 
 /**
  * 远程支付服务 OpenFeign 接口契约
@@ -32,4 +33,11 @@ public interface RemotePayService {
     R<PayRefundDTO> applyRefund(@RequestParam("orderNo") String orderNo,
                                 @RequestParam("amount") BigDecimal amount,
                                 @RequestParam(value = "reason", required = false) String reason);
+
+    /**
+     * 支付渠道连通性测试：以 pay_config 真实配置发起 0.01 元测试预下单，
+     * 返回订单号 / 支付链接 / 二维码（供系统配置页「测试」按钮使用）
+     */
+    @PostMapping("/test-channel")
+    R<Map<String, String>> testChannel(@RequestParam("payType") String payType);
 }

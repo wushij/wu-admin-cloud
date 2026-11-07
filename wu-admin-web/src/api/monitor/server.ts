@@ -59,5 +59,5 @@ export interface ServerInfo {
 }
 
 export function getServerInfo() {
-  return get<ServerInfo>('/monitor/server/info', undefined, { silent401: true })
+  return get<ServerInfo>('/monitor/server/info')
 }

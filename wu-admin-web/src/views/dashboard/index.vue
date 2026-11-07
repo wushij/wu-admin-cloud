@@ -81,9 +81,6 @@ async function bootstrapDashboard() {
 onMounted(() => {
   bootstrapDashboard()
 })
-
-// keep-alive 再次进入：不再请求接口，直接展示缓存页（比单体更好）
-// 单体无 keep-alive，每次进首页都会 onMounted 全量重拉
 </script>
 
 <style scoped>

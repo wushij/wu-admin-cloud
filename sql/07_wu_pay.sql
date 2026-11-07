@@ -1,8 +1,11 @@
 -- =============================================================================
--- wu-service-pay 库脚本（库名 wu-admin，可单独部署到独立 MySQL）
+-- wu-admin-cloud · wu_pay 库
+-- 表结构源自单体总库 admin_platform_prod.sql（按领域拆分），含各服务的自建表
+-- 字符集: utf8mb4 / utf8mb4_unicode_ci
 -- =============================================================================
-CREATE DATABASE IF NOT EXISTS `wu-admin` DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-USE `wu-admin`;
+
+CREATE DATABASE IF NOT EXISTS `wu_pay` DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+USE `wu_pay`;
 
 SET NAMES utf8mb4;
 SET FOREIGN_KEY_CHECKS = 0;
@@ -79,5 +82,21 @@ CREATE TABLE `pay_config` (
   PRIMARY KEY (`id`),
   UNIQUE KEY `uk_pay_type` (`pay_type`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='支付配置';
+
+DROP TABLE IF EXISTS `pay_outbox_message`;
+CREATE TABLE `pay_outbox_message` (
+    `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键',
+    `biz_key` VARCHAR(128) NOT NULL COMMENT '业务唯一键 pay:order:paid:{orderNo}',
+    `order_no` VARCHAR(64) NOT NULL COMMENT '业务订单号',
+    `pay_type` VARCHAR(20) DEFAULT NULL COMMENT '支付方式',
+    `status` VARCHAR(10) NOT NULL DEFAULT 'PENDING' COMMENT '投递状态 PENDING/SUCCESS/DEAD',
+    `retry_count` INT NOT NULL DEFAULT 0 COMMENT '已重试次数',
+    `next_retry_time` DATETIME NOT NULL COMMENT '下次重试时间',
+    `create_time` DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    `update_time` DATETIME DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `uk_pay_outbox_biz_key` (`biz_key`),
+    KEY `idx_pay_outbox_status_retry` (`status`, `next_retry_time`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='支付结果通知本地消息表';
 
 SET FOREIGN_KEY_CHECKS = 1;

@@ -37,7 +37,14 @@ export function useLayoutMenu() {
     if (comp && /^https?:\/\//i.test(comp)) {
       return `external:${comp}`
     }
-    return menu.path || String(menu.id)
+    const raw = (menu?.path || '').trim()
+    if (!raw) {
+      return String(menu.id)
+    }
+    // el-menu 的 router 模式会直接 router.push(index)。
+    // 相对路径（如 system/dict）会相对当前路由解析：在 /system/user 下点击
+    // 会变成 /system/system/dict，最终落到 404。这里统一补前导斜杠。
+    return raw.startsWith('/') ? raw : `/${raw}`
   }
 
   function findTopMenuSpinKey(index: string) {

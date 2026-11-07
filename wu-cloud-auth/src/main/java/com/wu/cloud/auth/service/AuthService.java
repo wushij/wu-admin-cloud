@@ -38,7 +38,7 @@ public interface AuthService {
 
     /**
      * 初始化会话签名，返回会话级动态密钥供前端签名/加密。
-     * <p>与单体前端 {@code security-config.ts} 期望结构一致（enabled / sm3SignKey / sm4Key）。
+     * <p>与旧版前端 {@code security-config.ts} 期望结构一致（enabled / sm3SignKey / sm4Key）。
      *
      * @param clientId 客户端唯一标识（前端生成并随请求头 X-Client-Id 传递）
      */

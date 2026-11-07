@@ -60,9 +60,7 @@
           <view class="menu-node__status" :class="row.status === 1 ? 'menu-node__status--on' : 'menu-node__status--off'">
             {{ row.status === 1 ? '启用' : '停用' }}
           </view>
-          <view v-if="hasRowActions" class="menu-node__manage">
-            <text>管理</text>
-          </view>
+          <text v-if="hasRowActions" class="menu-node__manage">管理</text>
         </view>
       </view>
 
@@ -78,18 +76,18 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, nextTick } from 'vue'
 import { onPullDownRefresh } from '@dcloudio/uni-app'
-import { useListPageShowRefresh } from '@/composables/useListPageShowRefresh'
-import { useAppDialogBackPress } from '@/composables/useAppDialogBackPress'
-import ModuleDarkHero from '@/components/common/ModuleDarkHero/index.vue'
-import IconFont from '@/components/common/IconFont/index.vue'
-import SearchBar from '@/components/common/SearchBar/index.vue'
-import SegmentTabs from '@/components/common/SegmentTabs/index.vue'
-import ListLoading from '@/components/common/ListLoading/index.vue'
-import EmptyState from '@/components/common/EmptyState/index.vue'
-import FabButton from '@/components/common/FabButton/index.vue'
-import PermissionBlock from '@/components/common/PermissionBlock/index.vue'
-import AppDialogHost from '@/components/common/AppDialogHost/index.vue'
-import { useModulePermission } from '@/composables/useModulePermission'
+import { useListPageShowRefresh } from '@/composables/base/useListPageShowRefresh'
+import { useAppDialogBackPress } from '@/composables/base/useAppDialogBackPress'
+import ModuleDarkHero from '@/components/layout/ModuleDarkHero/index.vue'
+import IconFont from '@/components/base/IconFont/index.vue'
+import SearchBar from '@/components/base/SearchBar/index.vue'
+import SegmentTabs from '@/components/base/SegmentTabs/index.vue'
+import ListLoading from '@/components/base/ListLoading/index.vue'
+import EmptyState from '@/components/base/EmptyState/index.vue'
+import FabButton from '@/components/base/FabButton/index.vue'
+import PermissionBlock from '@/components/base/PermissionBlock/index.vue'
+import AppDialogHost from '@/components/base/AppDialogHost/index.vue'
+import { useModulePermission } from '@/composables/base/useModulePermission'
 import { deleteMenu, getMenuList } from '@/api/system/menu'
 import { showConfirm, showActionSheet } from '@/utils/app-dialog'
 import type { IconName } from '@/constants/iconfont'
@@ -309,13 +307,12 @@ onPullDownRefresh(async () => {
   &:not(.menu-node--last)::after {
     content: '';
     position: absolute;
-    /* 从左侧“图标/层级缩进列”之后开始，保持与单体表格列的视觉对齐 */
-    left: 88rpx;
-    right: 20rpx; /* 对齐容器 padding-right，避免线压到右侧胶囊区 */
+    left: 0;
+    right: 0;
     bottom: 0;
     height: 1px;
     background: $color-border-light;
-    margin-left: 0;
+    margin-left: 88rpx;
   }
 }
 
@@ -423,11 +420,6 @@ onPullDownRefresh(async () => {
 
 .menu-node__status {
   flex-shrink: 0;
-  /* 固定宽度，避免“启用/停用”文字长度不同导致后续内容（管理按钮）水平偏移 */
-  min-width: 96rpx;
-  display: flex;
-  align-items: center;
-  justify-content: center;
   padding: 6rpx 14rpx;
   border-radius: $radius-full;
   font-size: 20rpx;
@@ -447,11 +439,6 @@ onPullDownRefresh(async () => {
 .menu-node__manage {
   flex-shrink: 0;
   margin-left: 12rpx;
-  /* 固定宽度，保证每行管理按钮位置一致 */
-  min-width: 96rpx;
-  display: flex;
-  align-items: center;
-  justify-content: center;
   padding: 8rpx 18rpx;
   border-radius: $radius-full;
   font-size: $font-size-xs;

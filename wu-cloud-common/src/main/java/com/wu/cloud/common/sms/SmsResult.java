@@ -40,4 +40,11 @@ public class SmsResult implements Serializable {
         result.setMessage(message);
         return result;
     }
+
+    /**
+     * 失败结果（仅描述信息，业务码默认 FAIL）
+     */
+    public static SmsResult fail(String message) {
+        return fail("FAIL", message);
+    }
 }

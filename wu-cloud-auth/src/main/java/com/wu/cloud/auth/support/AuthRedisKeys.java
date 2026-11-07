@@ -35,10 +35,10 @@ public final class AuthRedisKeys {
     /** 会话签名密钥：auth:session:sign:{sessionKey}（兼容旧版字段，已不再写入） */
     private static final String SESSION_SIGN = "auth:session:sign:%s";
 
-    /** HMAC-SM3 签名密钥：security:session-sign:{clientId}（与前端/网关共用，对齐单体前缀） */
+    /** HMAC-SM3 签名密钥：security:session-sign:{clientId}（与前端/网关共用，与既有规范对齐前缀） */
     private static final String SECURITY_SESSION_SIGN = "security:session-sign:%s";
 
-    /** SM4 加解密密钥：security:session-sm4:{clientId}（与前端/网关共用，对齐单体前缀） */
+    /** SM4 加解密密钥：security:session-sm4:{clientId}（与前端/网关共用，与既有规范对齐前缀） */
     private static final String SECURITY_SESSION_SM4 = "security:session-sm4:%s";
 
     private AuthRedisKeys() {

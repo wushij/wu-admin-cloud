@@ -1,8 +1,11 @@
 -- =============================================================================
--- wu-service-order 库脚本（库名 wu-admin，可单独部署到独立 MySQL）
+-- wu-admin-cloud · wu_order 库
+-- 表结构源自单体总库 admin_platform_prod.sql（按领域拆分），含各服务的自建表
+-- 字符集: utf8mb4 / utf8mb4_unicode_ci
 -- =============================================================================
-CREATE DATABASE IF NOT EXISTS `wu-admin` DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-USE `wu-admin`;
+
+CREATE DATABASE IF NOT EXISTS `wu_order` DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+USE `wu_order`;
 
 SET NAMES utf8mb4;
 SET FOREIGN_KEY_CHECKS = 0;

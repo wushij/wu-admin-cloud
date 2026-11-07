@@ -27,4 +27,7 @@ public final class HeaderConstants {
 
     /** 链路追踪 ID */
     public static final String TRACE_ID = "X-Trace-Id";
+
+    /** 服务间内网调用令牌（零信任：/inner/** 端点强制校验） */
+    public static final String INNER_TOKEN = "X-Inner-Token";
 }

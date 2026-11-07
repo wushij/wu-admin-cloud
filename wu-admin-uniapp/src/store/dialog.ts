@@ -10,6 +10,8 @@ export interface ConfirmOptions {
   tone?: ConfirmTone
   editable?: boolean
   placeholderText?: string
+  /** 可编辑弹窗的输入框初始值 */
+  inputValue?: string
   inputType?: 'text' | 'password'
   showCancel?: boolean
   contentAlign?: 'left' | 'center'
@@ -129,7 +131,7 @@ export function showConfirm(options: ConfirmOptions): Promise<ConfirmResult> {
       contentAlign: 'center',
       ...options,
     }
-    dialogState.confirmInput = ''
+    dialogState.confirmInput = options.inputValue || ''
     dialogState.confirmResolve = resolve
     dialogState.confirmVisible = true
     openDialogSurface()

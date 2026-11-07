@@ -11,7 +11,7 @@ import org.apache.ibatis.builder.MapperBuilderAssistant;
 import org.junit.jupiter.api.BeforeAll;
 
 /**
- * 纯单元测试中构造 LambdaQueryWrapper 前需初始化实体元数据（对齐单体 MybatisLambdaTestBase）。
+ * 纯单元测试中构造 LambdaQueryWrapper 前需初始化实体元数据（与既有规范对齐 MybatisLambdaTestBase）。
  */
 public abstract class MybatisLambdaTestBase {
 

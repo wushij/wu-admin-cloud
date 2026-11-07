@@ -1,5 +1,7 @@
 package com.wu.cloud.file.controller;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import com.wu.cloud.file.config.LocalFileStorage;
 import com.wu.cloud.file.service.impl.SysFileServiceImpl;
 import jakarta.annotation.Resource;
@@ -17,14 +19,16 @@ import java.nio.file.Path;
 
 /**
  * 本地文件直链访问：GET /file/** 与 GET /files/**
- * <p>兼容单体迁移数据：/api/files/yyyy/MM/dd/xxx 与 uploads/ 前缀。</p>
+ * <p>兼容历史存量数据：/api/files/yyyy/MM/dd/xxx 与 uploads/ 前缀。</p>
  */
+@Tag(name = "本地文件访问")
 @RestController
 public class FileAccessController {
 
     @Resource
     private LocalFileStorage localFileStorage;
 
+    @Operation(summary = "本地文件直链访问与预览")
     @GetMapping({"/file/**", "/files/**"})
     public ResponseEntity<org.springframework.core.io.Resource> getFile(HttpServletRequest request) throws Exception {
         String relative = extractRelative(request.getRequestURI());

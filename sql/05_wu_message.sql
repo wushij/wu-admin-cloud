@@ -1,14 +1,17 @@
 -- =============================================================================
--- wu-service-message 库脚本（库名 wu-admin，可单独部署到独立 MySQL）
+-- wu-admin-cloud · wu_message 库
+-- 表结构源自单体总库 admin_platform_prod.sql（按领域拆分），含各服务的自建表
+-- 字符集: utf8mb4 / utf8mb4_unicode_ci
 -- =============================================================================
-CREATE DATABASE IF NOT EXISTS `wu-admin` DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-USE `wu-admin`;
+
+CREATE DATABASE IF NOT EXISTS `wu_message` DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+USE `wu_message`;
 
 SET NAMES utf8mb4;
 SET FOREIGN_KEY_CHECKS = 0;
 
 DROP TABLE IF EXISTS `sys_announce`;
-CREATE TABLE IF NOT EXISTS sys_announce (
+CREATE TABLE sys_announce (
     id BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '主键',
     title VARCHAR(200) NOT NULL COMMENT '标题',
     content TEXT COMMENT '内容',
@@ -24,11 +27,12 @@ CREATE TABLE IF NOT EXISTS sys_announce (
     creator VARCHAR(64) DEFAULT '',
     updater VARCHAR(64) DEFAULT '',
     deleted TINYINT DEFAULT 0,
+    `priority` TINYINT DEFAULT 0 COMMENT '优先级 0普通 1重要',
     INDEX idx_status_time (status, create_time)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='系统通知/公告';
 
 DROP TABLE IF EXISTS `sys_user_announce`;
-CREATE TABLE IF NOT EXISTS sys_user_announce (
+CREATE TABLE sys_user_announce (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
     user_id BIGINT NOT NULL COMMENT '接收用户',
     announce_id BIGINT NOT NULL COMMENT '通知ID',
@@ -40,7 +44,7 @@ CREATE TABLE IF NOT EXISTS sys_user_announce (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='用户通知已读';
 
 DROP TABLE IF EXISTS `sys_announce_send_log`;
-CREATE TABLE IF NOT EXISTS sys_announce_send_log (
+CREATE TABLE sys_announce_send_log (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
     announce_id BIGINT NOT NULL,
     channel VARCHAR(50) NOT NULL COMMENT 'station等',
@@ -53,7 +57,7 @@ CREATE TABLE IF NOT EXISTS sys_announce_send_log (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='通知推送日志';
 
 DROP TABLE IF EXISTS `sys_chat_message`;
-CREATE TABLE IF NOT EXISTS sys_chat_message (
+CREATE TABLE sys_chat_message (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
     sender_id BIGINT NOT NULL,
     sender_name VARCHAR(50) DEFAULT NULL,
@@ -71,7 +75,7 @@ CREATE TABLE IF NOT EXISTS sys_chat_message (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='私聊消息';
 
 DROP TABLE IF EXISTS `sys_user_blacklist`;
-CREATE TABLE IF NOT EXISTS sys_user_blacklist (
+CREATE TABLE sys_user_blacklist (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
     user_id BIGINT NOT NULL COMMENT '拉黑方',
     blocked_user_id BIGINT NOT NULL COMMENT '被拉黑用户',
@@ -80,7 +84,7 @@ CREATE TABLE IF NOT EXISTS sys_user_blacklist (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='聊天黑名单';
 
 DROP TABLE IF EXISTS `sys_chat_group`;
-CREATE TABLE IF NOT EXISTS sys_chat_group (
+CREATE TABLE sys_chat_group (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(100) NOT NULL,
     avatar VARCHAR(500) DEFAULT NULL,
@@ -94,7 +98,7 @@ CREATE TABLE IF NOT EXISTS sys_chat_group (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='群聊';
 
 DROP TABLE IF EXISTS `sys_chat_group_member`;
-CREATE TABLE IF NOT EXISTS sys_chat_group_member (
+CREATE TABLE sys_chat_group_member (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
     group_id BIGINT NOT NULL,
     user_id BIGINT NOT NULL,
@@ -109,7 +113,7 @@ CREATE TABLE IF NOT EXISTS sys_chat_group_member (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='群成员';
 
 DROP TABLE IF EXISTS `sys_chat_group_message`;
-CREATE TABLE IF NOT EXISTS sys_chat_group_message (
+CREATE TABLE sys_chat_group_message (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
     group_id BIGINT NOT NULL,
     sender_id BIGINT NOT NULL,
@@ -124,7 +128,7 @@ CREATE TABLE IF NOT EXISTS sys_chat_group_message (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='群消息';
 
 DROP TABLE IF EXISTS `sys_chat_group_log`;
-CREATE TABLE IF NOT EXISTS sys_chat_group_log (
+CREATE TABLE sys_chat_group_log (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
     group_id BIGINT NOT NULL COMMENT '群ID',
     action_type VARCHAR(32) NOT NULL COMMENT '操作类型',

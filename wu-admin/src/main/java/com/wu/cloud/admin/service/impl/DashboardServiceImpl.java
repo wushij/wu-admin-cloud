@@ -21,9 +21,8 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
+import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Supplier;
 
 /**
@@ -44,6 +43,27 @@ public class DashboardServiceImpl implements DashboardService {
     private static final int RECENT_LOGIN_LIMIT = 8;
     private static final DateTimeFormatter TIME_FORMATTER =
             DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+
+    /**
+     * 专属聚合线程池（对齐 backend-development 规范：禁止使用公共 ForkJoinPool 承担生产业务）
+     */
+    private static final ExecutorService DASHBOARD_EXECUTOR = new ThreadPoolExecutor(
+            8,
+            32,
+            60L,
+            TimeUnit.SECONDS,
+            new LinkedBlockingQueue<>(256),
+            new ThreadFactory() {
+                private final AtomicInteger counter = new AtomicInteger(1);
+                @Override
+                public Thread newThread(Runnable r) {
+                    Thread t = new Thread(r, "dashboard-bff-worker-" + counter.getAndIncrement());
+                    t.setDaemon(true);
+                    return t;
+                }
+            },
+            new ThreadPoolExecutor.CallerRunsPolicy()
+    );
 
     private final RemoteStatsService remoteStatsService;
     private final RemoteTicketService remoteTicketService;
@@ -80,7 +100,7 @@ public class DashboardServiceImpl implements DashboardService {
                 } catch (Exception e) {
                     log.debug("[工作台] 在线心跳失败 userId={}", userId);
                 }
-            });
+            }, DASHBOARD_EXECUTOR);
         }
 
         String cacheKey = STATS_CACHE_KEY + (userId == null ? "anon" : userId);
@@ -140,6 +160,14 @@ public class DashboardServiceImpl implements DashboardService {
         vo.setTodayLoginFail(toLong(stats.get("todayLoginFail")));
         vo.setTodayVisits(toLong(stats.get("todayVisits")));
         vo.setYesterdayVisits(toLong(stats.get("yesterdayVisits")));
+
+        // 环比趋势与用户状态统计：system 服务已算出，这里透传给前端
+        vo.setUserTrend(toDouble(stats.get("userTrend")));
+        vo.setRoleTrend(toDouble(stats.get("roleTrend")));
+        vo.setDeptTrend(toDouble(stats.get("deptTrend")));
+        vo.setMenuTrend(toDouble(stats.get("menuTrend")));
+        vo.setUserPendingCount(toLong(stats.get("userPendingCount")));
+        vo.setUserDisabledCount(toLong(stats.get("userDisabledCount")));
         vo.setVisitCount(nullToZero(vo.getTodayVisits()) + nullToZero(vo.getYesterdayVisits()));
         vo.setConfigGroupCount(toLong(stats.get("configGroupCount")));
         vo.setOnlineCount((long) getNowOrDefault(onlineFuture, 0));
@@ -186,7 +214,7 @@ public class DashboardServiceImpl implements DashboardService {
     }
 
     private <T> CompletableFuture<T> supplyWithTimeout(Supplier<T> supplier, T defaultValue) {
-        return CompletableFuture.supplyAsync(supplier)
+        return CompletableFuture.supplyAsync(supplier, DASHBOARD_EXECUTOR)
                 .orTimeout(RPC_TIMEOUT_MS, TimeUnit.MILLISECONDS)
                 .exceptionally(ex -> {
                     if (!(ex.getCause() instanceof TimeoutException)
@@ -257,6 +285,23 @@ public class DashboardServiceImpl implements DashboardService {
             return Long.parseLong(value.toString());
         } catch (NumberFormatException e) {
             return 0L;
+        }
+    }
+
+    /**
+     * 趋势值可能是整数或小数（百分比），统一转 Double。
+     */
+    private Double toDouble(Object value) {
+        if (value == null) {
+            return 0D;
+        }
+        if (value instanceof Number number) {
+            return number.doubleValue();
+        }
+        try {
+            return Double.parseDouble(value.toString());
+        } catch (NumberFormatException e) {
+            return 0D;
         }
     }
 

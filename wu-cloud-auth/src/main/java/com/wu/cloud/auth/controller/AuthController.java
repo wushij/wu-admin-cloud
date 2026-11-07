@@ -1,5 +1,7 @@
 package com.wu.cloud.auth.controller;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import com.wu.cloud.api.log.Log;
 import com.wu.cloud.auth.dto.EmailCodeDTO;
 import com.wu.cloud.auth.dto.ForgotPasswordCheckDTO;
@@ -35,6 +37,7 @@ import java.util.Map;
 /**
  * 统一认证中心 REST API 控制层
  */
+@Tag(name = "认证管理")
 @RestController
 @RequestMapping("/api/auth")
 public class AuthController {
@@ -51,12 +54,14 @@ public class AuthController {
     // ==================== 登录与登出 ====================
 
     @Log(title = "用户登录", businessType = Log.BusinessType.LOGIN, isSaveResponseData = false)
+    @Operation(summary = "登录")
     @PostMapping("/login")
     public R<LoginVO> login(@RequestBody LoginQueryDTO query) {
         return R.ok(authService.login(query), "登录成功");
     }
 
     @Log(title = "用户登出", businessType = Log.BusinessType.LOGOUT)
+    @Operation(summary = "登出")
     @PostMapping("/logout")
     public R<Boolean> logout() {
         authService.logout();
@@ -66,6 +71,7 @@ public class AuthController {
     /**
      * 当前登录用户信息（前端 getInfo → /auth/info）
      */
+    @Operation(summary = "获取用户信息")
     @GetMapping("/info")
     public R<UserInfoVO> info() {
         return R.ok(authService.getUserInfo());
@@ -76,6 +82,7 @@ public class AuthController {
     /**
      * 获取登录页配置
      */
+    @Operation(summary = "获取登录配置")
     @GetMapping("/config")
     public R<LoginConfigVO> getConfig() {
         return R.ok(authService.getLoginConfig());
@@ -84,6 +91,7 @@ public class AuthController {
     /**
      * 获取图形验证码
      */
+    @Operation(summary = "获取验证码")
     @GetMapping("/captcha")
     public R<CaptchaVO> getCaptcha() {
         return R.ok(captchaService.generateImageCaptcha());
@@ -92,6 +100,7 @@ public class AuthController {
     /**
      * 获取滑块验证码挑战
      */
+    @Operation(summary = "获取滑块验证码 challenge")
     @GetMapping("/slider-challenge")
     public R<SliderCaptchaVO> getSliderChallenge() {
         return R.ok(captchaService.generateSliderChallenge());
@@ -100,6 +109,7 @@ public class AuthController {
     /**
      * 校验滑块位移，返回登录可用票据
      */
+    @Operation(summary = "校验滑块验证码并签发一次性票据")
     @PostMapping("/slider-verify")
     public R<Map<String, String>> verifySlider(@RequestParam("token") String token,
                                                @RequestParam("x") Integer x) {
@@ -107,8 +117,9 @@ public class AuthController {
     }
 
     /**
-     * 初始化会话签名，返回会话级动态密钥（与单体前端期望结构一致）
+     * 初始化会话签名，返回会话级动态密钥（与旧版前端期望结构一致）
      */
+    @Operation(summary = "初始化会话签名密钥（安全加固）")
     @PostMapping("/session-sign-init")
     public R<SessionSignInitVO> sessionSignInit(@RequestParam("clientId") String clientId) {
         return R.ok(authService.initSessionSign(clientId));
@@ -120,6 +131,7 @@ public class AuthController {
      * 发送短信验证码，默认用于短信登录
      */
     @Log(title = "发送短信验证码", businessType = Log.BusinessType.OTHER)
+    @Operation(summary = "发送登录短信验证码")
     @PostMapping("/sms-code")
     public R<Boolean> sendSmsCode(@RequestBody SmsCodeDTO smsCodeDTO) {
         if (smsCodeDTO == null || !StringUtils.hasText(smsCodeDTO.getMobile())) {
@@ -134,6 +146,7 @@ public class AuthController {
     /**
      * 校验短信验证码，返回一次性票据供后续步骤使用
      */
+    @Operation(summary = "核验短信验证码")
     @PostMapping("/sms-code/verify")
     public R<Map<String, String>> verifySmsCode(@RequestBody SmsCodeVerifyDTO verifyDTO) {
         if (verifyDTO == null || !StringUtils.hasText(verifyDTO.getMobile())) {
@@ -150,6 +163,7 @@ public class AuthController {
      * 发送邮箱验证码
      */
     @Log(title = "发送邮箱验证码", businessType = Log.BusinessType.OTHER)
+    @Operation(summary = "发送登录邮箱验证码")
     @PostMapping("/email-code")
     public R<Boolean> sendEmailCode(@RequestBody EmailCodeDTO emailCodeDTO) {
         if (emailCodeDTO == null || !StringUtils.hasText(emailCodeDTO.getEmail())) {
@@ -164,6 +178,7 @@ public class AuthController {
     // ==================== 注册 ====================
 
     @Log(title = "用户注册", businessType = Log.BusinessType.INSERT, isSaveResponseData = false)
+    @Operation(summary = "注册")
     @PostMapping("/register")
     public R<Long> register(@RequestBody RegisterDTO registerDTO) {
         return R.ok(authService.register(registerDTO), "注册成功");
@@ -174,6 +189,7 @@ public class AuthController {
     /**
      * 忘记密码-校验账号
      */
+    @Operation(summary = "忘记密码-校验用户名")
     @PostMapping("/forgot-password/check")
     public R<ForgotPasswordCheckVO> forgotPasswordCheck(@RequestBody ForgotPasswordCheckDTO checkDTO) {
         return R.ok(authService.forgotPasswordCheck(checkDTO));
@@ -182,6 +198,7 @@ public class AuthController {
     /**
      * 忘记密码-发送短信验证码
      */
+    @Operation(summary = "忘记密码-发送短信验证码")
     @PostMapping("/forgot-password/sms-code")
     public R<Map<String, String>> forgotPasswordSmsCode(@RequestBody ForgotPasswordSmsCodeDTO smsCodeDTO) {
         String masked = authService.forgotPasswordSmsCode(smsCodeDTO);
@@ -192,6 +209,7 @@ public class AuthController {
      * 忘记密码-重置密码
      */
     @Log(title = "忘记密码重置", businessType = Log.BusinessType.UPDATE, isSaveResponseData = false)
+    @Operation(summary = "忘记密码-短信重置密码")
     @PostMapping("/forgot-password/reset")
     public R<Boolean> forgotPasswordReset(@RequestBody ForgotPasswordResetDTO resetDTO) {
         authService.forgotPasswordReset(resetDTO);

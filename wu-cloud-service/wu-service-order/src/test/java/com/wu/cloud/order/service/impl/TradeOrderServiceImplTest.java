@@ -19,7 +19,6 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
-import org.springframework.test.util.ReflectionTestUtils;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -46,7 +45,6 @@ class TradeOrderServiceImplTest extends MybatisLambdaTestBase {
 
     @BeforeEach
     void setUp() {
-        ReflectionTestUtils.setField(tradeOrderService, "baseMapper", tradeOrderMapper);
         UserContextHolder.set(UserContext.builder().userId(7L).username("buyer").build());
     }
 
@@ -87,7 +85,7 @@ class TradeOrderServiceImplTest extends MybatisLambdaTestBase {
     @DisplayName("markPaidByOrderNo：PENDING→PAID")
     void markPaid_pendingToPaid() {
         TradeOrderDO order = order(1L, "T001", "PENDING");
-        when(tradeOrderMapper.selectOne(anyLambdaQueryWrapper(), anyBoolean())).thenReturn(order);
+        when(tradeOrderMapper.selectOne(anyLambdaQueryWrapper())).thenReturn(order);
         when(tradeOrderMapper.updateById(any(TradeOrderDO.class))).thenReturn(1);
 
         assertTrue(tradeOrderService.markPaidByOrderNo("T001", "WECHAT"));
@@ -100,7 +98,7 @@ class TradeOrderServiceImplTest extends MybatisLambdaTestBase {
     @DisplayName("markPaidByOrderNo：已支付幂等返回 true")
     void markPaid_alreadyPaid_idempotent() {
         TradeOrderDO order = order(1L, "T001", "PAID");
-        when(tradeOrderMapper.selectOne(anyLambdaQueryWrapper(), anyBoolean())).thenReturn(order);
+        when(tradeOrderMapper.selectOne(anyLambdaQueryWrapper())).thenReturn(order);
 
         assertTrue(tradeOrderService.markPaidByOrderNo("T001", "WECHAT"));
         verify(tradeOrderMapper, never()).updateById(any(TradeOrderDO.class));
@@ -110,7 +108,7 @@ class TradeOrderServiceImplTest extends MybatisLambdaTestBase {
     @DisplayName("markPaidByOrderNo：已取消不强制流转")
     void markPaid_cancelled_returnsFalse() {
         TradeOrderDO order = order(1L, "T001", "CANCELLED");
-        when(tradeOrderMapper.selectOne(anyLambdaQueryWrapper(), anyBoolean())).thenReturn(order);
+        when(tradeOrderMapper.selectOne(anyLambdaQueryWrapper())).thenReturn(order);
 
         assertFalse(tradeOrderService.markPaidByOrderNo("T001", "WECHAT"));
         verify(tradeOrderMapper, never()).updateById(any(TradeOrderDO.class));

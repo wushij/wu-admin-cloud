@@ -1,5 +1,7 @@
 package com.wu.cloud.system.controller;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.wu.cloud.api.log.Log;
@@ -26,6 +28,7 @@ import java.util.stream.Collectors;
 /**
  * 字典数据（规范路径 /api/system/dict/data；P1 已去掉 /dict-data 兼容映射）
  */
+@Tag(name = "字典数据")
 @RestController
 @RequestMapping("/api/system/dict/data")
 public class DictDataController {
@@ -40,11 +43,13 @@ public class DictDataController {
     private StringRedisTemplate redisTemplate;
 
     /** 下拉：仅启用项 */
+    @Operation(summary = "获取列表")
     @GetMapping("/type/{dictType}")
     public R<List<SysDictDataDO>> listByTypePath(@PathVariable("dictType") String dictType) {
         return R.ok(listEnabled(dictType));
     }
 
+    @Operation(summary = "获取列表")
     @GetMapping("/list-by-type")
     public R<List<SysDictDataDO>> listByTypeQuery(@RequestParam("type") String type) {
         return R.ok(listEnabled(type));
@@ -52,6 +57,7 @@ public class DictDataController {
 
     /** 管理页：含停用项 */
     @RequiresPermissions("system:dict:list")
+    @Operation(summary = "获取列表")
     @GetMapping("/manage/{dictType}")
     public R<List<SysDictDataDO>> listForManage(@PathVariable("dictType") String dictType) {
         return R.ok(dictDataMapper.selectList(new LambdaQueryWrapper<SysDictDataDO>()
@@ -60,6 +66,7 @@ public class DictDataController {
                 .orderByAsc(SysDictDataDO::getId)));
     }
 
+    @Operation(summary = "批量操作")
     @GetMapping("/batch")
     public R<Map<String, List<SysDictDataDO>>> batch(@RequestParam("types") String types) {
         Map<String, List<SysDictDataDO>> result = new HashMap<>();
@@ -77,7 +84,8 @@ public class DictDataController {
         return R.ok(result);
     }
 
-    @RequiresPermissions("system:dict:edit")
+    @RequiresPermissions("system:dict:update")
+    @Operation(summary = "新增")
     @PostMapping("/refresh-cache")
     public R<Boolean> refreshCache() {
         Set<String> keys = redisTemplate.keys(DICT_CACHE_PREFIX + "*");
@@ -87,8 +95,9 @@ public class DictDataController {
         return R.ok(true);
     }
 
-    @RequiresPermissions("system:dict:add")
+    @RequiresPermissions("system:dict:create")
     @Log(title = "字典数据", businessType = Log.BusinessType.INSERT)
+    @Operation(summary = "上传工单附件")
     @PostMapping
     public R<Boolean> create(@RequestBody SysDictDataDO dictDataDO) {
         validateData(dictDataDO);
@@ -103,15 +112,17 @@ public class DictDataController {
         return R.ok(true);
     }
 
-    @RequiresPermissions("system:dict:add")
+    @RequiresPermissions("system:dict:create")
     @Log(title = "字典数据", businessType = Log.BusinessType.INSERT)
+    @Operation(summary = "新增菜单")
     @PostMapping("/create")
     public R<Boolean> createCompat(@RequestBody SysDictDataDO dictDataDO) {
         return create(dictDataDO);
     }
 
-    @RequiresPermissions("system:dict:edit")
+    @RequiresPermissions("system:dict:update")
     @Log(title = "字典数据", businessType = Log.BusinessType.UPDATE)
+    @Operation(summary = "更新当前用户资料")
     @PutMapping
     public R<Boolean> update(@RequestBody SysDictDataDO dictDataDO) {
         if (dictDataDO.getId() == null) {
@@ -123,15 +134,17 @@ public class DictDataController {
         return R.ok(true);
     }
 
-    @RequiresPermissions("system:dict:edit")
+    @RequiresPermissions("system:dict:update")
     @Log(title = "字典数据", businessType = Log.BusinessType.UPDATE)
+    @Operation(summary = "修改菜单")
     @PutMapping("/update")
     public R<Boolean> updateCompat(@RequestBody SysDictDataDO dictDataDO) {
         return update(dictDataDO);
     }
 
-    @RequiresPermissions("system:dict:remove")
+    @RequiresPermissions("system:dict:delete")
     @Log(title = "字典数据", businessType = Log.BusinessType.DELETE)
+    @Operation(summary = "删除短信发送记录")
     @DeleteMapping("/{id}")
     public R<Boolean> delete(@PathVariable("id") Long id) {
         SysDictDataDO data = dictDataMapper.selectById(id);
@@ -142,14 +155,16 @@ public class DictDataController {
         return R.ok(true);
     }
 
-    @RequiresPermissions("system:dict:remove")
+    @RequiresPermissions("system:dict:delete")
     @Log(title = "字典数据", businessType = Log.BusinessType.DELETE)
+    @Operation(summary = "删除菜单")
     @DeleteMapping("/delete")
     public R<Boolean> deleteCompat(@RequestParam("id") Long id) {
         return delete(id);
     }
 
     @RequiresPermissions("system:dict:list")
+    @Operation(summary = "分页查询 API 访问日志")
     @GetMapping("/recycle/page")
     public R<PageResult<SysDictDataDO>> recyclePage(PageQuery pageQuery,
                                                     @RequestParam(required = false) String dictType,
@@ -158,8 +173,9 @@ public class DictDataController {
         return R.ok(PageResult.of(page.getRecords(), page.getTotal()));
     }
 
-    @RequiresPermissions("system:dict:edit")
+    @RequiresPermissions("system:dict:update")
     @Log(title = "字典数据", businessType = Log.BusinessType.UPDATE)
+    @Operation(summary = "恢复菜单")
     @PutMapping("/restore")
     public R<Boolean> restore(@RequestParam("id") Long id) {
         if (!sysRecycleService.restoreDictData(id)) {
@@ -168,8 +184,9 @@ public class DictDataController {
         return R.ok(true);
     }
 
-    @RequiresPermissions("system:dict:remove")
+    @RequiresPermissions("system:dict:delete")
     @Log(title = "字典数据", businessType = Log.BusinessType.DELETE)
+    @Operation(summary = "彻底删除菜单")
     @DeleteMapping("/delete-permanent")
     public R<Boolean> deletePermanent(@RequestParam("id") Long id) {
         if (!sysRecycleService.purgeDictData(id)) {

@@ -20,7 +20,6 @@ import {
   getFileText,
   fetchFileBlob,
   getStreamPreviewUrl,
-  needsBlobPreview,
   getDownloadApiUrl,
   validateFileBeforeUpload,
   getFileUploadPolicy,
@@ -117,10 +116,10 @@ export function useFilePage() {
 
   const officePreviewUrl = computed(() => {
     const file = previewFile.value
-    if (!file?.url) return ''
-    const abs = file.url.startsWith('http')
-      ? file.url
-      : `${window.location.origin}${file.url.startsWith('/api') ? file.url : '/api' + file.url}`
+    if (!file) return ''
+    const url = getStreamPreviewUrl(file)
+    if (!url) return ''
+    const abs = url.startsWith('http') ? url : `${window.location.origin}${url}`
     return `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(abs)}`
   })
 
@@ -357,7 +356,8 @@ export function useFilePage() {
   }
 
   async function saveMove() {
-    const targetGroupId = moveGroupId.value ?? 0
+    // 未分组传 null，让后端把 group_id 归一化为 NULL；传 0 会导致列表用 IS NULL 查不到
+    const targetGroupId = moveGroupId.value && moveGroupId.value > 0 ? moveGroupId.value : null
     await moveFiles(selectedIds.value, targetGroupId)
     moveVisible.value = false
     selectedIds.value = []
@@ -399,17 +399,7 @@ export function useFilePage() {
 
     if (useStreamPreview(file)) {
       previewLoading.value = isVideo(file) || isAudio(file)
-      if (needsBlobPreview(file)) {
-        try {
-          const blob = await fetchFileBlob(`/infra/file/preview/${file.id}`)
-          previewBlobUrl.value = URL.createObjectURL(blob)
-        } catch {
-          ElMessage.error('预览加载失败，请尝试下载后本地播放')
-          return
-        }
-      } else {
-        previewBlobUrl.value = getStreamPreviewUrl(file)
-      }
+      previewBlobUrl.value = getStreamPreviewUrl(file)
       previewVisible.value = true
       if (isImage(file) || isPdf(file)) {
         previewLoading.value = false

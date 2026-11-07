@@ -22,31 +22,22 @@
       <div
         ref="imageRef"
         class="slider-panel__image"
-        @mousemove="onDragMove"
-        @mouseup="onDragEnd"
-        @mouseleave="onDragEnd"
-        @touchmove.prevent="onDragMove"
-        @touchend="onDragEnd"
+        :style="imageBoxStyle"
       >
-        <img
-          :src="currentBgUrl"
-          class="slider-panel__bg"
-          alt=""
-          draggable="false"
-          @load="onImageLoad"
-        />
-        <!-- 缺口：与拼图块完全相同的 clip-path -->
-        <div class="slider-panel__slot" :style="puzzleBoxStyle(targetX)" />
-        <!-- 拼图块：显示缺口处背景切片，拖到 targetX 与缺口重合 -->
-        <div class="slider-panel__piece" :class="{ verified }" :style="puzzleBoxStyle(offsetX)">
+        <template v-if="challenge">
           <img
-            :src="currentBgUrl"
-            class="slider-panel__piece-img"
+            :src="challenge.background"
+            class="slider-panel__bg"
             alt=""
             draggable="false"
-            :style="pieceImgStyle"
+            @load="measure"
           />
-        </div>
+          <!-- 拼图块由服务端从缺口位置裁切，缺口位置本身只存在于服务端 -->
+          <div class="slider-panel__piece" :class="{ verified }" :style="pieceStyle">
+            <img :src="challenge.piece" class="slider-panel__piece-img" alt="" draggable="false" />
+          </div>
+        </template>
+        <el-skeleton v-else :rows="4" animated class="slider-panel__skeleton" />
       </div>
 
       <div class="slider-panel__track">
@@ -55,7 +46,7 @@
         </div>
         <div
           class="slider-panel__handle"
-          :class="{ dragging, verified }"
+          :class="{ dragging, verified, disabled: verifying || loadingChallenge }"
           :style="{ left: `${offsetX}px` }"
           @mousedown="onDragStart"
           @touchstart.prevent="onDragStart"
@@ -71,7 +62,7 @@
       <div class="slider-panel__footer">
         <button type="button" class="slider-panel__refresh" @click="refresh">
           <el-icon :size="14"><Refresh /></el-icon>
-          <span>刷新</span>
+          刷新
         </button>
         <span class="slider-panel__id">{{ captchaId }}</span>
       </div>
@@ -80,11 +71,13 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, nextTick, onBeforeUnmount } from 'vue'
+import { ref, computed, watch, nextTick, onMounted, onBeforeUnmount } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Close, ArrowRight, Refresh, Check } from '@element-plus/icons-vue'
-import { getSliderChallenge } from '@/api/system/auth'
-import type { SliderVerifyPayload } from '@/types/slider-captcha'
+import { getSliderChallenge, verifySlider } from '@/api/system/auth'
+import type { SliderChallengeResult } from '@/api/system/auth'
+import type { SliderTrackEvent, SliderVerifyPayload } from '@/types/slider-captcha'
+import { getErrorMessage, isErrorToastShown } from '@/utils/axiosError'
 
 const visible = defineModel('show', { type: Boolean, default: false })
 
@@ -101,94 +94,87 @@ const emit = defineEmits<{
   close: []
 }>()
 
-const PIECE_W = 52
-const PIECE_H = 52
-const IMAGE_H = 200
-const TOLERANCE = 6
-
-/** 缺口与拼图块共用造型（右侧凸起拼图） */
-const PUZZLE_CLIP =
-  'polygon(0% 0%, 78% 0%, 78% 28%, 100% 50%, 78% 72%, 78% 100%, 0% 100%)'
-
-const BG_URLS = [
-  '/captcha/bg1.jpg',
-  '/captcha/bg2.jpg',
-  '/captcha/bg3.jpg',
-  '/captcha/bg4.jpg'
-]
+const MAX_TRACK_EVENTS = 240
 
 const imageRef = ref<HTMLElement | null>(null)
-const imageWidth = ref(340)
+const challenge = ref<SliderChallengeResult | null>(null)
+const displayWidth = ref(340)
 const offsetX = ref(0)
-const targetX = ref(180)
-const pieceTop = ref(74)
-const maxOffset = ref(280)
 const dragging = ref(false)
+const verifying = ref(false)
 const verified = ref(false)
-const bgIndex = ref(0)
-const captchaId = ref('')
-const challengeToken = ref('')
 const loadingChallenge = ref(false)
+const captchaId = ref('')
 
 let dragStartX = 0
+let dragStartTime = 0
+let lastY = 0
+let events: SliderTrackEvent[] = []
 
-const currentBgUrl = computed(() => BG_URLS[bgIndex.value % BG_URLS.length])
+/** 显示宽度与服务端逻辑宽度的比例，用于把拖动距离换算成服务端坐标 */
+const displayScale = computed(() => {
+  const width = challenge.value?.width || 340
+  return displayWidth.value > 0 ? displayWidth.value / width : 1
+})
 
-function puzzleBoxStyle(left: number) {
+const pieceDisplaySize = computed(() => {
+  const size = challenge.value?.pieceSize || 52
+  return Math.max(1, Math.round(size * displayScale.value))
+})
+
+const maxOffset = computed(() => Math.max(0, displayWidth.value - pieceDisplaySize.value))
+
+const imageBoxStyle = computed(() => {
+  const width = challenge.value?.width || 340
+  const height = challenge.value?.height || 200
+  return { aspectRatio: `${width} / ${height}` }
+})
+
+const pieceStyle = computed(() => {
+  const top = challenge.value?.pieceTop || 0
   return {
-    left: `${left}px`,
-    top: `${pieceTop.value}px`,
-    width: `${PIECE_W}px`,
-    height: `${PIECE_H}px`,
-    clipPath: PUZZLE_CLIP,
-    WebkitClipPath: PUZZLE_CLIP
+    left: `${offsetX.value}px`,
+    top: `${Math.round(top * displayScale.value)}px`,
+    width: `${pieceDisplaySize.value}px`,
+    height: `${pieceDisplaySize.value}px`,
   }
-}
-
-/** 拼图内大图与底图同源、同 cover，偏移到缺口坐标，对齐后无缝补全 */
-const pieceImgStyle = computed(() => ({
-  width: `${imageWidth.value}px`,
-  height: `${IMAGE_H}px`,
-  transform: `translate3d(${-targetX.value}px, ${-pieceTop.value}px, 0)`
-}))
+})
 
 function measure() {
   nextTick(() => {
     const box = imageRef.value
-    if (box) {
-      imageWidth.value = box.clientWidth || 340
-      maxOffset.value = Math.max(PIECE_W, box.clientWidth - PIECE_W)
-      if (targetX.value > maxOffset.value - PIECE_W) {
-        targetX.value = Math.max(0, maxOffset.value - PIECE_W)
-      }
+    if (box && box.clientWidth > 0) {
+      displayWidth.value = box.clientWidth
     }
   })
 }
 
 async function refresh() {
+  if (verifying.value) return
   offsetX.value = 0
   verified.value = false
   dragging.value = false
+  events = []
   loadingChallenge.value = true
   try {
     const res = await getSliderChallenge(props.scene)
     const data = res.data
-    challengeToken.value = data.token
+    if (!data?.token || !data.background || !data.piece) {
+      throw new Error('滑块挑战数据不完整')
+    }
+    challenge.value = data
     captchaId.value = data.token.slice(0, 16).toUpperCase()
-    bgIndex.value = data.bgIndex ?? 0
-    pieceTop.value = data.pieceTop ?? 74
-    targetX.value = data.targetX ?? 180
+    await nextTick()
     measure()
-  } catch {
-    ElMessage.error('加载滑块验证失败，请重试')
-    challengeToken.value = ''
+  } catch (error) {
+    challenge.value = null
+    captchaId.value = ''
+    if (!isErrorToastShown(error)) {
+      ElMessage.error(getErrorMessage(error) || '加载滑块验证失败，请重试')
+    }
   } finally {
     loadingChallenge.value = false
   }
-}
-
-function onImageLoad() {
-  measure()
 }
 
 function closePanel() {
@@ -198,6 +184,7 @@ function closePanel() {
 function onClosed() {
   stopDrag()
   offsetX.value = 0
+  events = []
   emit('close')
 }
 
@@ -207,14 +194,24 @@ function clampX(x: number) {
 
 function getClientX(e: MouseEvent | TouchEvent): number {
   if ('touches' in e && e.touches.length) return e.touches[0].clientX
+  if ('changedTouches' in e && e.changedTouches.length) return e.changedTouches[0].clientX
   return (e as MouseEvent).clientX
 }
 
+function getClientY(e: MouseEvent | TouchEvent): number {
+  if ('touches' in e && e.touches.length) return e.touches[0].clientY
+  if ('changedTouches' in e && e.changedTouches.length) return e.changedTouches[0].clientY
+  return (e as MouseEvent).clientY
+}
+
 function onDragStart(e: MouseEvent | TouchEvent) {
-  if (verified.value) return
+  if (verified.value || verifying.value || loadingChallenge.value || !challenge.value) return
   dragging.value = true
-  const clientX = getClientX(e)
-  dragStartX = clientX - offsetX.value
+  dragStartX = getClientX(e) - offsetX.value
+  dragStartTime = performance.now()
+  const rect = imageRef.value?.getBoundingClientRect()
+  lastY = rect ? Math.round((getClientY(e) - rect.top) / displayScale.value) : 0
+  events = [{ x: Math.round(offsetX.value / displayScale.value), y: lastY, t: 0 }]
   document.addEventListener('mousemove', onDragMove)
   document.addEventListener('mouseup', onDragEnd)
   document.addEventListener('touchmove', onDragMove, { passive: false })
@@ -225,31 +222,76 @@ function onDragStart(e: MouseEvent | TouchEvent) {
 function onDragMove(e: MouseEvent | TouchEvent) {
   if (!dragging.value || verified.value) return
   if (e.cancelable) e.preventDefault()
-  const clientX = getClientX(e)
-  offsetX.value = clampX(clientX - dragStartX)
+  offsetX.value = clampX(getClientX(e) - dragStartX)
+
+  const rect = imageRef.value?.getBoundingClientRect()
+  if (rect) {
+    lastY = Math.round((getClientY(e) - rect.top) / displayScale.value)
+  }
+  if (events.length < MAX_TRACK_EVENTS) {
+    events.push({
+      x: Math.round(offsetX.value / displayScale.value),
+      y: lastY,
+      t: Math.round(performance.now() - dragStartTime),
+    })
+  }
 }
 
-function onDragEnd() {
+async function onDragEnd() {
   if (!dragging.value || verified.value) return
   stopDrag()
-  if (Math.abs(offsetX.value - targetX.value) <= TOLERANCE) {
-    verified.value = true
-    offsetX.value = targetX.value
-    if (!challengeToken.value) {
-      ElMessage.error('验证数据无效，请刷新')
-      return
+
+  if (!challenge.value) return
+  if (offsetX.value < 2) {
+    offsetX.value = 0
+    events = []
+    return
+  }
+  if (verifying.value) return
+
+  const durationMs = Math.round(performance.now() - dragStartTime)
+  const serverOffsetX = Math.round(offsetX.value / displayScale.value)
+  events.push({
+    x: serverOffsetX,
+    y: lastY,
+    t: durationMs,
+  })
+  // 轨迹点已到上限时，必须保留最后一个终点：服务端会校验「最后一点与提交偏移量一致」，
+  // 直接用 slice(0, MAX) 会把终点切掉，导致长距离拖动被误判为“轨迹与提交位置不一致”。
+  const track = events.length > MAX_TRACK_EVENTS
+    ? [...events.slice(0, MAX_TRACK_EVENTS - 1), events[events.length - 1]]
+    : events
+
+  verifying.value = true
+  try {
+    const res = await verifySlider({
+      token: challenge.value.token,
+      offsetX: serverOffsetX,
+      durationMs,
+      events: track,
+    })
+    const ticket = res.data?.ticket
+    if (!ticket) {
+      throw new Error('服务端未返回验证票据')
     }
+    verified.value = true
     ElMessage.success('验证成功')
-    const payload: SliderVerifyPayload = { token: challengeToken.value, offsetX: offsetX.value }
     setTimeout(() => {
       visible.value = false
-      emit('success', payload)
-    }, 450)
-  } else {
-    ElMessage.warning('验证失败，请重试')
-    setTimeout(() => {
-      offsetX.value = 0
-    }, 280)
+      emit('success', { token: ticket, offsetX: serverOffsetX })
+    }, 350)
+  } catch (error) {
+    if (!isErrorToastShown(error)) {
+      ElMessage.warning(getErrorMessage(error) || '验证失败，请重试')
+    }
+    offsetX.value = 0
+    events = []
+    const message = getErrorMessage(error) || ''
+    if (message.includes('刷新') || message.includes('过期') || message.includes('次数过多')) {
+      await refresh()
+    }
+  } finally {
+    verifying.value = false
   }
 }
 
@@ -263,10 +305,21 @@ function stopDrag() {
 }
 
 watch(visible, (v) => {
-  if (v) refresh()
+  if (v) {
+    void refresh()
+  } else {
+    stopDrag()
+  }
 })
 
-onBeforeUnmount(stopDrag)
+onMounted(() => {
+  window.addEventListener('resize', measure)
+})
+
+onBeforeUnmount(() => {
+  stopDrag()
+  window.removeEventListener('resize', measure)
+})
 </script>
 
 <style scoped lang="scss">
@@ -303,7 +356,6 @@ onBeforeUnmount(stopDrag)
 .slider-panel__image {
   position: relative;
   width: 100%;
-  height: 200px;
   overflow: hidden;
   border-radius: 2px;
   background: #374151;
@@ -311,19 +363,14 @@ onBeforeUnmount(stopDrag)
 
 .slider-panel__bg {
   width: 100%;
-  height: 100%;
-  object-fit: cover;
-  object-position: center center;
+  height: auto;
+  object-fit: fill;
   display: block;
   pointer-events: none;
 }
 
-.slider-panel__slot {
-  position: absolute;
-  background: rgba(0, 0, 0, 0.5);
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.65);
-  z-index: 1;
-  pointer-events: none;
+.slider-panel__skeleton {
+  padding: 16px;
 }
 
 .slider-panel__piece {
@@ -339,12 +386,10 @@ onBeforeUnmount(stopDrag)
 }
 
 .slider-panel__piece-img {
-  position: absolute;
-  top: 0;
-  left: 0;
-  max-width: none;
-  object-fit: cover;
-  object-position: center center;
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: fill;
   pointer-events: none;
 }
 
@@ -398,6 +443,11 @@ onBeforeUnmount(stopDrag)
     background: #22c55e;
     border-color: #22c55e;
     color: #fff;
+  }
+
+  &.disabled {
+    cursor: not-allowed;
+    opacity: 0.65;
   }
 }
 

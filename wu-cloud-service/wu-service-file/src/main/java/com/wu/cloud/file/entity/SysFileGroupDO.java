@@ -10,7 +10,7 @@ import java.io.Serializable;
 import java.time.LocalDateTime;
 
 /**
- * 文件分组 DO（对齐单体 sys_file_group 表结构）
+ * 文件分组 DO（与既有规范对齐 sys_file_group 表结构）
  */
 @Data
 @TableName("sys_file_group")

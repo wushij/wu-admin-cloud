@@ -1,6 +1,6 @@
 import { ref, reactive, computed, watch } from 'vue'
 import { ElMessage } from 'element-plus'
-import { getConfigGroup, updateConfigGroup } from '@/api/system/config'
+import { getConfigGroup, updateConfigGroup, getStorageConfig } from '@/api/system/config'
 import { getRoleList } from '@/api/system/role'
 import { getUserList } from '@/api/system/user'
 import { getErrorMessage } from '@/utils/axiosError'
@@ -18,7 +18,10 @@ const DEFAULTS = {
     platformSubtitle: '统一运维 · 高效管控',
     loginWelcome: 'Welcome',
     registerTitle: 'Sign Up',
-    copyright: ''
+    copyright: '',
+    icpEnabled: false,
+    icpNumber: '',
+    icpUrl: 'https://beian.miit.gov.cn'
   },
   session: { tokenExpireHours: 24, sessionSignExpireHours: 24 },
   file: {
@@ -35,6 +38,9 @@ const DEFAULTS = {
     smsPerPhoneDaily: 10,
     smsPerIpDaily: 30,
     aiChatPerUserMinute: 8,
+    apiPerIpMinute: 240,
+    authPerIpMinute: 60,
+    filesPerIpMinute: 600,
   },
   login: {
     captchaEnabled: true,
@@ -76,7 +82,27 @@ const DEFAULTS = {
   },
   security: {
     disableDevtool: false,
-    isConcurrent: false
+    isConcurrent: false,
+    sm2EncryptEnabled: true,
+    sm4EncryptEnabled: true,
+    sm2SignEnabled: true,
+    sm3SignEnabled: true,
+    timestampEnabled: true,
+    nonceEnabled: true,
+    riskEnabled: true,
+    riskWindowMinutes: 60,
+    riskNoticeScore: 30,
+    riskWarnScore: 50,
+    riskChallengeScore: 70,
+    riskBlockScore: 90,
+    riskBanScore: 120,
+    riskBlockSeconds: 3600,
+    riskBanSeconds: 86400,
+    riskChallengeEnabled: false,
+    riskBehaviorEnabled: true,
+    riskPageScanThreshold: 8,
+    riskExportThreshold: 5,
+    riskAlertWebhook: '',
   },
   sms: {
     enabled: false, provider: 'aliyunAuth',
@@ -90,7 +116,7 @@ const DEFAULTS = {
   email: {
     enabled: true, provider: 'qq',
     host: 'smtp.qq.com', port: 465,
-    username: '974473458@qq.com', password: 'cqjvfpulydqwbegh',
+    username: '', password: '',
     fromName: 'wu-admin 系统团队',
     authEnabled: true, securityType: 'SSL',
     connectionTimeoutMs: 5000, timeoutMs: 5000, writeTimeoutMs: 5000,
@@ -204,7 +230,7 @@ export function useConfigDraft() {
 
   const canEdit = computed(() => (userStore.userInfo?.permissions || []).includes('system:config:update'))
   const activeTab = ref('site')
-  const loading = ref(false)
+  const loading = ref(true)
   const saving = ref(false)
   const roleOptions = ref<RoleOption[]>([])
   const userOptions = ref<UserOption[]>([])
@@ -236,9 +262,43 @@ export function useConfigDraft() {
       const res = await getConfigGroup(code, { silent403: true })
       const serverJson = res.data?.configValue ? parseJson(res.data.configValue) : {}
       applyGroupFromServer(savedSnapshot, draft, code, serverJson as Partial<ConfigGroupMap[typeof code]>)
+      if (code === 'file') {
+        try {
+          const storageRes = await getStorageConfig({ silent403: true })
+          if (storageRes?.data) {
+            const data = storageRes.data
+            const storageOverrides = {
+              type: data.type || data.activeType || 'local',
+              localPath: data.localPath,
+              localDomain: data.localDomain,
+              minioDomain: data.minioDomain,
+              minioEndpoint: data.minioEndpoint,
+              minioAccessKey: data.minioAccessKey,
+              minioBucket: data.minioBucket,
+              cosRegion: data.cosRegion,
+              cosBucket: data.cosBucket,
+              cosSecretId: data.cosSecretId,
+              cosDomain: data.cosDomain,
+              ossEndpoint: data.ossEndpoint,
+              ossBucket: data.ossBucket,
+              ossAccessKeyId: data.ossAccessKeyId,
+              ossDomain: data.ossDomain,
+            }
+            Object.assign(savedSnapshot.file, storageOverrides)
+            Object.assign(draft.file, storageOverrides)
+          }
+        } catch {
+          /* 忽略存储配置单项错误 */
+        }
+      }
     } catch {
       applyGroupFromServer(savedSnapshot, draft, code, {})
     }
+  }
+
+  const syncFileSnapshot = () => {
+    setConfigGroup(savedSnapshot, 'file', cloneConfig(draft.file))
+    checkDirty()
   }
 
   async function loadRoles() {
@@ -249,11 +309,7 @@ export function useConfigDraft() {
     }
     try {
       const res = await getRoleList({ status: 1 })
-      roleOptions.value = (res.data || []).map((r: { id: number; name: string; code: string }) => ({
-        id: r.id,
-        name: r.name,
-        code: r.code,
-      }))
+      roleOptions.value = (res.data || []).map((r: any) => ({ id: r.id, name: r.name, code: r.code }))
     } catch {
       roleOptions.value = [{ id: 0, name: '普通用户', code: 'user' }]
     }
@@ -288,8 +344,7 @@ export function useConfigDraft() {
     ])
     for (const r of results) {
       if (r.status === 'rejected') {
-        const reason = r.reason
-        const msg = String(reason instanceof Error ? reason.message : reason ?? '')
+        const msg = String((r as any).reason?.message || '')
         if (msg.includes('权限不足')) forbidden = true
       }
     }
@@ -317,20 +372,18 @@ export function useConfigDraft() {
     saving.value = true
     const devtoolChanged = draft.security.disableDevtool !== savedSnapshot.security.disableDevtool
     try {
-      // 只提交实际变更的分组，避免无改动分组刷操作日志（后端也会 skip，双保险）
-      const dirtyCodes = GROUP_CODES.filter((code) => {
-        const normalizedDraft = normalizePayload(code, cloneConfig(draft[code]))
-        const normalizedSaved = normalizePayload(code, cloneConfig(savedSnapshot[code]))
-        return JSON.stringify(normalizedDraft) !== JSON.stringify(normalizedSaved)
-      })
-      await Promise.all(dirtyCodes.map((code) => {
+      for (const code of GROUP_CODES) {
         const payload = normalizePayload(code, cloneConfig(draft[code]))
-        return updateConfigGroup(code, JSON.stringify(payload)).then(() => {
-          const saved = cloneConfig(payload)
-          setConfigGroup(savedSnapshot, code, saved)
-          setConfigGroup(draft, code, cloneConfig(saved))
-        })
-      }))
+        const savedNormalized = normalizePayload(code, cloneConfig(savedSnapshot[code]))
+        // 只提交真正变化的配置分组，避免未修改的 file 分组被反复写库和做远程连通性测试
+        if (JSON.stringify(payload) === JSON.stringify(savedNormalized)) {
+          continue
+        }
+        await updateConfigGroup(code, JSON.stringify(payload))
+        const saved = cloneConfig(payload)
+        setConfigGroup(savedSnapshot, code, saved)
+        setConfigGroup(draft, code, cloneConfig(saved))
+      }
       checkDirty()
       siteStore.setDisableDevtool(draft.security.disableDevtool)
       await siteStore.loadConfig()
@@ -349,6 +402,6 @@ export function useConfigDraft() {
   return {
     canEdit, activeTab, loading, saving, roleOptions, userOptions, platformMaxFileMb,
     draft, savedSnapshot, isDirty, forbidConcurrentLogin,
-    checkDirty, loadAll, handleReset, handleSave,
+    checkDirty, syncFileSnapshot, loadAll, handleReset, handleSave,
   }
 }

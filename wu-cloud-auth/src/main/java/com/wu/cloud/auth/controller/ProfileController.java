@@ -1,5 +1,7 @@
 package com.wu.cloud.auth.controller;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import com.wu.cloud.api.log.Log;
 import com.wu.cloud.api.system.dto.LoginLogDTO;
 import com.wu.cloud.auth.dto.BindEmailDTO;
@@ -32,6 +34,7 @@ import java.util.Map;
 /**
  * 个人中心 REST API 控制层
  */
+@Tag(name = "个人中心")
 @RestController
 @RequestMapping("/api/auth/profile")
 public class ProfileController {
@@ -44,6 +47,7 @@ public class ProfileController {
     /**
      * 获取个人信息
      */
+    @Operation(summary = "获取当前用户资料")
     @GetMapping
     public R<ProfileVO> getProfile() {
         return R.ok(profileService.getProfile());
@@ -53,6 +57,7 @@ public class ProfileController {
      * 更新个人资料
      */
     @Log(title = "更新个人资料", businessType = Log.BusinessType.UPDATE)
+    @Operation(summary = "更新当前用户资料")
     @PutMapping
     public R<Boolean> updateProfile(@RequestBody ProfileUpdateDTO updateDTO) {
         profileService.updateProfile(updateDTO);
@@ -63,6 +68,7 @@ public class ProfileController {
      * 上传头像
      */
     @Log(title = "上传头像", businessType = Log.BusinessType.UPDATE)
+    @Operation(summary = "上传头像")
     @PostMapping("/avatar")
     public R<Map<String, String>> uploadAvatar(@RequestPart("file") MultipartFile file) {
         String url = profileService.uploadAvatar(file);
@@ -75,6 +81,7 @@ public class ProfileController {
      * 使用原密码修改密码
      */
     @Log(title = "修改密码", businessType = Log.BusinessType.UPDATE, isSaveRequestData = false)
+    @Operation(summary = "修改当前用户密码")
     @PutMapping("/password")
     public R<Boolean> changePassword(@RequestBody ChangePasswordDTO changeDTO) {
         profileService.changePassword(changeDTO);
@@ -84,6 +91,7 @@ public class ProfileController {
     /**
      * 发送短信重置密码验证码
      */
+    @Operation(summary = "发送重置密码短信验证码（须先完成滑块验证）")
     @PostMapping("/password/sms-code")
     public R<Map<String, String>> sendPasswordSmsCode() {
         return R.ok(Map.of("mobile", profileService.sendPasswordSmsCode()), "验证码已发送");
@@ -93,6 +101,7 @@ public class ProfileController {
      * 通过短信验证码重置密码
      */
     @Log(title = "短信重置密码", businessType = Log.BusinessType.UPDATE, isSaveRequestData = false)
+    @Operation(summary = "短信验证重置当前用户密码")
     @PutMapping("/password/sms-reset")
     public R<Boolean> resetPasswordBySms(@RequestBody PasswordSmsResetDTO resetDTO) {
         profileService.resetPasswordBySms(resetDTO);
@@ -102,6 +111,7 @@ public class ProfileController {
     /**
      * 发送邮箱重置密码验证码
      */
+    @Operation(summary = "发送重置密码邮箱验证码")
     @PostMapping("/password/email-code")
     public R<Map<String, String>> sendPasswordEmailCode() {
         return R.ok(Map.of("email", profileService.sendPasswordEmailCode()), "验证码已发送");
@@ -111,6 +121,7 @@ public class ProfileController {
      * 通过邮箱验证码重置密码
      */
     @Log(title = "邮箱重置密码", businessType = Log.BusinessType.UPDATE, isSaveRequestData = false)
+    @Operation(summary = "邮箱验证重置当前用户密码")
     @PutMapping("/password/email-reset")
     public R<Boolean> resetPasswordByEmail(@RequestBody PasswordEmailResetDTO resetDTO) {
         profileService.resetPasswordByEmail(resetDTO);
@@ -122,6 +133,7 @@ public class ProfileController {
     /**
      * 发送绑定手机号验证码
      */
+    @Operation(summary = "发送绑定手机号短信验证码（须先完成滑块验证）")
     @PostMapping("/mobile/sms-code")
     public R<Boolean> sendMobileBindCode(@RequestBody SmsCodeDTO smsCodeDTO) {
         if (smsCodeDTO == null || !StringUtils.hasText(smsCodeDTO.getMobile())) {
@@ -135,6 +147,7 @@ public class ProfileController {
      * 绑定手机号
      */
     @Log(title = "绑定手机号", businessType = Log.BusinessType.UPDATE)
+    @Operation(summary = "短信验证绑定/更换手机号")
     @PutMapping("/mobile")
     public R<Boolean> bindMobile(@RequestBody BindMobileDTO bindDTO) {
         profileService.bindMobile(bindDTO);
@@ -146,6 +159,7 @@ public class ProfileController {
     /**
      * 发送绑定邮箱验证码
      */
+    @Operation(summary = "发送绑定/更换邮箱验证码")
     @PostMapping("/email/code")
     public R<Boolean> sendEmailBindCode(@RequestBody EmailCodeDTO emailCodeDTO) {
         if (emailCodeDTO == null || !StringUtils.hasText(emailCodeDTO.getEmail())) {
@@ -159,6 +173,7 @@ public class ProfileController {
      * 绑定邮箱
      */
     @Log(title = "绑定邮箱", businessType = Log.BusinessType.UPDATE)
+    @Operation(summary = "邮箱验证码绑定/更换邮箱")
     @PutMapping("/email")
     public R<Boolean> bindEmail(@RequestBody BindEmailDTO bindDTO) {
         profileService.bindEmail(bindDTO);
@@ -170,6 +185,7 @@ public class ProfileController {
     /**
      * 分页查询我的登录记录
      */
+    @Operation(summary = "我的登录记录")
     @GetMapping("/login-logs")
     public R<PageResult<LoginLogDTO>> getMyLoginLogs(
             @RequestParam(value = "pageNo", defaultValue = "1") Integer pageNo,

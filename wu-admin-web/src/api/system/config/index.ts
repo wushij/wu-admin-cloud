@@ -1,4 +1,4 @@
-import { get, put, post } from '@/utils/request'
+import { get, put, post, del } from '@/utils/request'
 import type { AxiosRequestConfig } from 'axios'
 import type { PayOrderRecord, SmsLogRecord, EmailLogRecord } from '@/types/config'
 
@@ -27,6 +27,18 @@ export function getConfigGroup(groupCode: string, config: AxiosRequestConfig = {
 
 export function updateConfigGroup(groupCode: string, configValue: string) {
   return put(`/system/config-group/${groupCode}`, { configValue })
+}
+
+export function getStorageConfig(params?: Record<string, unknown>) {
+  return get<import('@/types/config').StorageConfigVO>('/system/config-group/storage', params)
+}
+
+export function updateStorageConfig(data: import('@/types/config').StorageConfigDTO) {
+  return put<boolean>('/system/config-group/storage', data)
+}
+
+export function testStorageConfig(data: import('@/types/config').StorageConfigDTO) {
+  return post<boolean>('/system/config-group/test-storage', data)
 }
 
 export function testPayment(type: 'wechat' | 'alipay') {
@@ -85,3 +97,28 @@ export function getEmailLogs(params: {
   if (params.status != null) query.status = params.status
   return get<{ list: EmailLogRecord[]; total: number }>('/infra/config-log/email-logs', query)
 }
+
+export function deleteSmsLog(id: number | string) {
+  return del<boolean>(`/infra/config-log/sms-logs/${id}`)
+}
+
+export function deleteBatchSmsLogs(ids: (number | string)[]) {
+  return del<boolean>('/infra/config-log/sms-logs/batch', { data: ids })
+}
+
+export function cleanSmsLogs() {
+  return del<boolean>('/infra/config-log/sms-logs/clean')
+}
+
+export function deleteEmailLog(id: number | string) {
+  return del<boolean>(`/infra/config-log/email-logs/${id}`)
+}
+
+export function deleteBatchEmailLogs(ids: (number | string)[]) {
+  return del<boolean>('/infra/config-log/email-logs/batch', { data: ids })
+}
+
+export function cleanEmailLogs() {
+  return del<boolean>('/infra/config-log/email-logs/clean')
+}
+

@@ -191,15 +191,14 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted, onUnmounted, nextTick } from 'vue'
+import { ref, reactive, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
 import { Search, Refresh } from '@element-plus/icons-vue'
 import ModulePageIcon from '@/components/ModulePageIcon.vue'
 import { MODULE_PAGE_ICON } from '@/constants/module-page-icons'
 import ListExportButton from '@/components/ListExportButton.vue'
 import type { ECharts } from 'echarts'
 import type { CallbackDataParams } from 'echarts/types/dist/shared'
-import { useUserStore } from '@/store/user'
-import { hasMenuPermission } from '@/directives/permission'
+import { hasPermission } from '@/directives/permission'
 import {
   getApiAccessPage,
   getApiAccessStatistics,
@@ -215,8 +214,9 @@ import {
 const tableHeaderStyle = { textAlign: 'center' as const }
 const tableCellStyle = { textAlign: 'center' as const }
 
-const userStore = useUserStore()
-const canQuery = computed(() => hasMenuPermission(userStore.menus, 'monitor:apiAccess:query'))
+const canQuery = computed(() =>
+  hasPermission(['monitor:apiAccess:query', 'monitor:apiAccess:list'])
+)
 
 const stats = reactive<ApiAccessStatsView>(createEmptyApiAccessStats())
 
@@ -236,15 +236,7 @@ const queryParams = reactive<ApiAccessPageQuery>({
   method: null,
   success: null,
 })
-/** 默认近 7 天，避免明细列表首次加载无时间条件扫全表导致卡顿 */
-function buildDefaultDateRange(): [string, string] {
-  const end = new Date()
-  const start = new Date()
-  start.setDate(start.getDate() - 6)
-  return [`${formatLocalDate(start)} 00:00:00`, `${formatLocalDate(end)} 23:59:59`]
-}
-
-const dateRange = ref<[string, string] | null>(buildDefaultDateRange())
+const dateRange = ref<[string, string] | null>(null)
 const exportExtraParams = computed(() => {
   if (!dateRange.value) return {}
   return {
@@ -299,11 +291,7 @@ async function ensureEcharts() {
   return echartsModule
 }
 
-let statsLoading = false
-
 async function loadStatistics() {
-  if (statsLoading) return
-  statsLoading = true
   try {
     const statParams: ApiAccessStatisticsQuery = {
       startDate: startDate.value,
@@ -315,8 +303,6 @@ async function loadStatistics() {
     updateCharts()
   } catch (e) {
     console.error(e)
-  } finally {
-    statsLoading = false
   }
 }
 
@@ -398,7 +384,7 @@ async function loadPage() {
     }
     const res = await getApiAccessPage(params)
     tableData.value = res.data?.list || []
-    total.value = Number(res.data?.total) || 0
+    total.value = res.data?.total || 0
   } catch (e) {
     console.error(e)
   } finally {
@@ -416,7 +402,7 @@ function resetQuery() {
   queryParams.apiPath = ''
   queryParams.method = null
   queryParams.success = null
-  dateRange.value = buildDefaultDateRange()
+  dateRange.value = null
   queryParams.pageNo = 1
   loadPage()
 }
@@ -429,13 +415,28 @@ function handleResize() {
 
 let statsTimer: ReturnType<typeof setInterval> | null = null
 
-onMounted(() => {
+function initData() {
   if (!canQuery.value) return
   loadStatistics()
   loadPage()
-  statsTimer = setInterval(loadStatistics, 30000)
+  if (!statsTimer) {
+    statsTimer = setInterval(loadStatistics, 10000)
+  }
+}
+
+onMounted(() => {
+  initData()
   window.addEventListener('resize', handleResize)
 })
+
+watch(
+  canQuery,
+  (val) => {
+    if (val && tableData.value.length === 0 && !loading.value) {
+      initData()
+    }
+  },
+)
 
 onUnmounted(() => {
   if (statsTimer) clearInterval(statsTimer)
@@ -496,13 +497,6 @@ onUnmounted(() => {
   }
   .user-rank-card {
     margin-bottom: 16px;
-  }
-  .table-card {
-    .table-pagination {
-      display: flex;
-      margin-top: 16px;
-      justify-content: flex-end;
-    }
   }
 }
 </style>

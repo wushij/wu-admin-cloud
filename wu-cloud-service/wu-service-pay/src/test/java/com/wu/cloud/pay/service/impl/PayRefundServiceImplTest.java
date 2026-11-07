@@ -20,7 +20,6 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
-import org.springframework.test.util.ReflectionTestUtils;
 
 import java.math.BigDecimal;
 import java.util.Map;
@@ -49,7 +48,6 @@ class PayRefundServiceImplTest extends MybatisLambdaTestBase {
 
     @BeforeEach
     void setUp() {
-        ReflectionTestUtils.setField(payRefundService, "baseMapper", payRefundMapper);
         UserContextHolder.set(UserContext.builder().userId(1L).username("alice").build());
     }
 
@@ -129,7 +127,7 @@ class PayRefundServiceImplTest extends MybatisLambdaTestBase {
     @DisplayName("handleRefundNotify：终态幂等")
     void handleRefundNotify_terminal_idempotent() {
         PayRefundDO refund = refund(20L, "R001", "SUCCESS");
-        when(payRefundMapper.selectOne(anyLambdaQueryWrapper(), anyBoolean())).thenReturn(refund);
+        when(payRefundMapper.selectOne(anyLambdaQueryWrapper())).thenReturn(refund);
 
         payRefundService.handleRefundNotify("R001", "txn-x", true);
 
@@ -140,7 +138,7 @@ class PayRefundServiceImplTest extends MybatisLambdaTestBase {
     @DisplayName("handleRefundNotify：PROCESSING→SUCCESS")
     void handleRefundNotify_processingToSuccess() {
         PayRefundDO refund = refund(20L, "R001", "PROCESSING");
-        when(payRefundMapper.selectOne(anyLambdaQueryWrapper(), anyBoolean())).thenReturn(refund);
+        when(payRefundMapper.selectOne(anyLambdaQueryWrapper())).thenReturn(refund);
         when(payRefundMapper.updateById(any(PayRefundDO.class))).thenReturn(1);
 
         payRefundService.handleRefundNotify("R001", "txn-ok", true);
@@ -154,7 +152,7 @@ class PayRefundServiceImplTest extends MybatisLambdaTestBase {
     @DisplayName("handleRefundNotify：失败置 FAILED")
     void handleRefundNotify_failed() {
         PayRefundDO refund = refund(20L, "R001", "PROCESSING");
-        when(payRefundMapper.selectOne(anyLambdaQueryWrapper(), anyBoolean())).thenReturn(refund);
+        when(payRefundMapper.selectOne(anyLambdaQueryWrapper())).thenReturn(refund);
         when(payRefundMapper.updateById(any(PayRefundDO.class))).thenReturn(1);
 
         payRefundService.handleRefundNotify("R001", "txn-fail", false);

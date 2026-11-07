@@ -11,7 +11,7 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 
 /**
- * 通过 Feign 解析用户名称（替代单体本地 UserMapper）
+ * 通过 Feign 解析用户名称（替代旧版本地 UserMapper）
  */
 @Component
 public class UserNameResolver {

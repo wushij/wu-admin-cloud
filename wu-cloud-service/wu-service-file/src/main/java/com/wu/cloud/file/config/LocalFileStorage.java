@@ -17,7 +17,7 @@ import java.util.stream.Stream;
 import com.wu.cloud.file.service.FileStorageService;
 
 /**
- * 轻量本地文件存储（替代单体 LocalFileStorage / FileContentTypes）
+ * 轻量本地文件存储（替代旧版 LocalFileStorage / FileContentTypes）
  * 提供上传、读取、删除能力，文件按 storagePath 落到本地磁盘根目录
  */
 @Component
@@ -105,7 +105,87 @@ public class LocalFileStorage implements FileStorageService {
     }
 
     public byte[] readBytes(String storagePath) throws IOException {
+        Path existing = resolveExistingPath(storagePath);
+        if (existing != null) {
+            return Files.readAllBytes(existing);
+        }
         return Files.readAllBytes(resolvePath(storagePath));
+    }
+
+    /**
+     * 解析已存在的本地文件路径（兼容相对路径与 uploads/ 前缀回退）
+     */
+    public Path resolveExistingPath(String storagePath) {
+        if (storagePath == null || storagePath.isBlank()) {
+            return null;
+        }
+        Path direct = resolvePath(storagePath);
+        if (Files.isRegularFile(direct)) {
+            return direct;
+        }
+        String clean = storagePath.replace("\\", "/");
+        while (clean.startsWith("/")) {
+            clean = clean.substring(1);
+        }
+        if (clean.startsWith("uploads/")) {
+            Path withoutUploads = resolvePath(clean.substring("uploads/".length()));
+            if (Files.isRegularFile(withoutUploads)) {
+                return withoutUploads;
+            }
+        } else {
+            Path withUploads = resolvePath("uploads/" + clean);
+            if (Files.isRegularFile(withUploads)) {
+                return withUploads;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * 打开本地文件输入流（不存在时返回 null）
+     */
+    public InputStream openStream(String storagePath) {
+        Path target = resolveExistingPath(storagePath);
+        if (target == null) {
+            return null;
+        }
+        try {
+            return Files.newInputStream(target);
+        } catch (IOException e) {
+            return null;
+        }
+    }
+
+    /**
+     * 打开本地文件区间输入流（用于 Range 断点续传）
+     */
+    public InputStream openStream(String storagePath, long offset, long length) {
+        InputStream in = openStream(storagePath);
+        if (in == null) {
+            return null;
+        }
+        try {
+            if (offset > 0) {
+                long skipped = in.skip(offset);
+                while (skipped < offset) {
+                    long step = in.skip(offset - skipped);
+                    if (step <= 0) {
+                        if (in.read() < 0) {
+                            break;
+                        }
+                        step = 1;
+                    }
+                    skipped += step;
+                }
+            }
+            return in;
+        } catch (IOException e) {
+            try {
+                in.close();
+            } catch (IOException ignored) {
+            }
+            return null;
+        }
     }
 
     public Path resolvePath(String storagePath) {
@@ -130,7 +210,7 @@ public class LocalFileStorage implements FileStorageService {
     }
 
     /**
-     * 根据文件名/contentType 粗略解析文件类型（替代单体 FileContentTypes）
+     * 根据文件名/contentType 粗略解析文件类型（替代旧版 FileContentTypes）
      */
     public static String resolveType(String fileName, String contentType) {
         if (contentType != null && !contentType.isBlank()) {

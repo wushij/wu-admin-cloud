@@ -1,5 +1,7 @@
 package com.wu.cloud.ticket.controller;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import com.alibaba.excel.EasyExcel;
 import com.alibaba.excel.annotation.ExcelProperty;
 import com.wu.cloud.common.core.PageParam;
@@ -27,6 +29,7 @@ import java.util.List;
 /**
  * 工单/审批导出（规范路径 /api/export/ticket|approval）
  */
+@Tag(name = "工单导出")
 @RestController
 @RequestMapping("/api/export")
 public class TicketExportController {
@@ -39,6 +42,7 @@ public class TicketExportController {
     private ApprovalFormService approvalFormService;
 
     @RequiresPermissions("system:ticket:list")
+    @Operation(summary = "导出工单列表")
     @GetMapping("/ticket")
     public void exportTicket(HttpServletResponse response,
                              @RequestParam(required = false) String title,
@@ -68,6 +72,7 @@ public class TicketExportController {
     }
 
     @RequiresPermissions("system:approval:list")
+    @Operation(summary = "导出审批单列表")
     @GetMapping("/approval")
     public void exportApproval(HttpServletResponse response,
                                @RequestParam(required = false) String title,

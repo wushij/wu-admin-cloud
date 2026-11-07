@@ -3,7 +3,7 @@ package com.wu.cloud.api.log;
 import java.util.List;
 
 /**
- * 操作日志动态上下文（对齐单体 OperLogContext）。
+ * 操作日志动态上下文（与既有规范对齐 OperLogContext）。
  * <p>业务层可设置精准模块名、操作摘要、变更明细，或跳过无意义日志。</p>
  */
 public final class OperLogContext {

@@ -18,4 +18,8 @@ public class SysRoleDO extends BaseEntity {
     private Integer sort;
     private Integer status;
     private String remark;
+    /** 数据范围 1:全部 2:自定义部门 3:本部门 4:本部门及以下 5:仅本人 */
+    private Integer dataScope;
+    /** 自定义数据范围部门 ID（逗号分隔） */
+    private String dataScopeDeptIds;
 }

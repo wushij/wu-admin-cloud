@@ -136,18 +136,18 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
 import { onPullDownRefresh, onShow } from '@dcloudio/uni-app'
-import ModuleDarkHero from '@/components/common/ModuleDarkHero/index.vue'
-import ModuleIcon from '@/components/common/ModuleIcon/index.vue'
-import IconFont from '@/components/common/IconFont/index.vue'
-import ListCard from '@/components/common/ListCard/index.vue'
-import UserAvatar from '@/components/business/UserAvatar/index.vue'
-import FileThumb from '@/components/business/FileThumb/index.vue'
-import ListFooter from '@/components/common/ListFooter/index.vue'
-import EmptyState from '@/components/common/EmptyState/index.vue'
-import SearchBar from '@/components/common/SearchBar/index.vue'
-import PermissionBlock from '@/components/common/PermissionBlock/index.vue'
-import AppDialogHost from '@/components/common/AppDialogHost/index.vue'
-import { useRecycleCenter } from '@/composables/useRecycleCenter'
+import ModuleDarkHero from '@/components/layout/ModuleDarkHero/index.vue'
+import ModuleIcon from '@/components/base/ModuleIcon/index.vue'
+import IconFont from '@/components/base/IconFont/index.vue'
+import ListCard from '@/components/base/ListCard/index.vue'
+import UserAvatar from '@/components/business/shared/UserAvatar/index.vue'
+import FileThumb from '@/components/business/file/FileThumb/index.vue'
+import ListFooter from '@/components/base/ListFooter/index.vue'
+import EmptyState from '@/components/base/EmptyState/index.vue'
+import SearchBar from '@/components/base/SearchBar/index.vue'
+import PermissionBlock from '@/components/base/PermissionBlock/index.vue'
+import AppDialogHost from '@/components/base/AppDialogHost/index.vue'
+import { useRecycleCenter } from '@/composables/system/useRecycleCenter'
 
 const {
   allowed,
@@ -244,43 +244,50 @@ onPullDownRefresh(async () => {
 
 .recycle-types-scroll {
   width: 100%;
-  height: 96rpx;
-  margin-bottom: 16rpx;
+  height: 128rpx;
+  flex-shrink: 0;
+  margin-bottom: 20rpx;
   white-space: nowrap;
 }
 
 .recycle-types {
   display: inline-flex;
-  gap: 12rpx;
-  padding: 2rpx 0 6rpx;
+  align-items: center;
+  gap: 14rpx;
+  padding: 6rpx 4rpx 20rpx;
+  box-sizing: border-box;
 }
 
 .recycle-type-card {
   position: relative;
   display: inline-flex;
   align-items: center;
-  gap: 12rpx;
-  min-width: 168rpx;
-  padding: 14rpx 18rpx;
+  gap: 14rpx;
+  min-width: 172rpx;
+  height: 96rpx;
+  box-sizing: border-box;
+  padding: 0 20rpx;
   border-radius: $radius-md;
   background: $color-bg-card;
   border: 1px solid $color-border-light;
   box-shadow: none;
+  transition: all 0.2s ease;
 }
 
 .recycle-type-card--active {
   border-color: rgba(99, 102, 241, 0.45);
-  box-shadow: 0 6rpx 20rpx rgba(99, 102, 241, 0.12);
+  box-shadow: 0 8rpx 20rpx rgba(99, 102, 241, 0.16);
 }
 
 .recycle-type-card--pending:not(.recycle-type-card--active) {
-  border-color: rgba(99, 102, 241, 0.2);
+  border-color: rgba(99, 102, 241, 0.25);
 }
 
 .recycle-type-card__body {
   display: flex;
   flex-direction: column;
-  gap: 2rpx;
+  justify-content: center;
+  gap: 4rpx;
   min-width: 0;
 }
 
@@ -288,11 +295,13 @@ onPullDownRefresh(async () => {
   font-size: $font-size-sm;
   font-weight: $font-weight-semibold;
   color: $color-text-primary;
+  line-height: 1.25;
 }
 
 .recycle-type-card__count {
   font-size: 22rpx;
   color: $color-text-secondary;
+  line-height: 1.2;
 }
 
 .recycle-type-card__dot {

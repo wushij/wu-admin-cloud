@@ -24,7 +24,6 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
-import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.List;
 import java.util.Set;
@@ -43,6 +42,10 @@ class ApprovalFormServiceImplTest extends MybatisLambdaTestBase {
     @Mock
     private ApprovalFormMapper approvalFormMapper;
     @Mock
+    private com.wu.cloud.ticket.service.UserNameResolver userNameResolver;
+    @Mock
+    private com.wu.cloud.api.system.feign.RemoteUserService remoteUserService;
+    @Mock
     private ApprovalRecordMapper recordMapper;
     @Mock
     private NoticeMapper noticeMapper;
@@ -56,7 +59,6 @@ class ApprovalFormServiceImplTest extends MybatisLambdaTestBase {
 
     @BeforeEach
     void setUp() {
-        ReflectionTestUtils.setField(approvalFormService, "baseMapper", approvalFormMapper);
         UserContextHolder.set(UserContext.builder()
                 .userId(2L)
                 .permissions(Set.of("approval:approve"))
